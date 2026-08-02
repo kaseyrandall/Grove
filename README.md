@@ -10,6 +10,7 @@ Built 100% native — SwiftUI, SwiftData, and Apple's on-device Vision framework
 
 > **Spot a critter → Snap → "New critter! Clover the Rabbit — +50 sparks, first find!" → check your Dex → go find more.**
 
+- **Live camera only.** Catches must be taken *in the moment* — there's no photo-library upload, so you can't collect screenshots or downloaded images. (A library picker exists in **DEBUG builds only** for Simulator testing; it's compiled out of release builds.)
 - **On-device identification.** Photos are classified locally with Apple's Vision framework — instant, private, offline, free.
 - **Always rewarding.** If Vision can't confidently name what it saw, you still catch a **Mystery Critter**, so a snap never feels wasted.
 - **First-find bonus.** The first time you catch a species, sparks are doubled — the collection thrill.
@@ -20,14 +21,14 @@ Built 100% native — SwiftUI, SwiftData, and Apple's on-device Vision framework
 | Tab | What it does |
 |-----|--------------|
 | **Dex** | A grid of every critter. Caught ones fill in with your photo; the rest stay as `???` silhouettes — the set you want to complete. |
-| **Catch** | Live camera + shutter, plus a "Pick from Library" fallback (so it works in the Simulator). |
+| **Catch** | Live camera + shutter — strictly capture-in-the-moment (a DEBUG-only library picker exists for Simulator testing). |
 | **Me** | Your level, total sparks, species count, and collection-by-rarity breakdown. |
 
 ## 🚀 Running it
 
 1. Open `Popple.xcodeproj` in **Xcode 16 or newer**.
 2. Select an iOS 17+ simulator or your own device, and hit **Run** (⌘R).
-3. **Simulator:** there's no camera, so use **Pick from Library** on the Catch tab. Drag any animal photo into the simulator first, or use the built-in samples.
+3. **Simulator:** there's no camera, so use the **DEBUG: Pick from Library** button on the Catch tab (DEBUG builds only). Drag any animal photo into the simulator first.
 4. **Real device:** point the camera at an animal (or a pet!) and tap **Snap!**. You'll need to trust your developer certificate the first time.
 
 > Requires iOS 17.0+ (SwiftData). Signing is set to **Automatic** — just pick your team in *Signing & Capabilities* to run on a device.
@@ -73,7 +74,7 @@ Popple/
 - **Map** — a MapKit view of where you spotted each critter (catches already store coordinates).
 - **Streaks, dailies & badges** — daily "catch any critter" goals and collection achievements.
 - **Real critter art** — replace the placeholder emoji with commissioned illustrations.
-- **Anti-cheat** — liveness checks so you can't just photograph a screen (relevant once leaderboards exist).
+- **Anti-cheat** — camera-only capture already blocks library uploads. Next up (once leaderboards exist): liveness checks so you can't photograph a screen or printout.
 
 ---
 

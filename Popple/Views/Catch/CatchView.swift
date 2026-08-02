@@ -1,9 +1,14 @@
 import SwiftUI
 import SwiftData
+#if DEBUG
 import PhotosUI
+#endif
 
-/// The main "go find critters" screen: live camera + a shutter button, plus a
-/// photo-library fallback so it's fully testable in the Simulator.
+/// The main "go find critters" screen: strictly a live camera + shutter button.
+/// Catches can only come from a photo taken *right now* — no uploading saved or
+/// downloaded images. (In DEBUG builds only, a library picker is available so the
+/// loop stays testable in the Simulator, which has no camera. It is compiled out
+/// of release builds entirely.)
 struct CatchView: View {
     @Environment(\.modelContext) private var context
     @Query private var allCatches: [Catch]
@@ -11,9 +16,12 @@ struct CatchView: View {
     @StateObject private var camera = CameraModel()
     @StateObject private var location = LocationProvider()
 
-    @State private var libraryItem: PhotosPickerItem?
     @State private var isIdentifying = false
     @State private var result: CatchResult?
+
+    #if DEBUG
+    @State private var libraryItem: PhotosPickerItem?
+    #endif
 
     var body: some View {
         ZStack {
@@ -21,9 +29,7 @@ struct CatchView: View {
 
             VStack(spacing: 20) {
                 header
-
                 cameraArea
-
                 controls
             }
             .padding()
@@ -35,10 +41,6 @@ struct CatchView: View {
         .onDisappear {
             camera.stop()
             location.stop()
-        }
-        .onChange(of: libraryItem) { _, newItem in
-            guard let newItem else { return }
-            Task { await handleLibraryPick(newItem) }
         }
         .sheet(item: $result) { result in
             CatchResultView(result: result)
@@ -71,12 +73,17 @@ struct CatchView: View {
             case .denied:
                 placeholder(
                     emoji: "🚫",
-                    text: "Camera access is off.\nEnable it in Settings, or pick a photo below."
+                    text: "Popple needs your camera to catch critters.\nTurn it on in Settings to start snapping."
                 )
-            default:
+            case .unavailable:
                 placeholder(
                     emoji: "📷",
-                    text: "Point me at something wild!\n(On Simulator, use Pick from Library.)"
+                    text: "No camera found on this device."
+                )
+            case .idle:
+                placeholder(
+                    emoji: "📷",
+                    text: "Point me at something wild!"
                 )
             }
 
@@ -102,6 +109,15 @@ struct CatchView: View {
                 .font(.system(.subheadline, design: .rounded))
                 .foregroundStyle(Theme.ink.opacity(0.7))
                 .padding(.horizontal)
+            if camera.status == .denied {
+                Button("Open Settings") {
+                    if let url = URL(string: UIApplication.openSettingsURLString) {
+                        UIApplication.shared.open(url)
+                    }
+                }
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+            }
         }
     }
 
@@ -113,12 +129,9 @@ struct CatchView: View {
             .disabled(camera.status != .authorized || isIdentifying)
             .opacity(camera.status == .authorized ? 1 : 0.5)
 
-            PhotosPicker(selection: $libraryItem, matching: .images) {
-                Label("Pick from Library", systemImage: "photo.on.rectangle")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-            }
-            .disabled(isIdentifying)
+            #if DEBUG
+            debugLibraryPicker
+            #endif
         }
     }
 
@@ -129,15 +142,6 @@ struct CatchView: View {
             guard let image else { return }
             Task { await identify(image) }
         }
-    }
-
-    private func handleLibraryPick(_ item: PhotosPickerItem) async {
-        libraryItem = nil
-        guard
-            let data = try? await item.loadTransferable(type: Data.self),
-            let image = UIImage(data: data)
-        else { return }
-        await identify(image)
     }
 
     @MainActor
@@ -170,6 +174,29 @@ struct CatchView: View {
             image: image
         )
     }
+
+    // MARK: Debug-only library import (compiled out of release builds)
+
+    #if DEBUG
+    private var debugLibraryPicker: some View {
+        PhotosPicker(selection: $libraryItem, matching: .images) {
+            Label("DEBUG: Pick from Library", systemImage: "ladybug")
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .foregroundStyle(Theme.ink.opacity(0.5))
+        }
+        .disabled(isIdentifying)
+        .onChange(of: libraryItem) { _, newItem in
+            guard let newItem else { return }
+            Task {
+                defer { libraryItem = nil }
+                if let data = try? await newItem.loadTransferable(type: Data.self),
+                   let image = UIImage(data: data) {
+                    await identify(image)
+                }
+            }
+        }
+    }
+    #endif
 }
 
 /// Value passed to the celebration sheet.
