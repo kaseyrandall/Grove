@@ -2,20 +2,25 @@ import SwiftUI
 import SwiftData
 
 /// A field-guide page for one friend: its story, where it lives in your Grove,
-/// your history with it, and the personal nickname you gave it.
+/// your history with it, and the personal touches you've given it.
 struct GuideEntryView: View {
     let species: Species
     let catches: [Catch]
 
-    @Environment(\.modelContext) private var context
-    @State private var showRename = false
-    @State private var draftNickname = ""
+    @Query private var profiles: [FriendProfile]
+    @State private var showEdit = false
+
+    private var profile: FriendProfile? { profiles.first { $0.speciesID == species.id } }
 
     private var isCaught: Bool { !catches.isEmpty }
     private var earliest: Catch? { catches.min { $0.caughtAt < $1.caughtAt } }
     private var latest: Catch? { catches.max { $0.caughtAt < $1.caughtAt } }
-    private var nickname: String? { earliest?.nickname }
     private var totalSparks: Int { catches.reduce(0) { $0 + $1.sparksEarned } }
+
+    /// Nickname from the friend's profile, falling back to any set on a catch.
+    private var nickname: String? { profile?.nickname ?? earliest?.nickname }
+    /// Where the friend lives — the player's chosen zone or the catalog default.
+    private var zone: Habitat { profile?.zoneOverride ?? species.zone }
 
     var body: some View {
         ZStack {
@@ -34,44 +39,51 @@ struct GuideEntryView: View {
         }
         .navigationTitle(isCaught ? species.name : "Not yet spotted")
         .navigationBarTitleDisplayMode(.inline)
-        .alert("Name your \(species.name)", isPresented: $showRename) {
-            TextField("Nickname", text: $draftNickname)
-            Button("Save") { saveNickname() }
-            Button("Cancel", role: .cancel) {}
-        } message: {
-            Text("Give this friend a nickname just for you.")
+        .toolbar {
+            if isCaught {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("Edit") { showEdit = true }
+                }
+            }
+        }
+        .sheet(isPresented: $showEdit) {
+            EditFriendView(
+                species: species,
+                currentNickname: nickname ?? "",
+                currentZone: zone
+            )
         }
     }
 
-    // MARK: Hero
+    // MARK: Hero — a fixed, cropped card so every friend looks consistent.
 
     private var hero: some View {
         ZStack {
-            RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .fill(species.zone.gradient)
+            zone.gradient
 
             if let data = latest?.photoData, let ui = UIImage(data: data) {
                 Image(uiImage: ui)
                     .resizable()
                     .scaledToFill()
-                    .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
             } else {
                 Text(species.emoji)
                     .font(.system(size: 92))
                     .opacity(isCaught ? 1 : 0.4)
             }
         }
-        .frame(height: 200)
+        .frame(height: 210)
+        .frame(maxWidth: .infinity)
+        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .overlay(alignment: .topLeading) {
             RarityBadge(rarity: species.rarity).padding(12)
         }
         .overlay(alignment: .bottomTrailing) {
-            Text("\(species.zone.emoji) Lives in your \(species.zone.shortName)")
+            Text("\(zone.emoji) Lives in your \(zone.shortName)")
                 .font(.system(.caption, design: .rounded, weight: .bold))
                 .foregroundStyle(Theme.ink)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(Capsule().fill(.white.opacity(0.9)))
+                .background(Capsule().fill(.white.opacity(0.92)))
                 .padding(12)
         }
     }
@@ -85,10 +97,7 @@ struct GuideEntryView: View {
                 .foregroundStyle(Theme.ink)
 
             if isCaught {
-                Button {
-                    draftNickname = nickname ?? ""
-                    showRename = true
-                } label: {
+                Button { showEdit = true } label: {
                     if let nickname, !nickname.isEmpty {
                         Text("you named it “\(nickname)”  ✎")
                             .font(.system(.subheadline, design: .rounded))
@@ -183,13 +192,5 @@ struct GuideEntryView: View {
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .softCard()
-    }
-
-    // MARK: Actions
-
-    private func saveNickname() {
-        let trimmed = draftNickname.trimmingCharacters(in: .whitespacesAndNewlines)
-        earliest?.nickname = trimmed.isEmpty ? nil : trimmed
-        try? context.save()
     }
 }

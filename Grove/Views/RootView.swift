@@ -56,7 +56,7 @@ struct RootView: View {
 
 #Preview {
     RootView()
-        .modelContainer(for: Catch.self, inMemory: true)
+        .modelContainer(for: [Catch.self, FriendProfile.self], inMemory: true)
         .tint(Theme.accent)
         .fontDesign(.rounded)
 }

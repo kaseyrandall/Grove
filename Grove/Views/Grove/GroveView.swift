@@ -1,11 +1,12 @@
 import SwiftUI
 import SwiftData
 
-/// The Grove — the heart of Grove. Friends you've photographed come home and
+/// The Grove — the heart of the app. Friends you've photographed come home and
 /// settle into the habitat zone they belong to. Replaces the old flat "Dex":
 /// no `???` silhouettes, just a cozy world that fills with life as you explore.
 struct GroveView: View {
     @Query(sort: \Catch.caughtAt, order: .reverse) private var catches: [Catch]
+    @Query private var profiles: [FriendProfile]
 
     private var friendCount: Int { Set(catches.map(\.speciesID)).count }
 
@@ -21,7 +22,7 @@ struct GroveView: View {
 
                     VStack(spacing: 14) {
                         ForEach(Habitat.ordered) { zone in
-                            ZoneCard(zone: zone, catches: catches)
+                            ZoneCard(zone: zone, catches: catches, profiles: profiles)
                         }
                     }
                     .padding()
@@ -54,14 +55,20 @@ struct GroveView: View {
 struct ZoneCard: View {
     let zone: Habitat
     let catches: [Catch]
+    let profiles: [FriendProfile]
 
-    /// Friends the player has caught that belong to this zone — resolved from the
-    /// catches themselves, so the Mystery Friend (and any non-catalog friend)
-    /// still shows up in its home zone.
+    /// Where a friend currently lives — the player's chosen zone or the default.
+    private func effectiveZone(_ species: Species) -> Habitat {
+        profiles.first { $0.speciesID == species.id }?.zoneOverride ?? species.zone
+    }
+
+    /// Friends the player has caught that live in this zone — resolved from the
+    /// catches themselves (so the Mystery Friend and any non-catalog friend show
+    /// up too), honoring any zone the player moved them to.
     private var residents: [Species] {
         Set(catches.map(\.speciesID))
             .compactMap { CreatureCatalog.species(for: $0) }
-            .filter { $0.zone == zone }
+            .filter { effectiveZone($0) == zone }
             .sorted { $0.rarity != $1.rarity ? $0.rarity > $1.rarity : $0.name < $1.name }
     }
 
@@ -124,9 +131,12 @@ struct ZoneCard: View {
         catches.first { $0.speciesID == id && $0.photoData != nil }?.photoData
     }
 
-    // The species' nickname is whatever the player named their first sighting.
+    // Nickname from the friend's profile, falling back to any set on a catch.
     private func nickname(for id: String) -> String? {
-        catches
+        if let name = profiles.first(where: { $0.speciesID == id })?.nickname {
+            return name
+        }
+        return catches
             .filter { $0.speciesID == id }
             .min { $0.caughtAt < $1.caughtAt }?
             .nickname
@@ -192,7 +202,7 @@ struct ResidentPortrait: View {
 
 #Preview {
     GroveView()
-        .modelContainer(for: Catch.self, inMemory: true)
+        .modelContainer(for: [Catch.self, FriendProfile.self], inMemory: true)
         .tint(Theme.accent)
         .fontDesign(.rounded)
 }

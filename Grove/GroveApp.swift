@@ -10,7 +10,7 @@ struct GroveApp: App {
 
     init() {
         do {
-            container = try ModelContainer(for: Catch.self)
+            container = try ModelContainer(for: Catch.self, FriendProfile.self)
         } catch {
             fatalError("Could not create ModelContainer: \(error)")
         }
