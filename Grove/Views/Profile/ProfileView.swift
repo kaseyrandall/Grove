@@ -1,8 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// The player's home base: streak, level, sparks, achievements, and collection
-/// stats — all derived from their `Catch` history via `PlayerStats`.
+/// The player's profile: a bit about them, a way into Settings, and (in DEBUG)
+/// the developer test tools. Account/social features will grow from here.
 struct ProfileView: View {
     @Query private var catches: [Catch]
     @Environment(\.modelContext) private var context
@@ -16,27 +16,74 @@ struct ProfileView: View {
 
                 ScrollView {
                     VStack(spacing: 20) {
-                        streakCard
-                        levelCard
-                        statsRow
-                        achievementsCard
-                        rarityCard
+                        headerCard
+                        menuCard
+                        #if DEBUG
+                        developerCard
+                        #endif
+                        Text("Grove v0.1")
+                            .font(.system(.caption2, design: .rounded))
+                            .foregroundStyle(Theme.ink.opacity(0.35))
+                            .padding(.top, 4)
                     }
                     .padding()
                 }
             }
-            .navigationTitle("Journal")
-            .toolbar {
-                #if DEBUG
-                ToolbarItem(placement: .topBarTrailing) {
-                    testMenu
-                }
-                #endif
-            }
+            .navigationTitle("Profile")
         }
     }
 
-    // MARK: Developer test menu (compiled out of release builds)
+    // MARK: Header
+
+    private var headerCard: some View {
+        VStack(spacing: 12) {
+            ZStack {
+                Circle().fill(Theme.mint.opacity(0.5)).frame(width: 96, height: 96)
+                Text("🌿").font(.system(size: 44))
+            }
+            Text("Explorer")
+                .font(.system(size: 22, weight: .heavy, design: .rounded))
+                .foregroundStyle(Theme.ink)
+            Text("Level \(stats.level) · \(stats.uniqueSpecies) friend\(stats.uniqueSpecies == 1 ? "" : "s") met")
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundStyle(Theme.ink.opacity(0.7))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 24)
+        .softCard()
+    }
+
+    // MARK: Menu
+
+    private var menuCard: some View {
+        NavigationLink {
+            SettingsView()
+        } label: {
+            row(icon: "gearshape.fill", title: "Settings & Preferences")
+                .softCard()
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func row(icon: String, title: String, tint: Color = Theme.accent) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: icon)
+                .font(.system(size: 18))
+                .foregroundStyle(tint)
+                .frame(width: 26)
+            Text(title)
+                .font(.system(.body, design: .rounded, weight: .semibold))
+                .foregroundStyle(Theme.ink)
+            Spacer()
+            Image(systemName: "chevron.right")
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundStyle(Theme.ink.opacity(0.25))
+        }
+        .padding()
+        .contentShape(Rectangle())
+    }
+
+    // MARK: Developer tools (compiled out of release builds)
 
     #if DEBUG
     private var seedBinding: Binding<Bool> {
@@ -49,154 +96,49 @@ struct ProfileView: View {
         )
     }
 
-    private var testMenu: some View {
-        Menu {
-            Toggle(isOn: seedBinding) {
-                Label("Sample Grove data", systemImage: "sparkles")
+    private var developerCard: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("DEVELOPER")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(Theme.ink.opacity(0.4))
+                .padding(.leading, 6)
+
+            VStack(spacing: 0) {
+                Toggle(isOn: seedBinding) {
+                    HStack(spacing: 14) {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 18))
+                            .foregroundStyle(Theme.accent)
+                            .frame(width: 26)
+                        Text("Sample Grove data")
+                            .font(.system(.body, design: .rounded, weight: .semibold))
+                            .foregroundStyle(Theme.ink)
+                    }
+                }
+                .tint(Theme.accent)
+                .padding()
+
+                Divider().padding(.leading, 56)
+
+                Button(role: .destructive) {
+                    SeedData.eraseAll(context: context)
+                } label: {
+                    HStack(spacing: 14) {
+                        Image(systemName: "trash")
+                            .font(.system(size: 18))
+                            .frame(width: 26)
+                        Text("Erase everything")
+                            .font(.system(.body, design: .rounded, weight: .semibold))
+                        Spacer()
+                    }
+                    .padding()
+                    .contentShape(Rectangle())
+                }
             }
-            Divider()
-            Button(role: .destructive) {
-                SeedData.eraseAll(context: context)
-            } label: {
-                Label("Erase everything", systemImage: "trash")
-            }
-        } label: {
-            Image(systemName: "wrench.and.screwdriver.fill")
+            .softCard()
         }
     }
     #endif
-
-    // MARK: Streak
-
-    private var streakCard: some View {
-        HStack(spacing: 16) {
-            Text("🔥").font(.system(size: 44))
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(stats.currentStreak)-day streak")
-                    .font(.system(.title2, design: .rounded, weight: .heavy))
-                    .foregroundStyle(Theme.ink)
-                Text(streakMessage)
-                    .font(.system(.subheadline, design: .rounded))
-                    .foregroundStyle(Theme.ink.opacity(0.7))
-            }
-            Spacer()
-            VStack(spacing: 2) {
-                Text("\(stats.longestStreak)")
-                    .font(.system(.title3, design: .rounded, weight: .bold))
-                    .foregroundStyle(Theme.accent)
-                Text("best")
-                    .font(.system(.caption2, design: .rounded))
-                    .foregroundStyle(Theme.ink.opacity(0.5))
-            }
-        }
-        .padding()
-        .frame(maxWidth: .infinity)
-        .softCard()
-    }
-
-    private var streakMessage: String {
-        switch stats.currentStreak {
-        case 0:  return "Catch a friend today to start one!"
-        case 1:  return "Nice start — come back tomorrow!"
-        default: return "You're on a roll. Keep it going!"
-        }
-    }
-
-    // MARK: Level
-
-    private var levelCard: some View {
-        VStack(spacing: 12) {
-            Text("🌟").font(.system(size: 48))
-            Text("Level \(stats.level)")
-                .font(.system(size: 28, weight: .heavy, design: .rounded))
-                .foregroundStyle(Theme.ink)
-            Text("\(stats.totalSparks) ✨ sparks total")
-                .font(.system(.subheadline, design: .rounded))
-                .foregroundStyle(Theme.ink.opacity(0.7))
-            ProgressView(value: stats.levelProgress)
-                .tint(Theme.accent)
-                .padding(.horizontal)
-            Text("Keep snapping to reach Level \(stats.level + 1)!")
-                .font(.system(.caption, design: .rounded))
-                .foregroundStyle(Theme.ink.opacity(0.6))
-        }
-        .padding(.vertical, 24)
-        .frame(maxWidth: .infinity)
-        .softCard()
-    }
-
-    // MARK: Stats row
-
-    private var statsRow: some View {
-        HStack(spacing: 12) {
-            StatChip(value: "\(stats.uniqueSpecies)", label: "Friends", emoji: "🦋")
-            StatChip(value: "\(stats.totalSnaps)", label: "Snaps", emoji: "📸")
-            StatChip(value: "\(stats.zonesVisited)/\(Habitat.allCases.count)", label: "Zones", emoji: "🌿")
-        }
-    }
-
-    // MARK: Achievements summary
-
-    private var achievementsCard: some View {
-        NavigationLink {
-            AchievementsView()
-        } label: {
-            HStack(spacing: 16) {
-                Text("🎖").font(.system(size: 40))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Achievements")
-                        .font(.system(.headline, design: .rounded, weight: .bold))
-                        .foregroundStyle(Theme.ink)
-                    Text("\(AchievementCatalog.unlockedCount(stats)) of \(AchievementCatalog.all.count) unlocked")
-                        .font(.system(.subheadline, design: .rounded))
-                        .foregroundStyle(Theme.ink.opacity(0.7))
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(Theme.ink.opacity(0.3))
-            }
-            .padding()
-            .frame(maxWidth: .infinity)
-            .softCard()
-        }
-        .buttonStyle(.plain)
-    }
-
-    // MARK: Rarity
-
-    private var rarityCard: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("Collection by rarity")
-                    .font(.system(.headline, design: .rounded, weight: .bold))
-                    .foregroundStyle(Theme.ink)
-                Spacer()
-                if let rarest = stats.rarestCaught {
-                    Text("Rarest: \(rarest.emoji) \(rarest.name)")
-                        .font(.system(.caption, design: .rounded, weight: .semibold))
-                        .foregroundStyle(Theme.ink.opacity(0.7))
-                }
-            }
-
-            ForEach(Rarity.allCases.reversed(), id: \.self) { rarity in
-                let total = CreatureCatalog.all.filter { $0.rarity == rarity }.count
-                let count = stats.count(of: rarity)
-                HStack {
-                    Text("\(rarity.badge) \(rarity.title)")
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                        .foregroundStyle(Theme.ink)
-                    Spacer()
-                    Text("\(count)/\(total)")
-                        .font(.system(.subheadline, design: .rounded, weight: .bold))
-                        .foregroundStyle(count == total && total > 0 ? Theme.accent : Theme.ink.opacity(0.6))
-                }
-                .padding(.vertical, 4)
-            }
-        }
-        .padding()
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .softCard()
-    }
 }
 
 #Preview {

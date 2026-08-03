@@ -27,10 +27,15 @@ Built 100% native — SwiftUI, SwiftData, and Apple's on-device Vision framework
 
 | Tab | What it does |
 |-----|--------------|
+The bottom bar has four tabs — **Grove · Map** and **Journal · Profile** — split around a floating **Catch** button in the center.
+
+| Screen | What it does |
+|--------|--------------|
 | **Grove** | Your cozy world, organized by habitat zone. Each friend you've met lives here as a photo portrait ringed in its rarity color; tap one to open its guide page. |
 | **Map** | A MapKit map with a rarity-colored pin at every place you've made a catch. Tap a pin to open that friend. |
-| **Catch** | Live camera + shutter — strictly capture-in-the-moment (a DEBUG-only library picker exists for Simulator testing). |
+| **Catch** | The floating center button — live camera + shutter, strictly capture-in-the-moment (a DEBUG-only library picker exists for Simulator testing). |
 | **Journal** | Your streak, level, total sparks, friends & zones counts, an achievements summary, and collection-by-rarity (with your rarest catch). |
+| **Profile** | A bit about you, a link to **Settings & Preferences**, and (in DEBUG) the developer test tools — the sample-data toggle and Erase everything. |
 | **Achievements** | (from **Journal**) A grid of badges — unlocked ones in full color, locked ones dimmed with a live progress bar. |
 | **Guide page** | (tap a friend) Your photos, its real name, the nickname you gave it, its Grove zone, a field note, and your sighting history. |
 

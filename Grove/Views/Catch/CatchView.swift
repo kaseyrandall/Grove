@@ -16,6 +16,9 @@ struct CatchView: View {
     @StateObject private var camera = CameraModel()
     @StateObject private var location = LocationProvider()
 
+    @AppStorage("hapticsEnabled") private var hapticsEnabled = true
+    @AppStorage("locationTaggingEnabled") private var locationTaggingEnabled = true
+
     @State private var isIdentifying = false
     @State private var result: CatchResult?
 
@@ -36,7 +39,7 @@ struct CatchView: View {
         }
         .onAppear {
             camera.start()
-            location.requestIfNeeded()
+            if locationTaggingEnabled { location.requestIfNeeded() }
         }
         .onDisappear {
             camera.stop()
@@ -153,7 +156,7 @@ struct CatchView: View {
 
         let isFirst = !allCatches.contains { $0.speciesID == species.id }
         let sparks = Progression.sparks(for: species, isFirstSighting: isFirst)
-        let coord = location.current
+        let coord = locationTaggingEnabled ? location.current : nil
 
         let record = Catch(
             speciesID: species.id,
@@ -171,7 +174,9 @@ struct CatchView: View {
         let after = PlayerStats(catches: allCatches + [record])
         let newAchievements = AchievementCatalog.newlyUnlocked(before: before, after: after)
 
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        if hapticsEnabled {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
         result = CatchResult(
             species: species,
             sparks: sparks,

@@ -66,7 +66,7 @@ struct ZoneCard: View {
                     .font(.system(.subheadline, design: .rounded, weight: .bold))
                     .foregroundStyle(Theme.ink)
                 Spacer()
-                Text("\(residents.count) of \(zoneSpecies.count) regulars")
+                Text("\(residents.count) friend\(residents.count == 1 ? "" : "s")")
                     .font(.system(.caption, design: .rounded, weight: .semibold))
                     .foregroundStyle(Theme.ink.opacity(0.5))
             }
