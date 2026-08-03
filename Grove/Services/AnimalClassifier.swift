@@ -1,4 +1,4 @@
-import Vision
+@preconcurrency import Vision
 import UIKit
 
 /// Turns a photo into a set of lowercased labels using Apple's on-device
@@ -11,21 +11,22 @@ enum AnimalClassifier {
     /// Returns Vision's top labels above a confidence floor, most-confident first.
     static func classify(_ image: UIImage) async -> [String] {
         guard let cgImage = image.cgImage else { return [] }
+        let orientation = image.cgOrientation
 
         return await withCheckedContinuation { continuation in
-            let request = VNClassifyImageRequest { request, _ in
-                let observations = (request.results as? [VNClassificationObservation]) ?? []
-                let labels = observations
-                    .filter { $0.confidence > 0.10 }
-                    .prefix(12)
-                    .map { $0.identifier.lowercased() }
-                continuation.resume(returning: Array(labels))
-            }
-
-            let handler = VNImageRequestHandler(cgImage: cgImage, orientation: image.cgOrientation, options: [:])
             DispatchQueue.global(qos: .userInitiated).async {
+                // Perform synchronously and read `results` directly — no completion
+                // handler — so the continuation resumes on exactly one path.
+                let request = VNClassifyImageRequest()
+                let handler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:])
                 do {
                     try handler.perform([request])
+                    let observations = (request.results as? [VNClassificationObservation]) ?? []
+                    let labels = observations
+                        .filter { $0.confidence > 0.10 }
+                        .prefix(12)
+                        .map { $0.identifier.lowercased() }
+                    continuation.resume(returning: Array(labels))
                 } catch {
                     continuation.resume(returning: [])
                 }
