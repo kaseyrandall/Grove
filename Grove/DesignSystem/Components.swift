@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// A big, bouncy, friendly primary button.
-struct PoppleButton: View {
+struct GroveButton: View {
     let title: String
     var systemImage: String? = nil
     let action: () -> Void

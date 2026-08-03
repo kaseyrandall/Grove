@@ -77,7 +77,7 @@ struct CatchResultView: View {
 
                 Spacer()
 
-                PoppleButton(title: "Welcome home!", systemImage: "checkmark") {
+                GroveButton(title: "Welcome home!", systemImage: "checkmark") {
                     dismiss()
                 }
                 .padding(.horizontal)

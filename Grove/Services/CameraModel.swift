@@ -16,7 +16,7 @@ final class CameraModel: NSObject, ObservableObject {
     @Published var status: Status = .idle
 
     private let output = AVCapturePhotoOutput()
-    private let sessionQueue = DispatchQueue(label: "com.popple.camera.session")
+    private let sessionQueue = DispatchQueue(label: "com.grove.camera.session")
     private var captureHandler: ((UIImage?) -> Void)?
 
     // MARK: Setup

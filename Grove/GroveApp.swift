@@ -2,7 +2,7 @@ import SwiftUI
 import SwiftData
 
 @main
-struct PoppleApp: App {
+struct GroveApp: App {
     /// Shared SwiftData container. Everything the player collects lives here,
     /// on-device. When we add a social/backend layer later, this is where
     /// sync would hook in.

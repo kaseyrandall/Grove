@@ -1,4 +1,4 @@
-# Popple — Ideas & Backlog
+# Grove — Ideas & Backlog
 
 A running list of things we've talked about but deferred. Not commitments —
 just so nothing gets lost between sessions.

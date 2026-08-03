@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Popple's soft, playful visual language. Pastel-forward, rounded, gentle.
+/// Grove's soft, playful visual language. Pastel-forward, rounded, gentle.
 /// Tweak these and the whole app re-skins.
 enum Theme {
     // MARK: Palette (soft pastels)
@@ -57,7 +57,7 @@ struct SoftCard: ViewModifier {
 }
 
 extension View {
-    /// Wraps content in Popple's signature soft, rounded card.
+    /// Wraps content in Grove's signature soft, rounded card.
     func softCard(fill: Color = .white) -> some View {
         modifier(SoftCard(fill: fill))
     }

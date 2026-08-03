@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// The Grove — the heart of Popple. Friends you've photographed come home and
+/// The Grove — the heart of Grove. Friends you've photographed come home and
 /// settle into the habitat zone they belong to. Replaces the old flat "Dex":
 /// no `???` silhouettes, just a cozy world that fills with life as you explore.
 struct GroveView: View {

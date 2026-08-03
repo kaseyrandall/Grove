@@ -35,7 +35,7 @@ struct OnboardingView: View {
                 dots
                     .padding(.bottom, 8)
 
-                PoppleButton(
+                GroveButton(
                     title: page == slides.count - 1 ? "Start exploring 🌿" : "Next"
                 ) {
                     if page < slides.count - 1 {
@@ -72,14 +72,14 @@ struct OnboardingSlide {
     static let all: [OnboardingSlide] = [
         OnboardingSlide(
             emojis: ["🌳", "🦊", "🐿️", "🦆"],
-            title: "Welcome to Popple",
+            title: "Welcome to Grove",
             body: "Grow a place full of the life you've met — one photo at a time.",
             tint: Theme.mint
         ),
         OnboardingSlide(
             emojis: ["📸", "🦊"],
             title: "Spot & snap",
-            body: "See an animal out in the wild? Take its photo and Popple figures out who it is — instantly, right on your phone.",
+            body: "See an animal out in the wild? Take its photo and Grove figures out who it is — instantly, right on your phone.",
             tint: Theme.sky
         ),
         OnboardingSlide(

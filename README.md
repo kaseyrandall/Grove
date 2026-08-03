@@ -1,4 +1,4 @@
-# 🌿 Popple
+# 🌿 Grove
 
 > *Grow a place full of the life you've met.*
 
@@ -36,7 +36,7 @@ Built 100% native — SwiftUI, SwiftData, and Apple's on-device Vision framework
 
 ## 🚀 Running it
 
-1. Open `Popple.xcodeproj` in **Xcode 16 or newer**.
+1. Open `Grove.xcodeproj` in **Xcode 16 or newer**.
 2. Select an iOS 17+ simulator or your own device, and hit **Run** (⌘R).
 3. **Simulator:** there's no camera, so use the **DEBUG: Pick from Library** button on the Catch tab (DEBUG builds only). Drag any animal photo into the simulator first.
 4. **Real device:** point the camera at an animal (or a pet!) and tap **Snap!**. You'll need to trust your developer certificate the first time.
@@ -52,8 +52,8 @@ The MVP uses Apple's built-in `VNClassifyImageRequest`, which returns fairly **c
 ## 🗂 Project structure
 
 ```
-Popple/
-├── PoppleApp.swift            # App entry + SwiftData container
+Grove/
+├── GroveApp.swift            # App entry + SwiftData container
 ├── Models/
 │   ├── Rarity.swift           # Rarity tiers, sparks, field-guide language, colors
 │   ├── Habitat.swift          # Grove zones (Garden/Pond/Meadow/Woods/Treetops)

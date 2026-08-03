@@ -52,7 +52,7 @@ struct CatchView: View {
 
     private var header: some View {
         VStack(spacing: 2) {
-            Text("Popple")
+            Text("Grove")
                 .font(.system(size: 34, weight: .heavy, design: .rounded))
                 .foregroundStyle(Theme.accent)
             Text("Snap a friend to bring it home!")
@@ -73,7 +73,7 @@ struct CatchView: View {
             case .denied:
                 placeholder(
                     emoji: "🚫",
-                    text: "Popple needs your camera to catch friends.\nTurn it on in Settings to start snapping."
+                    text: "Grove needs your camera to catch friends.\nTurn it on in Settings to start snapping."
                 )
             case .unavailable:
                 placeholder(
@@ -123,7 +123,7 @@ struct CatchView: View {
 
     private var controls: some View {
         VStack(spacing: 12) {
-            PoppleButton(title: "Snap!", systemImage: "camera.fill") {
+            GroveButton(title: "Snap!", systemImage: "camera.fill") {
                 capture()
             }
             .disabled(camera.status != .authorized || isIdentifying)

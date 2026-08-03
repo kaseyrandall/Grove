@@ -1,6 +1,6 @@
 import Foundation
 
-/// The master field guide of friends you can meet in Popple, plus the logic
+/// The master field guide of friends you can meet in Grove, plus the logic
 /// that turns Vision's raw image labels into a matched friend.
 ///
 /// The `matchKeywords` are tuned for Apple's built-in `VNClassifyImageRequest`,
