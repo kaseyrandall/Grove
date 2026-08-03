@@ -48,7 +48,9 @@ struct GroveTabBar: View {
                 }
             }
         }
-        .padding(.top, 6)
+        // Extra top room so the raised Catch button is inside the bar's reserved
+        // safe-area height — scroll content then clears it instead of hiding behind.
+        .padding(.top, 28)
     }
 }
 

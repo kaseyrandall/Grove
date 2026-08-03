@@ -35,6 +35,9 @@ struct RootView: View {
                 onCatch: { selection = .catchTab }
             )
         }
+        // A little extra clearance so scrollable content always ends comfortably
+        // above the floating bar rather than tucking under it.
+        .safeAreaPadding(.bottom, 12)
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showCoachMark)
         .onChange(of: selection) { _, newValue in
             if newValue == .catchTab { hasSeenCoachMark = true }
