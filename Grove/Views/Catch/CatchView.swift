@@ -178,6 +178,7 @@ struct CatchView: View {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         }
         result = CatchResult(
+            record: record,
             species: species,
             sparks: sparks,
             isFirstSighting: isFirst,
@@ -213,6 +214,7 @@ struct CatchView: View {
 /// Value passed to the celebration sheet.
 struct CatchResult: Identifiable {
     let id = UUID()
+    let record: Catch
     let species: Species
     let sparks: Int
     let isFirstSighting: Bool

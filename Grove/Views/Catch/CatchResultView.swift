@@ -1,75 +1,65 @@
 import SwiftUI
+import SwiftData
 
-/// The joyful "you caught it!" celebration.
+/// The joyful "you caught it!" celebration. When the catch came back as a
+/// Mystery Friend (Vision couldn't name it), the player can tap a chip to say
+/// who it really was — which re-logs the catch as that friend.
 struct CatchResultView: View {
     let result: CatchResult
-    @Environment(\.dismiss) private var dismiss
 
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
+    @AppStorage("hapticsEnabled") private var hapticsEnabled = true
+
+    // Live state so a mystery correction updates the celebration in place.
+    @State private var species: Species
+    @State private var sparks: Int
+    @State private var isFirst: Bool
     @State private var popped = false
+
+    init(result: CatchResult) {
+        self.result = result
+        _species = State(initialValue: result.species)
+        _sparks = State(initialValue: result.sparks)
+        _isFirst = State(initialValue: result.isFirstSighting)
+    }
+
+    private var isMystery: Bool { species.id == Species.mystery.id }
 
     var body: some View {
         ZStack {
-            result.species.rarity.tint.opacity(0.35).ignoresSafeArea()
+            species.rarity.tint.opacity(0.35).ignoresSafeArea()
             Theme.background.opacity(0.4).ignoresSafeArea()
 
-            if result.species.rarity >= .rare {
+            if species.rarity >= .rare {
                 Confetti()
             }
 
-            VStack(spacing: 20) {
+            VStack(spacing: 18) {
                 Spacer()
 
-                Text(result.isFirstSighting ? "A new friend found your Grove!" : "Welcome back!")
+                Text(isFirst ? "A new friend found your Grove!" : "Welcome back!")
                     .font(.system(.headline, design: .rounded, weight: .bold))
                     .foregroundStyle(Theme.ink.opacity(0.7))
                     .multilineTextAlignment(.center)
 
-                // The photo, framed like a sticker.
-                Image(uiImage: result.image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: 220, height: 220)
-                    .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 28, style: .continuous)
-                            .stroke(.white, lineWidth: 6)
-                    )
-                    .overlay(alignment: .bottomTrailing) {
-                        Text(result.species.emoji)
-                            .font(.system(size: 44))
-                            .padding(8)
-                            .background(Circle().fill(.white))
-                            .offset(x: 10, y: 10)
-                    }
-                    .shadow(color: Theme.ink.opacity(0.15), radius: 16, y: 8)
-                    .scaleEffect(popped ? 1 : 0.6)
-                    .rotationEffect(.degrees(popped ? 0 : -8))
+                photo
 
                 VStack(spacing: 8) {
-                    Text(result.species.name)
+                    Text(species.name)
                         .font(.system(size: 30, weight: .heavy, design: .rounded))
                         .foregroundStyle(Theme.ink)
-                    RarityBadge(rarity: result.species.rarity)
-                    Text("\(result.species.zone.emoji) joined your \(result.species.zone.shortName)")
+                    RarityBadge(rarity: species.rarity)
+                    Text("\(species.zone.emoji) joined your \(species.zone.shortName)")
                         .font(.system(.caption, design: .rounded, weight: .semibold))
                         .foregroundStyle(Theme.ink.opacity(0.6))
                 }
 
-                // Sparks earned
-                HStack(spacing: 6) {
-                    Text("✨")
-                    Text("+\(result.sparks) sparks")
-                        .font(.system(.title3, design: .rounded, weight: .bold))
-                        .foregroundStyle(Theme.ink)
-                    if result.isFirstSighting {
-                        Text("· 2× first find!")
-                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                            .foregroundStyle(Theme.accent)
-                    }
+                sparksCard
+
+                if isMystery {
+                    identifyPicker
                 }
-                .padding(.vertical, 12)
-                .padding(.horizontal, 20)
-                .softCard()
 
                 if !result.newAchievements.isEmpty {
                     achievementsUnlocked
@@ -90,6 +80,106 @@ struct CatchResultView: View {
             }
         }
     }
+
+    // MARK: Photo
+
+    private var photo: some View {
+        Image(uiImage: result.image)
+            .resizable()
+            .scaledToFill()
+            .frame(width: 200, height: 200)
+            .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
+            .overlay(
+                RoundedRectangle(cornerRadius: 28, style: .continuous)
+                    .stroke(.white, lineWidth: 6)
+            )
+            .overlay(alignment: .bottomTrailing) {
+                Text(species.emoji)
+                    .font(.system(size: 40))
+                    .padding(8)
+                    .background(Circle().fill(.white))
+                    .offset(x: 10, y: 10)
+            }
+            .shadow(color: Theme.ink.opacity(0.15), radius: 16, y: 8)
+            .scaleEffect(popped ? 1 : 0.6)
+            .rotationEffect(.degrees(popped ? 0 : -8))
+    }
+
+    // MARK: Sparks
+
+    private var sparksCard: some View {
+        HStack(spacing: 6) {
+            Text("✨")
+            Text("+\(sparks) sparks")
+                .font(.system(.title3, design: .rounded, weight: .bold))
+                .foregroundStyle(Theme.ink)
+            if isFirst {
+                Text("· 2× first find!")
+                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+            }
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 20)
+        .softCard()
+    }
+
+    // MARK: Mystery identification
+
+    private var identifyPicker: some View {
+        VStack(spacing: 10) {
+            Text("Know who this is? Tap to log it:")
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .foregroundStyle(Theme.ink.opacity(0.7))
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(CreatureCatalog.all) { candidate in
+                        Button {
+                            correct(to: candidate)
+                        } label: {
+                            HStack(spacing: 5) {
+                                Text(candidate.emoji)
+                                Text(candidate.name)
+                                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                                    .foregroundStyle(Theme.ink)
+                            }
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(.white))
+                            .overlay(Capsule().stroke(candidate.rarity.tint, lineWidth: 1.5))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+    }
+
+    private func correct(to chosen: Species) {
+        // Is this the player's first sighting of the chosen friend (ignoring
+        // this very record)?
+        let others = (try? context.fetch(FetchDescriptor<Catch>())) ?? []
+        let first = !others.contains { $0 !== result.record && $0.speciesID == chosen.id }
+        let newSparks = Progression.sparks(for: chosen, isFirstSighting: first)
+
+        result.record.speciesID = chosen.id
+        result.record.isFirstSighting = first
+        result.record.sparksEarned = newSparks
+        try? context.save()
+
+        if hapticsEnabled {
+            UINotificationFeedbackGenerator().notificationOccurred(.success)
+        }
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.7)) {
+            species = chosen
+            sparks = newSparks
+            isFirst = first
+        }
+    }
+
+    // MARK: Achievements
 
     private var achievementsUnlocked: some View {
         VStack(spacing: 8) {
