@@ -5,6 +5,7 @@ import SwiftData
 /// stats — all derived from their `Catch` history via `PlayerStats`.
 struct ProfileView: View {
     @Query private var catches: [Catch]
+    @Environment(\.modelContext) private var context
 
     private var stats: PlayerStats { PlayerStats(catches: catches) }
 
@@ -25,8 +26,45 @@ struct ProfileView: View {
                 }
             }
             .navigationTitle("Journal")
+            .toolbar {
+                #if DEBUG
+                ToolbarItem(placement: .topBarTrailing) {
+                    testMenu
+                }
+                #endif
+            }
         }
     }
+
+    // MARK: Developer test menu (compiled out of release builds)
+
+    #if DEBUG
+    private var seedBinding: Binding<Bool> {
+        Binding(
+            get: { SeedData.isPresent(in: catches) },
+            set: { on in
+                if on { SeedData.fill(context: context) }
+                else { SeedData.clear(context: context) }
+            }
+        )
+    }
+
+    private var testMenu: some View {
+        Menu {
+            Toggle(isOn: seedBinding) {
+                Label("Sample Grove data", systemImage: "sparkles")
+            }
+            Divider()
+            Button(role: .destructive) {
+                SeedData.eraseAll(context: context)
+            } label: {
+                Label("Erase everything", systemImage: "trash")
+            }
+        } label: {
+            Image(systemName: "wrench.and.screwdriver.fill")
+        }
+    }
+    #endif
 
     // MARK: Streak
 

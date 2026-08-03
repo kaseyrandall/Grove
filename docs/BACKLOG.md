@@ -16,11 +16,6 @@ A rotating daily goal layered on top of the streak system — e.g. *"catch a bir
 today,"* *"catch something Rare this week,"* *"snap 3 critters."* Gives a reason
 to open the app each day beyond the raw streak. Reward with bonus sparks.
 
-### Seed / sample data (dev)
-A DEBUG-only way to populate the store with a spread of catches (varied species,
-rarities, dates, and coordinates) so the Journal, Map, and Achievements screens
-can be seen fully populated in the Simulator without hand-catching everything.
-
 ### Achievement-unlocked toast (outside the catch flow)
 Right now new achievements are celebrated on the catch screen. Add a general
 in-app toast/banner so unlocks that happen elsewhere (e.g. crossing a streak

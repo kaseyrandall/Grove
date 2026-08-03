@@ -1,6 +1,9 @@
 import SwiftUI
 
 struct RootView: View {
+    @AppStorage("hasCompletedOnboarding") private var hasOnboarded = false
+    @State private var showOnboarding = false
+
     var body: some View {
         TabView {
             GroveView()
@@ -14,6 +17,15 @@ struct RootView: View {
 
             ProfileView()
                 .tabItem { Label("Journal", systemImage: "book.closed.fill") }
+        }
+        .onAppear {
+            if !hasOnboarded { showOnboarding = true }
+        }
+        .fullScreenCover(isPresented: $showOnboarding) {
+            OnboardingView {
+                hasOnboarded = true
+                showOnboarding = false
+            }
         }
     }
 }
