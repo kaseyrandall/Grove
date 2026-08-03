@@ -27,6 +27,7 @@ struct GuideEntryView: View {
                     infoCard
                 }
                 .padding()
+                .padding(.bottom, Theme.tabBarClearance)
             }
         }
         .navigationTitle(species.name)

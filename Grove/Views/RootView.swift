@@ -28,16 +28,15 @@ struct RootView: View {
             case .profile:  ProfileView()
             }
         }
-        .safeAreaInset(edge: .bottom, spacing: 0) {
+        // The bar floats over content; each scrollable page adds
+        // `Theme.tabBarClearance` bottom padding so its content clears it.
+        .overlay(alignment: .bottom) {
             GroveTabBar(
                 selection: $selection,
                 showCoachMark: showCoachMark,
                 onCatch: { selection = .catchTab }
             )
         }
-        // A little extra clearance so scrollable content always ends comfortably
-        // above the floating bar rather than tucking under it.
-        .safeAreaPadding(.bottom, 12)
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showCoachMark)
         .onChange(of: selection) { _, newValue in
             if newValue == .catchTab { hasSeenCoachMark = true }

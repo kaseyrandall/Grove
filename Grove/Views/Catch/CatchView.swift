@@ -36,6 +36,7 @@ struct CatchView: View {
                 controls
             }
             .padding()
+            .padding(.bottom, Theme.tabBarClearance)
         }
         .onAppear {
             camera.start()

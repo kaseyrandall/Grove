@@ -22,6 +22,7 @@ struct JournalView: View {
                         rarityCard
                     }
                     .padding()
+                    .padding(.bottom, Theme.tabBarClearance)
                 }
             }
             .navigationTitle("Journal")

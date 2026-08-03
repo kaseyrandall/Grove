@@ -20,6 +20,7 @@ struct SettingsView: View {
                     introCard
                 }
                 .padding()
+                .padding(.bottom, Theme.tabBarClearance)
             }
         }
         .navigationTitle("Settings")

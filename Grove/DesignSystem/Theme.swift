@@ -15,6 +15,9 @@ enum Theme {
     /// Primary brand accent (buttons, tint).
     static let accent   = Color(hex: 0xFF7EA6)
 
+    /// Bottom padding scrollable pages add so content clears the floating tab bar.
+    static let tabBarClearance: CGFloat = 104
+
     /// The app's default background — a soft vertical wash.
     static var background: LinearGradient {
         LinearGradient(

@@ -25,6 +25,7 @@ struct GroveView: View {
                         }
                     }
                     .padding()
+                    .padding(.bottom, Theme.tabBarClearance)
                 }
             }
             .navigationTitle("Your Grove")

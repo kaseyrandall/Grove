@@ -27,6 +27,7 @@ struct ProfileView: View {
                             .padding(.top, 4)
                     }
                     .padding()
+                    .padding(.bottom, Theme.tabBarClearance)
                 }
             }
             .navigationTitle("Profile")
