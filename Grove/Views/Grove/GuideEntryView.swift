@@ -8,7 +8,10 @@ struct GuideEntryView: View {
     let catches: [Catch]
 
     @Query private var profiles: [FriendProfile]
+    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var context
     @State private var showEdit = false
+    @State private var showReleaseConfirm = false
 
     private var profile: FriendProfile? { profiles.first { $0.speciesID == species.id } }
 
@@ -33,12 +36,19 @@ struct GuideEntryView: View {
                     if isCaught { metaRow }
                     infoCard
                     if isCaught { sightingsCard }
+                    if isCaught { releaseButton }
                 }
                 .padding()
             }
         }
         .navigationTitle(isCaught ? species.name : "Not yet spotted")
         .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog("Release \(species.name)?", isPresented: $showReleaseConfirm, titleVisibility: .visible) {
+            Button("Release back to the wild", role: .destructive) { release() }
+            Button("Keep them", role: .cancel) {}
+        } message: {
+            Text("They'll leave your Grove and their sightings will be let go. You can always meet them again out in the wild.")
+        }
         .toolbar {
             if isCaught {
                 ToolbarItem(placement: .topBarTrailing) {
@@ -155,6 +165,31 @@ struct GuideEntryView: View {
         .padding()
         .frame(maxWidth: .infinity)
         .softCard()
+    }
+
+    // MARK: Release
+
+    private var releaseButton: some View {
+        Button { showReleaseConfirm = true } label: {
+            Text("🍃 Release \(species.name) back to the wild")
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .foregroundStyle(Theme.ink.opacity(0.45))
+        }
+        .padding(.top, 6)
+    }
+
+    /// Let this friend go: remove their sightings and any customization, then
+    /// leave the page. Their sparks were derived from those catches, so the
+    /// player's totals adjust naturally.
+    private func release() {
+        for sighting in catches {
+            context.delete(sighting)
+        }
+        if let profile {
+            context.delete(profile)
+        }
+        try? context.save()
+        dismiss()
     }
 
     // MARK: Sightings
