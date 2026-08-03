@@ -55,11 +55,11 @@ struct CatchResultView: View {
                         .foregroundStyle(Theme.ink.opacity(0.6))
                 }
 
-                sparksCard
-
                 if isMystery {
                     identifyPicker
                 }
+
+                sparksCard
 
                 if !result.newAchievements.isEmpty {
                     achievementsUnlocked
