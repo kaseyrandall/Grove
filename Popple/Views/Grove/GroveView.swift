@@ -83,7 +83,7 @@ struct ZoneCard: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 14) {
-                        ForEach(residents) { species in
+                        ForEach(Array(residents.enumerated()), id: \.element.id) { index, species in
                             NavigationLink {
                                 GuideEntryView(
                                     species: species,
@@ -93,7 +93,8 @@ struct ZoneCard: View {
                                 ResidentPortrait(
                                     species: species,
                                     photoData: latestPhoto(for: species.id),
-                                    nickname: nickname(for: species.id)
+                                    nickname: nickname(for: species.id),
+                                    index: index
                                 )
                             }
                             .buttonStyle(.plain)
@@ -126,11 +127,21 @@ struct ZoneCard: View {
     }
 }
 
-/// A round photo portrait of a resident, ringed in its rarity color.
+/// A round photo portrait of a resident, ringed in its rarity color, gently
+/// floating in place so the Grove feels alive. Each portrait is staggered by
+/// its position so they don't bob in unison.
 struct ResidentPortrait: View {
     let species: Species
     let photoData: Data?
     let nickname: String?
+    var index: Int = 0
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var floating = false
+
+    // Slightly different rhythm per critter for an organic, un-synced feel.
+    private var duration: Double { 2.0 + Double(index % 3) * 0.35 }
+    private var startDelay: Double { Double(index) * 0.28 }
 
     var body: some View {
         VStack(spacing: 5) {
@@ -148,13 +159,27 @@ struct ResidentPortrait: View {
             }
             .frame(width: 56, height: 56)
             .overlay(Circle().stroke(species.rarity.tint, lineWidth: 3))
-            .shadow(color: Theme.ink.opacity(0.15), radius: 3, y: 2)
+            .shadow(color: Theme.ink.opacity(0.15),
+                    radius: floating ? 5 : 3,
+                    y: floating ? 5 : 2)
+            .rotationEffect(.degrees(floating ? 2.5 : -2.5))
+            .offset(y: floating ? -4 : 3)
 
             Text(nickname ?? species.name)
                 .font(.system(.caption2, design: .rounded, weight: .semibold))
                 .foregroundStyle(Theme.ink)
                 .lineLimit(1)
                 .frame(maxWidth: 66)
+        }
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(
+                .easeInOut(duration: duration)
+                .repeatForever(autoreverses: true)
+                .delay(startDelay)
+            ) {
+                floating = true
+            }
         }
     }
 }
