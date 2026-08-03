@@ -120,7 +120,7 @@ struct GuideEntryView: View {
                 .font(.system(.subheadline, design: .rounded, weight: .bold))
                 .foregroundStyle(Theme.ink)
             Text(label.uppercased())
-                .font(.system(size: 9, design: .rounded, weight: .semibold))
+                .font(.system(size: 9, weight: .semibold, design: .rounded))
                 .foregroundStyle(Theme.ink.opacity(0.5))
         }
         .frame(maxWidth: .infinity)
