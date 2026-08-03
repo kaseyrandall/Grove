@@ -33,19 +33,19 @@ struct Achievement: Identifiable {
 enum AchievementCatalog {
     static let all: [Achievement] = [
         Achievement(id: "first_catch", title: "First Friend", emoji: "🐾",
-                    detail: "Catch your very first critter.",
+                    detail: "Catch your very first friend.",
                     goal: 1) { Double($0.totalSnaps) },
 
         Achievement(id: "five_species", title: "Getting Started", emoji: "🌱",
-                    detail: "Collect 5 different critters.",
+                    detail: "Collect 5 different friends.",
                     goal: 5) { Double($0.uniqueSpecies) },
 
         Achievement(id: "collector", title: "Collector", emoji: "📚",
-                    detail: "Collect 15 different critters.",
+                    detail: "Collect 15 different friends.",
                     goal: 15) { Double($0.uniqueSpecies) },
 
         Achievement(id: "completionist", title: "Full Grove", emoji: "🌳",
-                    detail: "Welcome every critter home to your Grove.",
+                    detail: "Welcome every friend home to your Grove.",
                     goal: Double(CreatureCatalog.all.count)) { Double($0.uniqueSpecies) },
 
         Achievement(id: "grovekeeper", title: "Grovekeeper", emoji: "🪴",
@@ -53,21 +53,21 @@ enum AchievementCatalog {
                     goal: Double(Habitat.allCases.count)) { Double($0.zonesVisited) },
 
         Achievement(id: "all_commons", title: "Backyard Boss", emoji: "🏡",
-                    detail: "Catch every Common critter.",
+                    detail: "Catch every Common friend.",
                     goal: Double(CreatureCatalog.all.filter { $0.rarity == .common }.count)) {
                         Double($0.count(of: .common))
                     },
 
         Achievement(id: "rare_find", title: "Lucky Day", emoji: "💎",
-                    detail: "Catch a Rare critter.",
+                    detail: "Catch a Rare friend.",
                     goal: 1) { Double($0.count(of: .rare)) },
 
         Achievement(id: "epic_find", title: "Epic Find", emoji: "🌟",
-                    detail: "Catch an Epic critter.",
+                    detail: "Catch an Epic friend.",
                     goal: 1) { Double($0.count(of: .epic)) },
 
         Achievement(id: "legend", title: "Living Legend", emoji: "👑",
-                    detail: "Catch a Legendary critter.",
+                    detail: "Catch a Legendary friend.",
                     goal: 1) { Double($0.count(of: .legendary)) },
 
         Achievement(id: "streak_3", title: "Warming Up", emoji: "🔥",
@@ -83,19 +83,19 @@ enum AchievementCatalog {
                     goal: 30) { Double($0.longestStreak) },
 
         Achievement(id: "shutterbug", title: "Shutterbug", emoji: "📸",
-                    detail: "Snap 50 critters.",
+                    detail: "Snap 50 friends.",
                     goal: 50) { Double($0.totalSnaps) },
 
         Achievement(id: "early_bird", title: "Early Bird", emoji: "🌅",
-                    detail: "Catch a critter before 8am.",
+                    detail: "Catch a friend before 8am.",
                     goal: 1) { $0.hasEarlyCatch ? 1 : 0 },
 
         Achievement(id: "night_owl", title: "Night Owl", emoji: "🌙",
-                    detail: "Catch a critter after 8pm.",
+                    detail: "Catch a friend after 8pm.",
                     goal: 1) { $0.hasLateCatch ? 1 : 0 },
 
         Achievement(id: "explorer", title: "Explorer", emoji: "🗺️",
-                    detail: "Catch critters in 5 different places.",
+                    detail: "Catch friends in 5 different places.",
                     goal: 5) { Double($0.distinctLocations) },
 
         Achievement(id: "seasoned", title: "Seasoned", emoji: "⭐️",

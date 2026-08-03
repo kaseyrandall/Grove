@@ -1,7 +1,7 @@
 import Foundation
 
 /// Pure daily-streak math. A "streak day" is any calendar day on which the
-/// player caught at least one critter. The current streak counts consecutive
+/// player caught at least one friend. The current streak counts consecutive
 /// days ending today (or yesterday, so you don't lose it until a full day lapses).
 enum StreakEngine {
 

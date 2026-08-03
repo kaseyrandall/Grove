@@ -15,7 +15,7 @@ struct CatchCoachMark: View {
             VStack(spacing: 0) {
                 HStack(spacing: 8) {
                     Text("📸").font(.title3)
-                    Text("Tap here to snap\nyour first critter!")
+                    Text("Tap here to snap\nyour first friend!")
                         .font(.system(.subheadline, design: .rounded, weight: .bold))
                         .foregroundStyle(.white)
                         .multilineTextAlignment(.center)

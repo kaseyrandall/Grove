@@ -13,7 +13,7 @@ species, sparks, and location.
 
 ### Daily quests
 A rotating daily goal layered on top of the streak system — e.g. *"catch a bird
-today,"* *"catch something Rare this week,"* *"snap 3 critters."* Gives a reason
+today,"* *"catch something Rare this week,"* *"snap 3 friends."* Gives a reason
 to open the app each day beyond the raw streak. Reward with bonus sparks.
 
 ### Achievement-unlocked toast (outside the catch flow)
@@ -26,6 +26,6 @@ threshold) also get their moment.
 - **Better ID** — Core ML species model or cloud vision for true species names.
 - **Social** — friends, shared sightings, leaderboards (data model is structured
   so a sync/backend layer can bolt on without a rewrite).
-- **Real critter art** — replace placeholder emoji with commissioned illustrations.
+- **Real friend art** — replace placeholder emoji with commissioned illustrations.
 - **Anti-cheat** — liveness checks (camera-only capture already blocks library
   uploads); relevant once competitive leaderboards exist.

@@ -10,13 +10,13 @@ Built 100% native — SwiftUI, SwiftData, and Apple's on-device Vision framework
 
 ## ✨ The core loop
 
-> **Spot a critter → Snap → "A new friend found your Grove! Red Fox — +120 sparks, first find!" → it settles into your Woods → go find more.**
+> **Spot a friend → Snap → "A new friend found your Grove! Red Fox — +120 sparks, first find!" → it settles into your Woods → go find more.**
 
-- **Critters come home.** Every animal you photograph moves into the habitat **zone** it belongs to — the Garden, Pond, Meadow, Woods, or Treetops. No flat grid, no `???` silhouettes; empty zones are just quiet spots waiting for a visitor.
+- **Friends come home.** Every animal you photograph moves into the habitat **zone** it belongs to — the Garden, Pond, Meadow, Woods, or Treetops. No flat grid, no `???` silhouettes; empty zones are just quiet spots waiting for a visitor.
 - **A personal field guide.** Each friend has a guide page with your photos, its **real name**, the **nickname you give it**, a field note, and where/when you first met.
 - **Live camera only.** Catches must be taken *in the moment* — no photo-library upload, so you can't collect screenshots or downloaded images. (A library picker exists in **DEBUG builds only** for Simulator testing; it's compiled out of release builds.)
 - **On-device identification.** Photos are classified locally with Apple's Vision framework — instant, private, offline, free.
-- **Always rewarding.** If Vision can't confidently name what it saw, you still meet a **Mystery Critter**, so a snap never feels wasted.
+- **Always rewarding.** If Vision can't confidently name what it saw, you still meet a **Mystery Friend**, so a snap never feels wasted.
 - **First-find bonus.** The first time a species visits, sparks are doubled — the collection thrill.
 - **Gentle rarity.** Field-guide language, not loot: Common 💚 → Uncommon 💙 → Seldom seen 💜 → Rarely seen 💗 → Almost mythical 💛.
 - **Daily streaks.** 🔥 Catch something each day to keep your streak alive (current + all-time best).
@@ -45,7 +45,7 @@ Built 100% native — SwiftUI, SwiftData, and Apple's on-device Vision framework
 
 ## 🧠 How identification works today
 
-The MVP uses Apple's built-in `VNClassifyImageRequest`, which returns fairly **coarse** labels ("bird", "dog", "squirrel"...). The catalog in `CreatureCatalog.swift` maps those labels to real critters (each with a habitat zone), preferring rarer matches. This is deliberately simple and 100% free — it's the fun-first foundation.
+The MVP uses Apple's built-in `VNClassifyImageRequest`, which returns fairly **coarse** labels ("bird", "dog", "squirrel"...). The catalog in `CreatureCatalog.swift` maps those labels to real friends (each with a habitat zone), preferring rarer matches. This is deliberately simple and 100% free — it's the fun-first foundation.
 
 **The upgrade path is clean:** swap the guts of `AnimalClassifier.classify` for a trained Core ML species model or a cloud vision service, expand the catalog's `matchKeywords`, and nothing else in the app has to change.
 
@@ -57,10 +57,10 @@ Popple/
 ├── Models/
 │   ├── Rarity.swift           # Rarity tiers, sparks, field-guide language, colors
 │   ├── Habitat.swift          # Grove zones (Garden/Pond/Meadow/Woods/Treetops)
-│   ├── Species.swift          # A collectible critter *type* (catalog data)
+│   ├── Species.swift          # A collectible friend *type* (catalog data)
 │   └── Catch.swift            # A photo you took (nickname + geotag; the persisted model)
 ├── Catalog/
-│   └── CreatureCatalog.swift  # The critters (real names + zones) + label→critter matching
+│   └── CreatureCatalog.swift  # The friends (real names + zones) + label→friend matching
 ├── Game/
 │   ├── Progression.swift      # Pure scoring & leveling math
 │   ├── StreakEngine.swift     # Consecutive-day streak math
@@ -88,7 +88,7 @@ Popple/
 - **Better ID** — Core ML species model or cloud vision for true species names.
 - **Social** (planned) — friends, shared sightings, leaderboards. The data model is already structured so a sync/backend layer can bolt on without a rewrite.
 - **Daily goals** — a rotating "catch a bird today" style quest on top of the streak system.
-- **Real critter art** — replace the placeholder emoji with commissioned illustrations.
+- **Real friend art** — replace the placeholder emoji with commissioned illustrations.
 - **Anti-cheat** — camera-only capture already blocks library uploads. Next up (once leaderboards exist): liveness checks so you can't photograph a screen or printout.
 
 ---

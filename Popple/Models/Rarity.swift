@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// How special a critter is. Drives the point payout and the celebration.
+/// How special a friend is. Drives the point payout and the celebration.
 /// Presented in gentle field-guide language ("Seldom seen"), not loot grammar.
 enum Rarity: Int, CaseIterable, Codable, Comparable {
     case common
@@ -13,7 +13,7 @@ enum Rarity: Int, CaseIterable, Codable, Comparable {
         lhs.rawValue < rhs.rawValue
     }
 
-    /// Base sparks awarded for spotting a critter of this rarity.
+    /// Base sparks awarded for spotting a friend of this rarity.
     var sparks: Int {
         switch self {
         case .common:    return 10

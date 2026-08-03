@@ -1,7 +1,7 @@
 import Foundation
 
-/// The master field guide of critters you can meet in Popple, plus the logic
-/// that turns Vision's raw image labels into a matched critter.
+/// The master field guide of friends you can meet in Popple, plus the logic
+/// that turns Vision's raw image labels into a matched friend.
 ///
 /// The `matchKeywords` are tuned for Apple's built-in `VNClassifyImageRequest`,
 /// which returns fairly coarse labels ("bird", "dog", "squirrel", ...). As we
@@ -132,9 +132,9 @@ enum CreatureCatalog {
         all.filter { $0.zone == zone }
     }
 
-    /// Given Vision's top labels (already lowercased), pick the best critter.
+    /// Given Vision's top labels (already lowercased), pick the best friend.
     /// Prefers rarer matches so a lucky "fox" beats a background "dog".
-    /// Falls back to the Mystery Critter so every snap yields something.
+    /// Falls back to the Mystery Friend so every snap yields something.
     static func match(labels: [String]) -> Species {
         var best: Species?
         for species in all {

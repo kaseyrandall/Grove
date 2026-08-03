@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// The Grove — the heart of Popple. Critters you've photographed come home and
+/// The Grove — the heart of Popple. Friends you've photographed come home and
 /// settle into the habitat zone they belong to. Replaces the old flat "Dex":
 /// no `???` silhouettes, just a cozy world that fills with life as you explore.
 struct GroveView: View {
@@ -50,7 +50,7 @@ struct GroveView: View {
     }
 }
 
-/// One habitat zone in the Grove, with its resident critters.
+/// One habitat zone in the Grove, with its resident friends.
 struct ZoneCard: View {
     let zone: Habitat
     let catches: [Catch]
@@ -139,7 +139,7 @@ struct ResidentPortrait: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var floating = false
 
-    // Slightly different rhythm per critter for an organic, un-synced feel.
+    // Slightly different rhythm per friend for an organic, un-synced feel.
     private var duration: Double { 2.0 + Double(index % 3) * 0.35 }
     private var startDelay: Double { Double(index) * 0.28 }
 

@@ -1,7 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// A field-guide page for one critter: its story, where it lives in your Grove,
+/// A field-guide page for one friend: its story, where it lives in your Grove,
 /// your history with it, and the personal nickname you gave it.
 struct GuideEntryView: View {
     let species: Species
@@ -132,7 +132,7 @@ struct GuideEntryView: View {
 
     private var infoCard: some View {
         VStack(spacing: 12) {
-            Text(isCaught ? species.blurb : "You haven't spotted this critter yet. Keep exploring!")
+            Text(isCaught ? species.blurb : "You haven't spotted this friend yet. Keep exploring!")
                 .font(.system(.body, design: .rounded))
                 .foregroundStyle(Theme.ink)
                 .multilineTextAlignment(.center)

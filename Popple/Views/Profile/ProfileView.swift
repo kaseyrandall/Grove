@@ -96,7 +96,7 @@ struct ProfileView: View {
 
     private var streakMessage: String {
         switch stats.currentStreak {
-        case 0:  return "Catch a critter today to start one!"
+        case 0:  return "Catch a friend today to start one!"
         case 1:  return "Nice start — come back tomorrow!"
         default: return "You're on a roll. Keep it going!"
         }

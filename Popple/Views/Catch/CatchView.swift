@@ -4,7 +4,7 @@ import SwiftData
 import PhotosUI
 #endif
 
-/// The main "go find critters" screen: strictly a live camera + shutter button.
+/// The main "go find friends" screen: strictly a live camera + shutter button.
 /// Catches can only come from a photo taken *right now* — no uploading saved or
 /// downloaded images. (In DEBUG builds only, a library picker is available so the
 /// loop stays testable in the Simulator, which has no camera. It is compiled out
@@ -55,7 +55,7 @@ struct CatchView: View {
             Text("Popple")
                 .font(.system(size: 34, weight: .heavy, design: .rounded))
                 .foregroundStyle(Theme.accent)
-            Text("Snap a critter to bring it home!")
+            Text("Snap a friend to bring it home!")
                 .font(.system(.subheadline, design: .rounded))
                 .foregroundStyle(Theme.ink.opacity(0.7))
         }
@@ -73,7 +73,7 @@ struct CatchView: View {
             case .denied:
                 placeholder(
                     emoji: "🚫",
-                    text: "Popple needs your camera to catch critters.\nTurn it on in Settings to start snapping."
+                    text: "Popple needs your camera to catch friends.\nTurn it on in Settings to start snapping."
                 )
             case .unavailable:
                 placeholder(

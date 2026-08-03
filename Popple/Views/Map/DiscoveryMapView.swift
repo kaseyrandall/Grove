@@ -2,8 +2,8 @@ import SwiftUI
 import SwiftData
 import MapKit
 
-/// A map of every place the player has caught a critter. Each geotagged catch
-/// drops a cute, rarity-colored pin; tapping one opens that critter's page.
+/// A map of every place the player has caught a friend. Each geotagged catch
+/// drops a cute, rarity-colored pin; tapping one opens that friend's page.
 struct DiscoveryMapView: View {
     @Query(sort: \Catch.caughtAt, order: .reverse) private var catches: [Catch]
 
@@ -59,7 +59,7 @@ struct DiscoveryMapView: View {
             Text("No sightings on the map yet")
                 .font(.system(.headline, design: .rounded, weight: .bold))
                 .foregroundStyle(Theme.ink)
-            Text("Catch a critter with Location turned on and it'll appear right here.")
+            Text("Catch a friend with Location turned on and it'll appear right here.")
                 .font(.system(.subheadline, design: .rounded))
                 .foregroundStyle(Theme.ink.opacity(0.65))
                 .multilineTextAlignment(.center)
@@ -71,7 +71,7 @@ struct DiscoveryMapView: View {
     }
 }
 
-/// A rarity-tinted teardrop pin with the critter's emoji.
+/// A rarity-tinted teardrop pin with the friend's emoji.
 struct MapPin: View {
     let species: Species
 

@@ -1,7 +1,7 @@
 import Foundation
 import SwiftData
 
-/// A single photo the player took of a critter — one entry in their journal.
+/// A single photo the player took of a friend — one entry in their journal.
 /// This is the only thing we persist; player stats (sparks, level, dex progress)
 /// are derived from the full set of `Catch` records.
 @Model
@@ -13,7 +13,7 @@ final class Catch {
     /// True if this was the first time the player ever caught this species.
     var isFirstSighting: Bool
 
-    /// A personal nickname the player gave this critter. Set on the first
+    /// A personal nickname the player gave this friend. Set on the first
     /// sighting; the earliest catch's nickname acts as the species' nickname.
     var nickname: String?
 
