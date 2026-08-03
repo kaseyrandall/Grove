@@ -67,6 +67,10 @@ struct CatchResultView: View {
                 .padding(.horizontal, 20)
                 .softCard()
 
+                if !result.newAchievements.isEmpty {
+                    achievementsUnlocked
+                }
+
                 Spacer()
 
                 PoppleButton(title: "Sweet!", systemImage: "checkmark") {
@@ -81,6 +85,25 @@ struct CatchResultView: View {
                 popped = true
             }
         }
+    }
+
+    private var achievementsUnlocked: some View {
+        VStack(spacing: 8) {
+            Text("🎖 Achievement\(result.newAchievements.count > 1 ? "s" : "") unlocked!")
+                .font(.system(.subheadline, design: .rounded, weight: .bold))
+                .foregroundStyle(Theme.accent)
+            ForEach(result.newAchievements) { achievement in
+                HStack(spacing: 8) {
+                    Text(achievement.emoji).font(.title3)
+                    Text(achievement.title)
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                }
+            }
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 20)
+        .softCard(fill: .white.opacity(0.9))
     }
 }
 

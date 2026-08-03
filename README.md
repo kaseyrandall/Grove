@@ -15,14 +15,19 @@ Built 100% native — SwiftUI, SwiftData, and Apple's on-device Vision framework
 - **Always rewarding.** If Vision can't confidently name what it saw, you still catch a **Mystery Critter**, so a snap never feels wasted.
 - **First-find bonus.** The first time you catch a species, sparks are doubled — the collection thrill.
 - **Rarity tiers.** Common 🌿 → Uncommon 🍀 → Rare 💎 → Epic 🌟 → Legendary 👑, each worth more.
+- **Daily streaks.** 🔥 Catch something each day to keep your streak alive (current + all-time best).
+- **Achievements.** 🎖 16 badges with live progress bars, celebrated the instant you unlock them mid-catch.
+- **Discovery map.** 🗺️ Every geotagged catch drops a rarity-colored pin where you found it.
 
 ## 📱 Screens
 
 | Tab | What it does |
 |-----|--------------|
 | **Dex** | A grid of every critter. Caught ones fill in with your photo; the rest stay as `???` silhouettes — the set you want to complete. |
+| **Map** | A MapKit map with a rarity-colored pin at every place you've made a catch. Tap a pin to open that critter. |
 | **Catch** | Live camera + shutter — strictly capture-in-the-moment (a DEBUG-only library picker exists for Simulator testing). |
-| **Me** | Your level, total sparks, species count, and collection-by-rarity breakdown. |
+| **Me** | Your streak, level, total sparks, species count, an achievements summary, and collection-by-rarity (with your rarest catch). |
+| **Achievements** | (from **Me**) A grid of 16 badges — unlocked ones in full color, locked ones dimmed with a live progress bar. |
 
 ## 🚀 Running it
 
@@ -51,7 +56,10 @@ Popple/
 ├── Catalog/
 │   └── CreatureCatalog.swift  # The seed critters + label→critter matching
 ├── Game/
-│   └── Progression.swift      # Pure scoring & leveling math
+│   ├── Progression.swift      # Pure scoring & leveling math
+│   ├── StreakEngine.swift     # Consecutive-day streak math
+│   ├── PlayerStats.swift      # One derived snapshot of all player numbers
+│   └── Achievement.swift      # Badge catalog + unlock evaluation
 ├── Services/
 │   ├── AnimalClassifier.swift # Vision on-device classification
 │   ├── CameraModel.swift      # AVFoundation capture
@@ -62,17 +70,18 @@ Popple/
 │   └── Components.swift       # Buttons, badges, chips
 └── Views/
     ├── RootView.swift         # Tab bar
-    ├── Catch/                 # Camera + celebration
+    ├── Catch/                 # Camera + celebration (with achievement unlocks)
     ├── Dex/                   # Collection grid + detail
-    └── Profile/               # Level & stats
+    ├── Map/                   # Discovery map of sightings
+    ├── Achievements/          # Badge grid with progress
+    └── Profile/               # Streak, level, achievements & rarity stats
 ```
 
 ## 🛣 Roadmap (post-MVP)
 
 - **Better ID** — Core ML species model or cloud vision for true species names.
 - **Social** (planned) — friends, shared sightings, leaderboards. The data model is already structured so a sync/backend layer can bolt on without a rewrite.
-- **Map** — a MapKit view of where you spotted each critter (catches already store coordinates).
-- **Streaks, dailies & badges** — daily "catch any critter" goals and collection achievements.
+- **Daily goals** — a rotating "catch a bird today" style quest on top of the streak system.
 - **Real critter art** — replace the placeholder emoji with commissioned illustrations.
 - **Anti-cheat** — camera-only capture already blocks library uploads. Next up (once leaderboards exist): liveness checks so you can't photograph a screen or printout.
 

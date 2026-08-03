@@ -163,15 +163,21 @@ struct CatchView: View {
             latitude: coord?.latitude,
             longitude: coord?.longitude
         )
+
+        // Snapshot achievements before/after so we can celebrate new unlocks.
+        let before = PlayerStats(catches: allCatches)
         context.insert(record)
         try? context.save()
+        let after = PlayerStats(catches: allCatches + [record])
+        let newAchievements = AchievementCatalog.newlyUnlocked(before: before, after: after)
 
         UINotificationFeedbackGenerator().notificationOccurred(.success)
         result = CatchResult(
             species: species,
             sparks: sparks,
             isFirstSighting: isFirst,
-            image: image
+            image: image,
+            newAchievements: newAchievements
         )
     }
 
@@ -206,6 +212,7 @@ struct CatchResult: Identifiable {
     let sparks: Int
     let isFirstSighting: Bool
     let image: UIImage
+    let newAchievements: [Achievement]
 }
 
 #Preview {
