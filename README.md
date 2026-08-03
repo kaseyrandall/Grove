@@ -26,8 +26,8 @@ Built 100% native — SwiftUI, SwiftData, and Apple's on-device Vision framework
 | **Dex** | A grid of every critter. Caught ones fill in with your photo; the rest stay as `???` silhouettes — the set you want to complete. |
 | **Map** | A MapKit map with a rarity-colored pin at every place you've made a catch. Tap a pin to open that critter. |
 | **Catch** | Live camera + shutter — strictly capture-in-the-moment (a DEBUG-only library picker exists for Simulator testing). |
-| **Me** | Your streak, level, total sparks, species count, an achievements summary, and collection-by-rarity (with your rarest catch). |
-| **Achievements** | (from **Me**) A grid of 16 badges — unlocked ones in full color, locked ones dimmed with a live progress bar. |
+| **Journal** | Your streak, level, total sparks, species count, an achievements summary, and collection-by-rarity (with your rarest catch). |
+| **Achievements** | (from **Journal**) A grid of 16 badges — unlocked ones in full color, locked ones dimmed with a live progress bar. |
 
 ## 🚀 Running it
 
@@ -74,7 +74,7 @@ Popple/
     ├── Dex/                   # Collection grid + detail
     ├── Map/                   # Discovery map of sightings
     ├── Achievements/          # Badge grid with progress
-    └── Profile/               # Streak, level, achievements & rarity stats
+    └── Profile/               # "Journal" tab — streak, level, achievements & rarity stats
 ```
 
 ## 🛣 Roadmap (post-MVP)

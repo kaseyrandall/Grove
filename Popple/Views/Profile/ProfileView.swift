@@ -24,7 +24,7 @@ struct ProfileView: View {
                     .padding()
                 }
             }
-            .navigationTitle("Me")
+            .navigationTitle("Journal")
         }
     }
 

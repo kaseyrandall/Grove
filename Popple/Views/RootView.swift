@@ -13,7 +13,7 @@ struct RootView: View {
                 .tabItem { Label("Catch", systemImage: "camera.fill") }
 
             ProfileView()
-                .tabItem { Label("Me", systemImage: "star.fill") }
+                .tabItem { Label("Journal", systemImage: "book.closed.fill") }
         }
     }
 }
