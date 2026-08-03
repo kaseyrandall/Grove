@@ -37,7 +37,11 @@ enum AnimalClassifier {
     /// Convenience: classify and resolve straight to a catalog `Species`.
     static func identify(_ image: UIImage) async -> Species {
         let labels = await classify(image)
-        return CreatureCatalog.match(labels: labels)
+        let species = CreatureCatalog.match(labels: labels)
+        #if DEBUG
+        print("🔎 Vision labels: \(labels) → matched \(species.name)")
+        #endif
+        return species
     }
 }
 

@@ -113,7 +113,7 @@ struct CatchResultView: View {
 
 /// A cheap, cheerful emoji confetti burst for the rarer catches.
 struct Confetti: View {
-    private let pieces = ["✨", "🎉", "⭐️", "💫", "🌸"]
+    private let pieces = ["✨", "🎉", "⭐️", "💫", "🌸", "🐾", "🦋", "🐿️", "🐰", "🦊", "🐦"]
     @State private var animate = false
 
     var body: some View {

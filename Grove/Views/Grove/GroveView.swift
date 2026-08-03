@@ -55,9 +55,15 @@ struct ZoneCard: View {
     let zone: Habitat
     let catches: [Catch]
 
-    private var zoneSpecies: [Species] { CreatureCatalog.species(in: zone) }
-    private var caughtIDs: Set<String> { Set(catches.map(\.speciesID)) }
-    private var residents: [Species] { zoneSpecies.filter { caughtIDs.contains($0.id) } }
+    /// Friends the player has caught that belong to this zone — resolved from the
+    /// catches themselves, so the Mystery Friend (and any non-catalog friend)
+    /// still shows up in its home zone.
+    private var residents: [Species] {
+        Set(catches.map(\.speciesID))
+            .compactMap { CreatureCatalog.species(for: $0) }
+            .filter { $0.zone == zone }
+            .sorted { $0.rarity != $1.rarity ? $0.rarity > $1.rarity : $0.name < $1.name }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
