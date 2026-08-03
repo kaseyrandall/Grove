@@ -3,8 +3,8 @@ import SwiftUI
 struct RootView: View {
     var body: some View {
         TabView {
-            DexView()
-                .tabItem { Label("Dex", systemImage: "square.grid.2x2.fill") }
+            GroveView()
+                .tabItem { Label("Grove", systemImage: "leaf.fill") }
 
             DiscoveryMapView()
                 .tabItem { Label("Map", systemImage: "map.fill") }

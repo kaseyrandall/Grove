@@ -44,9 +44,13 @@ enum AchievementCatalog {
                     detail: "Collect 15 different critters.",
                     goal: 15) { Double($0.uniqueSpecies) },
 
-        Achievement(id: "completionist", title: "Gotta Snap 'Em All", emoji: "🏆",
-                    detail: "Complete the entire Dex.",
+        Achievement(id: "completionist", title: "Full Grove", emoji: "🌳",
+                    detail: "Welcome every critter home to your Grove.",
                     goal: Double(CreatureCatalog.all.count)) { Double($0.uniqueSpecies) },
+
+        Achievement(id: "grovekeeper", title: "Grovekeeper", emoji: "🪴",
+                    detail: "Bring a friend home to every zone.",
+                    goal: Double(Habitat.allCases.count)) { Double($0.zonesVisited) },
 
         Achievement(id: "all_commons", title: "Backyard Boss", emoji: "🏡",
                     detail: "Catch every Common critter.",

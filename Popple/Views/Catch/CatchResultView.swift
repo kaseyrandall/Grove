@@ -19,9 +19,10 @@ struct CatchResultView: View {
             VStack(spacing: 20) {
                 Spacer()
 
-                Text(result.isFirstSighting ? "New critter!" : "Caught again!")
+                Text(result.isFirstSighting ? "A new friend found your Grove!" : "Welcome back!")
                     .font(.system(.headline, design: .rounded, weight: .bold))
                     .foregroundStyle(Theme.ink.opacity(0.7))
+                    .multilineTextAlignment(.center)
 
                 // The photo, framed like a sticker.
                 Image(uiImage: result.image)
@@ -49,6 +50,9 @@ struct CatchResultView: View {
                         .font(.system(size: 30, weight: .heavy, design: .rounded))
                         .foregroundStyle(Theme.ink)
                     RarityBadge(rarity: result.species.rarity)
+                    Text("\(result.species.zone.emoji) joined your \(result.species.zone.shortName)")
+                        .font(.system(.caption, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Theme.ink.opacity(0.6))
                 }
 
                 // Sparks earned
@@ -73,7 +77,7 @@ struct CatchResultView: View {
 
                 Spacer()
 
-                PoppleButton(title: "Sweet!", systemImage: "checkmark") {
+                PoppleButton(title: "Welcome home!", systemImage: "checkmark") {
                     dismiss()
                 }
                 .padding(.horizontal)

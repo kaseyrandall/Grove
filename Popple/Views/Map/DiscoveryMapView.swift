@@ -43,7 +43,7 @@ struct DiscoveryMapView: View {
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $selected) { c in
                 NavigationStack {
-                    CreatureDetailView(
+                    GuideEntryView(
                         species: c.species,
                         catches: catches.filter { $0.speciesID == c.speciesID }
                     )

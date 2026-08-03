@@ -91,9 +91,9 @@ struct ProfileView: View {
 
     private var statsRow: some View {
         HStack(spacing: 12) {
-            StatChip(value: "\(stats.uniqueSpecies)", label: "Species", emoji: "🦋")
+            StatChip(value: "\(stats.uniqueSpecies)", label: "Friends", emoji: "🦋")
             StatChip(value: "\(stats.totalSnaps)", label: "Snaps", emoji: "📸")
-            StatChip(value: "\(CreatureCatalog.all.count - stats.uniqueSpecies)", label: "To Find", emoji: "🔍")
+            StatChip(value: "\(stats.zonesVisited)/\(Habitat.allCases.count)", label: "Zones", emoji: "🌿")
         }
     }
 

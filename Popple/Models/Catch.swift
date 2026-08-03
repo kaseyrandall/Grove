@@ -13,6 +13,10 @@ final class Catch {
     /// True if this was the first time the player ever caught this species.
     var isFirstSighting: Bool
 
+    /// A personal nickname the player gave this critter. Set on the first
+    /// sighting; the earliest catch's nickname acts as the species' nickname.
+    var nickname: String?
+
     /// The player's photo. `.externalStorage` keeps large blobs out of the
     /// main store file for performance.
     @Attribute(.externalStorage) var photoData: Data?
@@ -26,6 +30,7 @@ final class Catch {
         caughtAt: Date = .now,
         sparksEarned: Int,
         isFirstSighting: Bool,
+        nickname: String? = nil,
         photoData: Data? = nil,
         latitude: Double? = nil,
         longitude: Double? = nil
@@ -34,6 +39,7 @@ final class Catch {
         self.caughtAt = caughtAt
         self.sparksEarned = sparksEarned
         self.isFirstSighting = isFirstSighting
+        self.nickname = nickname
         self.photoData = photoData
         self.latitude = latitude
         self.longitude = longitude

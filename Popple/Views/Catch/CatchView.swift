@@ -55,7 +55,7 @@ struct CatchView: View {
             Text("Popple")
                 .font(.system(size: 34, weight: .heavy, design: .rounded))
                 .foregroundStyle(Theme.accent)
-            Text("Snap a critter to add it to your Dex!")
+            Text("Snap a critter to bring it home!")
                 .font(.system(.subheadline, design: .rounded))
                 .foregroundStyle(Theme.ink.opacity(0.7))
         }

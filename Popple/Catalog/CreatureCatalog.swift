@@ -1,7 +1,7 @@
 import Foundation
 
-/// The master list of critters you can collect in Popple, plus the logic that
-/// turns Vision's raw image labels into a matched critter.
+/// The master field guide of critters you can meet in Popple, plus the logic
+/// that turns Vision's raw image labels into a matched critter.
 ///
 /// The `matchKeywords` are tuned for Apple's built-in `VNClassifyImageRequest`,
 /// which returns fairly coarse labels ("bird", "dog", "squirrel", ...). As we
@@ -11,109 +11,109 @@ import Foundation
 enum CreatureCatalog {
 
     static let all: [Species] = [
-        // MARK: Common — the everyday backyard crew
-        Species(id: "pigeon", name: "Pidge", emoji: "🐦",
-                rarity: .common,
+        // MARK: The Garden — the everyday backyard crew
+        Species(id: "pigeon", name: "Rock Pigeon", emoji: "🐦",
+                rarity: .common, zone: .garden,
                 blurb: "The friendly city local. Always around, always hungry.",
-                habitat: "Sidewalks & parks",
+                habitatNote: "Sidewalks & park benches",
                 matchKeywords: ["pigeon", "dove"]),
-        Species(id: "sparrow", name: "Chippy", emoji: "🐤",
-                rarity: .common,
+        Species(id: "sparrow", name: "House Sparrow", emoji: "🐤",
+                rarity: .common, zone: .garden,
                 blurb: "A tiny chirpy ball of feathers with a big personality.",
-                habitat: "Hedges & bushes",
+                habitatNote: "Hedges & bushes",
                 matchKeywords: ["sparrow", "songbird", "finch", "bird"]),
-        Species(id: "housecat", name: "Whiskers", emoji: "🐱",
-                rarity: .common,
+        Species(id: "housecat", name: "House Cat", emoji: "🐱",
+                rarity: .common, zone: .garden,
                 blurb: "Technically wild if it's sitting on a fence judging you.",
-                habitat: "Fences & windowsills",
+                habitatNote: "Fences & windowsills",
                 matchKeywords: ["cat", "kitten", "feline"]),
-        Species(id: "dog", name: "Pupper", emoji: "🐶",
-                rarity: .common,
+        Species(id: "dog", name: "Dog", emoji: "🐶",
+                rarity: .common, zone: .garden,
                 blurb: "A very good adventuring companion. 10/10.",
-                habitat: "Everywhere, thankfully",
+                habitatNote: "Everywhere, thankfully",
                 matchKeywords: ["dog", "puppy", "canine", "retriever", "terrier"]),
-        Species(id: "squirrel", name: "Nibbles", emoji: "🐿️",
-                rarity: .common,
+        Species(id: "squirrel", name: "Grey Squirrel", emoji: "🐿️",
+                rarity: .common, zone: .garden,
                 blurb: "Chaotic. Fluffy. Currently plotting something with an acorn.",
-                habitat: "Tree trunks & park benches",
+                habitatNote: "Tree trunks & park benches",
                 matchKeywords: ["squirrel", "chipmunk", "rodent"]),
-
-        // MARK: Uncommon — takes a little looking
-        Species(id: "duck", name: "Puddles", emoji: "🦆",
-                rarity: .uncommon,
-                blurb: "Serene on the surface, paddling like mad underneath. Relatable.",
-                habitat: "Ponds & lakesides",
-                matchKeywords: ["duck", "mallard", "waterfowl", "goose"]),
-        Species(id: "rabbit", name: "Clover", emoji: "🐰",
-                rarity: .uncommon,
-                blurb: "A shy sweetheart. Freezes adorably the moment you look.",
-                habitat: "Meadows at dawn & dusk",
-                matchKeywords: ["rabbit", "bunny", "hare"]),
-        Species(id: "butterfly", name: "Flutter", emoji: "🦋",
-                rarity: .uncommon,
-                blurb: "A living confetti flake. Impossible to photograph, worth it.",
-                habitat: "Flower patches",
-                matchKeywords: ["butterfly", "moth"]),
-        Species(id: "robin", name: "Berry", emoji: "🐦",
-                rarity: .uncommon,
+        Species(id: "robin", name: "American Robin", emoji: "🐦",
+                rarity: .uncommon, zone: .garden,
                 blurb: "Orange-breasted and cheerful. A sign spring is winning.",
-                habitat: "Garden lawns",
+                habitatNote: "Garden lawns",
                 matchKeywords: ["robin", "thrush"]),
-        Species(id: "turtle", name: "Shellby", emoji: "🐢",
-                rarity: .uncommon,
+
+        // MARK: The Pond — waterside regulars
+        Species(id: "duck", name: "Mallard Duck", emoji: "🦆",
+                rarity: .uncommon, zone: .pond,
+                blurb: "Serene on the surface, paddling like mad underneath. Relatable.",
+                habitatNote: "Ponds & lakesides",
+                matchKeywords: ["duck", "mallard", "waterfowl", "goose"]),
+        Species(id: "turtle", name: "Pond Turtle", emoji: "🐢",
+                rarity: .uncommon, zone: .pond,
                 blurb: "In no hurry whatsoever. An icon of taking it easy.",
-                habitat: "Sunny logs by the water",
+                habitatNote: "Sunny logs by the water",
                 matchKeywords: ["turtle", "tortoise", "terrapin"]),
-
-        // MARK: Rare — a lucky day
-        Species(id: "fox", name: "Ember", emoji: "🦊",
-                rarity: .rare,
-                blurb: "A flash of orange and then gone. Did you even see it?",
-                habitat: "Woodland edges at twilight",
-                matchKeywords: ["fox"]),
-        Species(id: "hedgehog", name: "Prickle", emoji: "🦔",
-                rarity: .rare,
-                blurb: "A pocket-sized bundle of spikes and snuffles.",
-                habitat: "Leaf piles after dark",
-                matchKeywords: ["hedgehog", "porcupine"]),
-        Species(id: "frog", name: "Sir Hops", emoji: "🐸",
-                rarity: .rare,
+        Species(id: "frog", name: "Green Frog", emoji: "🐸",
+                rarity: .rare, zone: .pond,
                 blurb: "Green, glossy, and extremely pleased with himself.",
-                habitat: "Reedy pond edges",
+                habitatNote: "Reedy pond edges",
                 matchKeywords: ["frog", "toad"]),
-        Species(id: "hummingbird", name: "Zippy", emoji: "🐦",
-                rarity: .rare,
-                blurb: "A jewel that moves faster than your shutter. Good luck.",
-                habitat: "Nectar feeders",
-                matchKeywords: ["hummingbird"]),
-
-        // MARK: Epic — you'll be telling people about this
-        Species(id: "deer", name: "Willow", emoji: "🦌",
-                rarity: .epic,
-                blurb: "Gentle, watchful, and gone the instant a twig snaps.",
-                habitat: "Deep forest clearings",
-                matchKeywords: ["deer", "fawn", "stag", "antelope"]),
-        Species(id: "owl", name: "Professor Hoot", emoji: "🦉",
-                rarity: .epic,
-                blurb: "Wise, silent, and staring directly into your soul.",
-                habitat: "Old trees at night",
-                matchKeywords: ["owl"]),
-        Species(id: "swan", name: "Grace", emoji: "🦢",
-                rarity: .epic,
+        Species(id: "swan", name: "Swan", emoji: "🦢",
+                rarity: .epic, zone: .pond,
                 blurb: "Elegance on water, absolute menace up close.",
-                habitat: "Still lakes",
+                habitatNote: "Still lakes",
                 matchKeywords: ["swan"]),
 
-        // MARK: Legendary — the stuff of stories
-        Species(id: "deer-white", name: "Aurora", emoji: "🦌",
-                rarity: .legendary,
+        // MARK: The Meadow — open-field sweethearts
+        Species(id: "rabbit", name: "Cottontail Rabbit", emoji: "🐰",
+                rarity: .uncommon, zone: .meadow,
+                blurb: "A shy sweetheart. Freezes adorably the moment you look.",
+                habitatNote: "Meadows at dawn & dusk",
+                matchKeywords: ["rabbit", "bunny", "hare"]),
+        Species(id: "butterfly", name: "Butterfly", emoji: "🦋",
+                rarity: .uncommon, zone: .meadow,
+                blurb: "A living confetti flake. Impossible to photograph, worth it.",
+                habitatNote: "Flower patches",
+                matchKeywords: ["butterfly", "moth"]),
+
+        // MARK: The Woods — a lucky day
+        Species(id: "fox", name: "Red Fox", emoji: "🦊",
+                rarity: .rare, zone: .woods,
+                blurb: "A flash of orange and then gone. Did you even see it?",
+                habitatNote: "Woodland edges at twilight",
+                matchKeywords: ["fox"]),
+        Species(id: "hedgehog", name: "Hedgehog", emoji: "🦔",
+                rarity: .rare, zone: .woods,
+                blurb: "A pocket-sized bundle of spikes and snuffles.",
+                habitatNote: "Leaf piles after dark",
+                matchKeywords: ["hedgehog", "porcupine"]),
+        Species(id: "deer", name: "Deer", emoji: "🦌",
+                rarity: .epic, zone: .woods,
+                blurb: "Gentle, watchful, and gone the instant a twig snaps.",
+                habitatNote: "Deep forest clearings",
+                matchKeywords: ["deer", "fawn", "stag", "antelope"]),
+        Species(id: "owl", name: "Owl", emoji: "🦉",
+                rarity: .epic, zone: .woods,
+                blurb: "Wise, silent, and staring directly into your soul.",
+                habitatNote: "Old trees at night",
+                matchKeywords: ["owl"]),
+        Species(id: "deer-white", name: "White Deer", emoji: "🦌",
+                rarity: .legendary, zone: .woods,
                 blurb: "A pale ghost of the forest. Spotting one is pure luck.",
-                habitat: "Misty mountain woods",
+                habitatNote: "Misty mountain woods",
                 matchKeywords: []),
-        Species(id: "eagle", name: "Sovereign", emoji: "🦅",
-                rarity: .legendary,
+
+        // MARK: The Treetops — up where the sky lives
+        Species(id: "hummingbird", name: "Hummingbird", emoji: "🐦",
+                rarity: .rare, zone: .sky,
+                blurb: "A jewel that moves faster than your shutter. Good luck.",
+                habitatNote: "Nectar feeders",
+                matchKeywords: ["hummingbird"]),
+        Species(id: "eagle", name: "Eagle", emoji: "🦅",
+                rarity: .legendary, zone: .sky,
                 blurb: "Rides the high winds like it owns the sky. It does.",
-                habitat: "Mountain updrafts",
+                habitatNote: "Mountain updrafts",
                 matchKeywords: ["eagle", "hawk", "falcon", "raptor"]),
     ]
 
@@ -125,6 +125,11 @@ enum CreatureCatalog {
     static func species(for id: String) -> Species? {
         if id == Species.mystery.id { return .mystery }
         return byID[id]
+    }
+
+    /// Species that belong to a given zone, in catalog order.
+    static func species(in zone: Habitat) -> [Species] {
+        all.filter { $0.zone == zone }
     }
 
     /// Given Vision's top labels (already lowercased), pick the best critter.

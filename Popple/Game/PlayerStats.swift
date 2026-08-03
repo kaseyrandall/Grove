@@ -14,6 +14,8 @@ struct PlayerStats {
 
     /// Number of unique species caught in each rarity tier.
     let rarityCounts: [Rarity: Int]
+    /// Distinct Grove zones that have at least one resident.
+    let zonesVisited: Int
     /// Approx. count of distinct places (coarse lat/lng buckets) the player caught in.
     let distinctLocations: Int
     /// True if any catch was logged before 8am / after 8pm (local time).
@@ -56,6 +58,7 @@ struct PlayerStats {
         for species in caughtSpecies { tally[species.rarity, default: 0] += 1 }
         rarityCounts = tally
         rarestCaught = caughtSpecies.max { $0.rarity < $1.rarity }
+        zonesVisited = Set(caughtSpecies.map(\.zone)).count
 
         // Distinct locations: bucket coords to ~0.01° (~1km) so nearby catches merge.
         let buckets = Set(catches.compactMap { c -> String? in

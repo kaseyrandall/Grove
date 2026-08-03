@@ -1,6 +1,7 @@
 import SwiftUI
 
 /// How special a critter is. Drives the point payout and the celebration.
+/// Presented in gentle field-guide language ("Seldom seen"), not loot grammar.
 enum Rarity: Int, CaseIterable, Codable, Comparable {
     case common
     case uncommon
@@ -23,6 +24,7 @@ enum Rarity: Int, CaseIterable, Codable, Comparable {
         }
     }
 
+    /// Plain tier name, used in breakdowns/lists.
     var title: String {
         switch self {
         case .common:    return "Common"
@@ -33,14 +35,25 @@ enum Rarity: Int, CaseIterable, Codable, Comparable {
         }
     }
 
-    /// A cute little badge emoji for the rarity.
+    /// Warm field-guide phrasing, used on badges and the catch celebration.
+    var fieldTerm: String {
+        switch self {
+        case .common:    return "Common"
+        case .uncommon:  return "Uncommon"
+        case .rare:      return "Seldom seen"
+        case .epic:      return "Rarely seen"
+        case .legendary: return "Almost mythical"
+        }
+    }
+
+    /// A soft colored heart matching the tier's tint — no crowns or gems.
     var badge: String {
         switch self {
-        case .common:    return "🌿"
-        case .uncommon:  return "🍀"
-        case .rare:      return "💎"
-        case .epic:      return "🌟"
-        case .legendary: return "👑"
+        case .common:    return "💚"
+        case .uncommon:  return "💙"
+        case .rare:      return "💜"
+        case .epic:      return "💗"
+        case .legendary: return "💛"
         }
     }
 
