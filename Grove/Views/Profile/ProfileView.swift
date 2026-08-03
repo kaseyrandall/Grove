@@ -44,7 +44,7 @@ struct ProfileView: View {
             Text("Explorer")
                 .font(.system(size: 22, weight: .heavy, design: .rounded))
                 .foregroundStyle(Theme.ink)
-            Text("Level \(stats.level) · \(stats.uniqueSpecies) friend\(stats.uniqueSpecies == 1 ? "" : "s") met")
+            Text("Level \(stats.level) · \(stats.totalSnaps) friend\(stats.totalSnaps == 1 ? "" : "s") met")
                 .font(.system(.subheadline, design: .rounded))
                 .foregroundStyle(Theme.ink.opacity(0.7))
         }

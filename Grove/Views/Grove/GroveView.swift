@@ -1,14 +1,13 @@
 import SwiftUI
 import SwiftData
 
-/// The Grove — the heart of the app. Friends you've photographed come home and
-/// settle into the habitat zone they belong to. Replaces the old flat "Dex":
-/// no `???` silhouettes, just a cozy world that fills with life as you explore.
+/// The Grove — the heart of the app. Every friend you've photographed lives here
+/// as its own individual, settled into a habitat zone. No `???` silhouettes,
+/// just a cozy world that fills with life as you explore.
 struct GroveView: View {
     @Query(sort: \Catch.caughtAt, order: .reverse) private var catches: [Catch]
-    @Query private var profiles: [FriendProfile]
 
-    private var friendCount: Int { Set(catches.map(\.speciesID)).count }
+    private var friendCount: Int { catches.count }
 
     var body: some View {
         NavigationStack {
@@ -22,7 +21,7 @@ struct GroveView: View {
 
                     VStack(spacing: 14) {
                         ForEach(Habitat.ordered) { zone in
-                            ZoneCard(zone: zone, catches: catches, profiles: profiles)
+                            ZoneCard(zone: zone, catches: catches)
                         }
                     }
                     .padding()
@@ -38,7 +37,7 @@ struct GroveView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(friendCount == 0
                      ? "Your Grove is waiting"
-                     : "\(friendCount) friend\(friendCount == 1 ? "" : "s") have visited")
+                     : "\(friendCount) friend\(friendCount == 1 ? "" : "s") have come home")
                     .font(.system(.headline, design: .rounded, weight: .bold))
                     .foregroundStyle(Theme.ink)
                 Text("Grow a place full of the life you've met.")
@@ -51,25 +50,20 @@ struct GroveView: View {
     }
 }
 
-/// One habitat zone in the Grove, with its resident friends.
+/// One habitat zone in the Grove, showing each individual friend who lives there.
 struct ZoneCard: View {
     let zone: Habitat
     let catches: [Catch]
-    let profiles: [FriendProfile]
 
-    /// Where a friend currently lives — the player's chosen zone or the default.
-    private func effectiveZone(_ species: Species) -> Habitat {
-        profiles.first { $0.speciesID == species.id }?.zoneOverride ?? species.zone
-    }
-
-    /// Friends the player has caught that live in this zone — resolved from the
-    /// catches themselves (so the Mystery Friend and any non-catalog friend show
-    /// up too), honoring any zone the player moved them to.
-    private var residents: [Species] {
-        Set(catches.map(\.speciesID))
-            .compactMap { CreatureCatalog.species(for: $0) }
-            .filter { effectiveZone($0) == zone }
-            .sorted { $0.rarity != $1.rarity ? $0.rarity > $1.rarity : $0.name < $1.name }
+    /// Individual friends who currently live in this zone (rarer kinds first).
+    private var residents: [Catch] {
+        catches
+            .filter { $0.effectiveZone == zone }
+            .sorted {
+                $0.species.rarity != $1.species.rarity
+                    ? $0.species.rarity > $1.species.rarity
+                    : $0.caughtAt > $1.caughtAt
+            }
     }
 
     var body: some View {
@@ -96,19 +90,11 @@ struct ZoneCard: View {
             } else {
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 14) {
-                        ForEach(Array(residents.enumerated()), id: \.element.id) { index, species in
+                        ForEach(Array(residents.enumerated()), id: \.element.persistentModelID) { index, friend in
                             NavigationLink {
-                                GuideEntryView(
-                                    species: species,
-                                    catches: catches.filter { $0.speciesID == species.id }
-                                )
+                                GuideEntryView(friend: friend)
                             } label: {
-                                ResidentPortrait(
-                                    species: species,
-                                    photoData: latestPhoto(for: species.id),
-                                    nickname: nickname(for: species.id),
-                                    index: index
-                                )
+                                ResidentPortrait(friend: friend, index: index)
                             }
                             .buttonStyle(.plain)
                         }
@@ -125,37 +111,17 @@ struct ZoneCard: View {
         )
         .shadow(color: Theme.ink.opacity(0.08), radius: 10, x: 0, y: 5)
     }
-
-    // catches is sorted newest-first, so the first photo hit is the latest one.
-    private func latestPhoto(for id: String) -> Data? {
-        catches.first { $0.speciesID == id && $0.photoData != nil }?.photoData
-    }
-
-    // Nickname from the friend's profile, falling back to any set on a catch.
-    private func nickname(for id: String) -> String? {
-        if let name = profiles.first(where: { $0.speciesID == id })?.nickname {
-            return name
-        }
-        return catches
-            .filter { $0.speciesID == id }
-            .min { $0.caughtAt < $1.caughtAt }?
-            .nickname
-    }
 }
 
-/// A round photo portrait of a resident, ringed in its rarity color, gently
-/// floating in place so the Grove feels alive. Each portrait is staggered by
-/// its position so they don't bob in unison.
+/// A round photo portrait of an individual friend, ringed in its rarity color,
+/// gently floating in place. Staggered by position so they don't bob in unison.
 struct ResidentPortrait: View {
-    let species: Species
-    let photoData: Data?
-    let nickname: String?
+    let friend: Catch
     var index: Int = 0
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var floating = false
 
-    // Slightly different rhythm per friend for an organic, un-synced feel.
     private var duration: Double { 2.0 + Double(index % 3) * 0.35 }
     private var startDelay: Double { Double(index) * 0.28 }
 
@@ -163,25 +129,25 @@ struct ResidentPortrait: View {
         VStack(spacing: 5) {
             ZStack {
                 Circle().fill(.white)
-                if let photoData, let ui = UIImage(data: photoData) {
+                if let data = friend.photoData, let ui = UIImage(data: data) {
                     Image(uiImage: ui)
                         .resizable()
                         .scaledToFill()
                         .clipShape(Circle())
                         .padding(3)
                 } else {
-                    Text(species.emoji).font(.system(size: 26))
+                    Text(friend.species.emoji).font(.system(size: 26))
                 }
             }
             .frame(width: 56, height: 56)
-            .overlay(Circle().stroke(species.rarity.tint, lineWidth: 3))
+            .overlay(Circle().stroke(friend.species.rarity.tint, lineWidth: 3))
             .shadow(color: Theme.ink.opacity(0.15),
                     radius: floating ? 5 : 3,
                     y: floating ? 5 : 2)
             .rotationEffect(.degrees(floating ? 2.5 : -2.5))
             .offset(y: floating ? -4 : 3)
 
-            Text(nickname ?? species.name)
+            Text(friend.displayName)
                 .font(.system(.caption2, design: .rounded, weight: .semibold))
                 .foregroundStyle(Theme.ink)
                 .lineLimit(1)
@@ -202,7 +168,7 @@ struct ResidentPortrait: View {
 
 #Preview {
     GroveView()
-        .modelContainer(for: [Catch.self, FriendProfile.self], inMemory: true)
+        .modelContainer(for: Catch.self, inMemory: true)
         .tint(Theme.accent)
         .fontDesign(.rounded)
 }

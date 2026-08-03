@@ -91,8 +91,8 @@ struct JournalView: View {
 
     private var statsRow: some View {
         HStack(spacing: 12) {
-            StatChip(value: "\(stats.uniqueSpecies)", label: "Friends", emoji: "🦋")
-            StatChip(value: "\(stats.totalSnaps)", label: "Snaps", emoji: "📸")
+            StatChip(value: "\(stats.totalSnaps)", label: "Friends", emoji: "🐾")
+            StatChip(value: "\(stats.uniqueSpecies)", label: "Kinds", emoji: "🦋")
             StatChip(value: "\(stats.zonesVisited)/\(Habitat.allCases.count)", label: "Zones", emoji: "🌿")
         }
     }

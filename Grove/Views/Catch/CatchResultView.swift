@@ -38,7 +38,7 @@ struct CatchResultView: View {
             VStack(spacing: 18) {
                 Spacer()
 
-                Text(isFirst ? "A new friend found your Grove!" : "Welcome back!")
+                Text(isFirst ? "A new friend found your Grove!" : "Another friend found your Grove!")
                     .font(.system(.headline, design: .rounded, weight: .bold))
                     .foregroundStyle(Theme.ink.opacity(0.7))
                     .multilineTextAlignment(.center)

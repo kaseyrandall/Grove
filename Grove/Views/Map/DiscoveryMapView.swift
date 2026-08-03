@@ -41,12 +41,9 @@ struct DiscoveryMapView: View {
             }
             .navigationTitle("Discovery Map")
             .navigationBarTitleDisplayMode(.inline)
-            .sheet(item: $selected) { c in
+            .sheet(item: $selected) { friend in
                 NavigationStack {
-                    GuideEntryView(
-                        species: c.species,
-                        catches: catches.filter { $0.speciesID == c.speciesID }
-                    )
+                    GuideEntryView(friend: friend)
                 }
                 .presentationDetents([.medium, .large])
             }
