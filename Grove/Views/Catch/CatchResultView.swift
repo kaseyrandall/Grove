@@ -16,6 +16,7 @@ struct CatchResultView: View {
     @State private var sparks: Int
     @State private var isFirst: Bool
     @State private var zone: Habitat
+    @State private var wasMystery: Bool
     @State private var popped = false
 
     init(result: CatchResult) {
@@ -24,64 +25,86 @@ struct CatchResultView: View {
         _sparks = State(initialValue: result.sparks)
         _isFirst = State(initialValue: result.isFirstSighting)
         _zone = State(initialValue: result.record.effectiveZone)
+        _wasMystery = State(initialValue: result.species.id == Species.mystery.id)
     }
 
     private var isMystery: Bool { species.id == Species.mystery.id }
 
     var body: some View {
-        ZStack {
-            species.rarity.tint.opacity(0.35).ignoresSafeArea()
-            Theme.background.opacity(0.4).ignoresSafeArea()
+        NavigationStack {
+            ZStack {
+                species.rarity.tint.opacity(0.35).ignoresSafeArea()
+                Theme.background.opacity(0.4).ignoresSafeArea()
 
-            if species.rarity >= .rare {
-                Confetti()
+                Confetti(themeEmoji: isMystery ? nil : species.emoji)
+
+                VStack(spacing: 0) {
+                    ScrollView {
+                        VStack(spacing: 18) {
+                            Text(isFirst ? "A new friend found your Grove!" : "Another friend found your Grove!")
+                                .font(.system(.headline, design: .rounded, weight: .bold))
+                                .foregroundStyle(Theme.ink.opacity(0.7))
+                                .multilineTextAlignment(.center)
+
+                            photo
+
+                            VStack(spacing: 8) {
+                                Text(species.name)
+                                    .font(.system(size: 30, weight: .heavy, design: .rounded))
+                                    .foregroundStyle(Theme.ink)
+                                RarityBadge(rarity: species.rarity)
+                            }
+
+                            if wasMystery {
+                                identifyPicker
+                            }
+
+                            zonePicker
+
+                            sparksCard
+
+                            if !result.newAchievements.isEmpty {
+                                achievementsUnlocked
+                            }
+
+                            #if DEBUG
+                            visionReadout
+                            #endif
+                        }
+                        .padding()
+                    }
+
+                    actionButtons
+                        .padding([.horizontal, .bottom])
+                        .padding(.top, 4)
+                }
             }
-
-            VStack(spacing: 18) {
-                Spacer()
-
-                Text(isFirst ? "A new friend found your Grove!" : "Another friend found your Grove!")
-                    .font(.system(.headline, design: .rounded, weight: .bold))
-                    .foregroundStyle(Theme.ink.opacity(0.7))
-                    .multilineTextAlignment(.center)
-
-                photo
-
-                VStack(spacing: 8) {
-                    Text(species.name)
-                        .font(.system(size: 30, weight: .heavy, design: .rounded))
-                        .foregroundStyle(Theme.ink)
-                    RarityBadge(rarity: species.rarity)
-                }
-
-                if isMystery {
-                    identifyPicker
-                }
-
-                zonePicker
-
-                sparksCard
-
-                if !result.newAchievements.isEmpty {
-                    achievementsUnlocked
-                }
-
-                #if DEBUG
-                visionReadout
-                #endif
-
-                Spacer()
-
-                GroveButton(title: "Welcome home!", systemImage: "checkmark") {
-                    dismiss()
-                }
-                .padding(.horizontal)
-            }
-            .padding()
+            .toolbar(.hidden, for: .navigationBar)
         }
         .onAppear {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.55)) {
                 popped = true
+            }
+        }
+    }
+
+    private var actionButtons: some View {
+        VStack(spacing: 10) {
+            NavigationLink {
+                GuideEntryView(friend: result.record)
+            } label: {
+                Text("View friend details")
+                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .foregroundStyle(Theme.accent)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Capsule().fill(.white))
+                    .overlay(Capsule().stroke(Theme.accent.opacity(0.4), lineWidth: 1.5))
+            }
+            .buttonStyle(.plain)
+
+            GroveButton(title: "Snap another", systemImage: "camera.fill") {
+                dismiss()
             }
         }
     }
@@ -133,13 +156,14 @@ struct CatchResultView: View {
 
     private var identifyPicker: some View {
         VStack(spacing: 10) {
-            Text("Know who this is? Tap to log it:")
+            Text(isMystery ? "Know who this is? Tap to log it:" : "Not quite? Tap the right one:")
                 .font(.system(.subheadline, design: .rounded, weight: .semibold))
                 .foregroundStyle(Theme.ink.opacity(0.7))
 
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(CreatureCatalog.all) { candidate in
+                        let selected = candidate.id == species.id
                         Button {
                             correct(to: candidate)
                         } label: {
@@ -151,8 +175,9 @@ struct CatchResultView: View {
                             }
                             .padding(.horizontal, 12)
                             .padding(.vertical, 8)
-                            .background(Capsule().fill(.white))
-                            .overlay(Capsule().stroke(candidate.rarity.tint, lineWidth: 1.5))
+                            .background(Capsule().fill(selected ? candidate.rarity.tint : .white))
+                            .overlay(Capsule().stroke(selected ? Theme.accent : candidate.rarity.tint,
+                                                      lineWidth: selected ? 2.5 : 1.5))
                         }
                         .buttonStyle(.plain)
                     }
@@ -265,10 +290,19 @@ struct CatchResultView: View {
     }
 }
 
-/// A cheap, cheerful emoji confetti burst for the rarer catches.
+/// A cheap, cheerful emoji confetti burst. When given a theme emoji (the caught
+/// friend's), the burst is mostly *that* animal, mixed with a few sparkles.
 struct Confetti: View {
-    private let pieces = ["✨", "🎉", "⭐️", "💫", "🌸", "🐾", "🦋", "🐿️", "🐰", "🦊", "🐦"]
+    var themeEmoji: String? = nil
     @State private var animate = false
+
+    private var pieces: [String] {
+        guard let e = themeEmoji else {
+            return ["✨", "🎉", "⭐️", "💫", "🌸", "🐾", "🦋", "🐿️", "🐰", "🦊", "🐦"]
+        }
+        // Weight the burst toward the animal itself, sprinkle in a little sparkle.
+        return [e, e, e, "✨", e, "🎉", e, e, "⭐️", e, "💫", e]
+    }
 
     var body: some View {
         GeometryReader { geo in

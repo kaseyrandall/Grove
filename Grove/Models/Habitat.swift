@@ -4,6 +4,7 @@ import SwiftUI
 /// and the Grove screen lays its residents out zone by zone. These double as
 /// the field-guide's natural groups — one structure, two payoffs.
 enum Habitat: String, CaseIterable, Codable, Identifiable {
+    case home
     case garden
     case pond
     case meadow
@@ -16,18 +17,20 @@ enum Habitat: String, CaseIterable, Codable, Identifiable {
     /// Display order in the Grove (roughly homebody → wild).
     var order: Int {
         switch self {
-        case .garden: return 0
-        case .pond:   return 1
-        case .meadow: return 2
-        case .woods:  return 3
-        case .sky:    return 4
-        case .wilds:  return 5
+        case .home:   return 0
+        case .garden: return 1
+        case .pond:   return 2
+        case .meadow: return 3
+        case .woods:  return 4
+        case .sky:    return 5
+        case .wilds:  return 6
         }
     }
 
     /// Full zone name, e.g. "The Garden".
     var displayName: String {
         switch self {
+        case .home:   return "Home"
         case .garden: return "The Garden"
         case .pond:   return "The Pond"
         case .meadow: return "The Meadow"
@@ -40,6 +43,7 @@ enum Habitat: String, CaseIterable, Codable, Identifiable {
     /// Short name for sentences, e.g. "Lives in your Garden".
     var shortName: String {
         switch self {
+        case .home:   return "Home"
         case .garden: return "Garden"
         case .pond:   return "Pond"
         case .meadow: return "Meadow"
@@ -51,6 +55,7 @@ enum Habitat: String, CaseIterable, Codable, Identifiable {
 
     var emoji: String {
         switch self {
+        case .home:   return "🏠"
         case .garden: return "🏡"
         case .pond:   return "🌊"
         case .meadow: return "🌼"
@@ -64,6 +69,7 @@ enum Habitat: String, CaseIterable, Codable, Identifiable {
     var gradient: LinearGradient {
         let colors: [Color]
         switch self {
+        case .home:   colors = [Color(hex: 0xFFEFE6), Color(hex: 0xFFDCC9)]
         case .garden: colors = [Color(hex: 0xEEF6DB), Color(hex: 0xDCEDC2)]
         case .pond:   colors = [Color(hex: 0xDCF1FF), Color(hex: 0xBFE6F7)]
         case .meadow: colors = [Color(hex: 0xF4F6D9), Color(hex: 0xE6EFC2)]

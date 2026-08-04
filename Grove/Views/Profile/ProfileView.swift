@@ -104,38 +104,19 @@ struct ProfileView: View {
                 .foregroundStyle(Theme.ink.opacity(0.4))
                 .padding(.leading, 6)
 
-            VStack(spacing: 0) {
-                Toggle(isOn: seedBinding) {
-                    HStack(spacing: 14) {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 18))
-                            .foregroundStyle(Theme.accent)
-                            .frame(width: 26)
-                        Text("Sample Grove data")
-                            .font(.system(.body, design: .rounded, weight: .semibold))
-                            .foregroundStyle(Theme.ink)
-                    }
-                }
-                .tint(Theme.accent)
-                .padding()
-
-                Divider().padding(.leading, 56)
-
-                Button(role: .destructive) {
-                    SeedData.eraseAll(context: context)
-                } label: {
-                    HStack(spacing: 14) {
-                        Image(systemName: "trash")
-                            .font(.system(size: 18))
-                            .frame(width: 26)
-                        Text("Erase everything")
-                            .font(.system(.body, design: .rounded, weight: .semibold))
-                        Spacer()
-                    }
-                    .padding()
-                    .contentShape(Rectangle())
+            Toggle(isOn: seedBinding) {
+                HStack(spacing: 14) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Theme.accent)
+                        .frame(width: 26)
+                    Text("Sample Grove data")
+                        .font(.system(.body, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
                 }
             }
+            .tint(Theme.accent)
+            .padding()
             .softCard()
         }
     }

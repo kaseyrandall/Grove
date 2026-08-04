@@ -109,22 +109,19 @@ struct ZoneCard: View {
                         .foregroundStyle(Theme.ink.opacity(0.45))
                     Spacer()
                 }
-                .frame(height: 84)
+                .frame(height: 72)
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 14) {
-                        ForEach(Array(residents.enumerated()), id: \.element.persistentModelID) { index, friend in
-                            NavigationLink {
-                                GuideEntryView(friend: friend)
-                            } label: {
-                                ResidentPortrait(friend: friend, index: index)
-                            }
-                            .buttonStyle(.plain)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 68), spacing: 10)], spacing: 12) {
+                    ForEach(Array(residents.enumerated()), id: \.element.persistentModelID) { index, friend in
+                        NavigationLink {
+                            GuideEntryView(friend: friend)
+                        } label: {
+                            ResidentPortrait(friend: friend, index: index)
                         }
+                        .buttonStyle(.plain)
                     }
-                    .padding(.vertical, 6)
                 }
-                .frame(height: 84)
+                .padding(.vertical, 6)
             }
         }
         .padding(14)

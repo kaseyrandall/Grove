@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 /// Preferences and app options. Kept intentionally small for now; grows as the
 /// app does (accounts, notifications, etc.).
@@ -9,7 +10,9 @@ struct SettingsView: View {
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("locationTaggingEnabled") private var locationTaggingEnabled = true
 
+    @Environment(\.modelContext) private var context
     @State private var showReplayConfirm = false
+    @State private var showEraseConfirm = false
 
     var body: some View {
         ZStack {
@@ -19,6 +22,7 @@ struct SettingsView: View {
                 VStack(spacing: 20) {
                     preferencesCard
                     introCard
+                    dangerZone
                 }
                 .padding()
                 .padding(.bottom, Theme.tabBarClearance)
@@ -30,6 +34,12 @@ struct SettingsView: View {
             Button("OK", role: .cancel) {}
         } message: {
             Text("The welcome tour will show the next time you open Grove.")
+        }
+        .confirmationDialog("Erase everything?", isPresented: $showEraseConfirm, titleVisibility: .visible) {
+            Button("Erase my whole Grove", role: .destructive) { eraseAll() }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This releases every friend and resets your Grove. This can't be undone.")
         }
     }
 
@@ -74,6 +84,46 @@ struct SettingsView: View {
             .softCard()
         }
         .buttonStyle(.plain)
+    }
+
+    private var dangerZone: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("DANGER ZONE")
+                .font(.system(size: 11, weight: .bold, design: .rounded))
+                .foregroundStyle(Color(hex: 0xE9698A))
+                .padding(.leading, 6)
+
+            Button(role: .destructive) {
+                showEraseConfirm = true
+            } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "trash.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Color(hex: 0xE9698A))
+                        .frame(width: 26)
+                    Text("Erase everything")
+                        .font(.system(.body, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Color(hex: 0xE9698A))
+                    Spacer()
+                }
+                .padding()
+                .contentShape(Rectangle())
+                .background(
+                    RoundedRectangle(cornerRadius: 22, style: .continuous)
+                        .fill(.white)
+                        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous)
+                            .stroke(Color(hex: 0xE9698A).opacity(0.35), lineWidth: 1.5))
+                )
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private func eraseAll() {
+        if let all = try? context.fetch(FetchDescriptor<Catch>()) {
+            for c in all { context.delete(c) }
+            try? context.save()
+        }
     }
 
     private func settingLabel(_ title: String, systemImage: String) -> some View {
