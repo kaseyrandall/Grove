@@ -28,7 +28,11 @@ struct GroveView: View {
                         .offset(y: shown ? 0 : -10)
                         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: shown)
 
-                    VStack(spacing: 14) {
+                    LazyVGrid(
+                        columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
+                        alignment: .leading,
+                        spacing: 12
+                    ) {
                         ForEach(Array(Habitat.ordered.enumerated()), id: \.element) { index, zone in
                             ZoneCard(zone: zone, catches: catches)
                                 .opacity(shown ? 1 : 0)
@@ -90,15 +94,17 @@ struct ZoneCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("\(zone.emoji) \(zone.displayName)")
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 4) {
+                Text("\(zone.emoji) \(zone.shortName)")
                     .font(.system(.subheadline, design: .rounded, weight: .bold))
                     .foregroundStyle(Theme.ink)
-                Spacer()
-                Text("\(residents.count) friend\(residents.count == 1 ? "" : "s")")
-                    .font(.system(.caption, design: .rounded, weight: .semibold))
-                    .foregroundStyle(Theme.ink.opacity(0.5))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                Spacer(minLength: 2)
+                Text("\(residents.count)")
+                    .font(.system(.caption, design: .rounded, weight: .bold))
+                    .foregroundStyle(Theme.ink.opacity(0.45))
             }
 
             if residents.isEmpty {
@@ -109,9 +115,9 @@ struct ZoneCard: View {
                         .foregroundStyle(Theme.ink.opacity(0.45))
                     Spacer()
                 }
-                .frame(height: 72)
+                .frame(height: 64)
             } else {
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 68), spacing: 10)], spacing: 12) {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 52), spacing: 8)], spacing: 10) {
                     ForEach(Array(residents.enumerated()), id: \.element.persistentModelID) { index, friend in
                         NavigationLink {
                             GuideEntryView(friend: friend)
