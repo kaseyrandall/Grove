@@ -28,6 +28,9 @@ final class Catch {
     /// Where it was spotted, if location was available.
     var latitude: Double?
     var longitude: Double?
+    /// A human-readable place for the coordinates (reverse-geocoded), e.g. a
+    /// park or neighborhood. Filled in shortly after the catch.
+    var placeName: String?
 
     init(
         speciesID: String,
@@ -38,7 +41,8 @@ final class Catch {
         zoneOverrideRaw: String? = nil,
         photoData: Data? = nil,
         latitude: Double? = nil,
-        longitude: Double? = nil
+        longitude: Double? = nil,
+        placeName: String? = nil
     ) {
         self.speciesID = speciesID
         self.caughtAt = caughtAt
@@ -49,6 +53,7 @@ final class Catch {
         self.photoData = photoData
         self.latitude = latitude
         self.longitude = longitude
+        self.placeName = placeName
     }
 
     /// This friend's kind (catalog entry).

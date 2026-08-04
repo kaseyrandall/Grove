@@ -175,6 +175,16 @@ struct CatchView: View {
         let after = PlayerStats(catches: allCatches + [record])
         let newAchievements = AchievementCatalog.newlyUnlocked(before: before, after: after)
 
+        // Auto-tag where we met them, in the background.
+        if let coord {
+            Task { @MainActor in
+                if let place = await Geocoder.placeName(latitude: coord.latitude, longitude: coord.longitude) {
+                    record.placeName = place
+                    try? context.save()
+                }
+            }
+        }
+
         if hapticsEnabled {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
         }

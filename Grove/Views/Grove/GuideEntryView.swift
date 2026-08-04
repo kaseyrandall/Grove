@@ -24,6 +24,11 @@ struct GuideEntryView: View {
                 VStack(spacing: 18) {
                     hero
                     nameBlock
+                    if let place = friend.placeName, !place.isEmpty {
+                        Label("Met at \(place)", systemImage: "mappin.and.ellipse")
+                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .foregroundStyle(Theme.ink.opacity(0.7))
+                    }
                     metaRow
                     infoCard
                 }
@@ -33,6 +38,15 @@ struct GuideEntryView: View {
         }
         .navigationTitle(species.name)
         .navigationBarTitleDisplayMode(.inline)
+        .task {
+            // Fill in the place name for older catches (or if it wasn't ready yet).
+            if friend.placeName == nil, let lat = friend.latitude, let lng = friend.longitude {
+                if let place = await Geocoder.placeName(latitude: lat, longitude: lng) {
+                    friend.placeName = place
+                    try? context.save()
+                }
+            }
+        }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("Edit") { showEdit = true }
