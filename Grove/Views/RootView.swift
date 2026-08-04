@@ -28,13 +28,16 @@ struct RootView: View {
             case .profile:  ProfileView()
             }
         }
+        // Cross-fade between tabs instead of an instant swap.
+        .id(selection)
+        .transition(.opacity)
         // The bar floats over content; each scrollable page adds
         // `Theme.tabBarClearance` bottom padding so its content clears it.
         .overlay(alignment: .bottom) {
             GroveTabBar(
                 selection: $selection,
                 showCoachMark: showCoachMark,
-                onCatch: { selection = .catchTab }
+                onCatch: { withAnimation(.easeInOut(duration: 0.22)) { selection = .catchTab } }
             )
         }
         .animation(.spring(response: 0.4, dampingFraction: 0.8), value: showCoachMark)

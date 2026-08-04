@@ -64,7 +64,7 @@ private struct TabBarItem: View {
 
     var body: some View {
         Button {
-            selection = tab
+            withAnimation(.easeInOut(duration: 0.22)) { selection = tab }
         } label: {
             VStack(spacing: 3) {
                 Image(systemName: icon)
@@ -75,6 +75,7 @@ private struct TabBarItem: View {
             .foregroundStyle(isSelected ? Theme.accent : Theme.ink.opacity(0.35))
             .frame(maxWidth: .infinity)
             .contentShape(Rectangle())
+            .animation(.easeInOut(duration: 0.2), value: isSelected)
         }
         .buttonStyle(.plain)
     }
