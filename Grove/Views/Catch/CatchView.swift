@@ -153,7 +153,8 @@ struct CatchView: View {
         isIdentifying = true
         defer { isIdentifying = false }
 
-        let species = await AnimalClassifier.identify(image)
+        let labels = await AnimalClassifier.classify(image)
+        let species = CreatureCatalog.match(labels: labels)
 
         let isFirst = !allCatches.contains { $0.speciesID == species.id }
         let sparks = Progression.sparks(for: species, isFirstSighting: isFirst)
@@ -194,7 +195,8 @@ struct CatchView: View {
             sparks: sparks,
             isFirstSighting: isFirst,
             image: image,
-            newAchievements: newAchievements
+            newAchievements: newAchievements,
+            visionLabels: labels
         )
     }
 
@@ -231,6 +233,8 @@ struct CatchResult: Identifiable {
     let isFirstSighting: Bool
     let image: UIImage
     let newAchievements: [Achievement]
+    /// Raw Vision labels for this photo — used for the DEBUG identification readout.
+    var visionLabels: [String] = []
 }
 
 #Preview {

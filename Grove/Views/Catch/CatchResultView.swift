@@ -66,6 +66,10 @@ struct CatchResultView: View {
                     achievementsUnlocked
                 }
 
+                #if DEBUG
+                visionReadout
+                #endif
+
                 Spacer()
 
                 GroveButton(title: "Welcome home!", systemImage: "checkmark") {
@@ -218,6 +222,26 @@ struct CatchResultView: View {
         result.record.zoneOverride = (habitat == species.zone) ? nil : habitat
         try? context.save()
     }
+
+    // MARK: DEBUG — what Vision actually saw (for the on-device reality check)
+
+    #if DEBUG
+    private var visionReadout: some View {
+        VStack(spacing: 4) {
+            Text("🔎 Vision saw")
+                .font(.system(size: 10, weight: .bold, design: .monospaced))
+                .foregroundStyle(Theme.ink.opacity(0.5))
+            Text(result.visionLabels.isEmpty ? "— nothing —" : result.visionLabels.prefix(8).joined(separator: ", "))
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(Theme.ink.opacity(0.7))
+                .multilineTextAlignment(.center)
+                .lineLimit(3)
+        }
+        .padding(.vertical, 8)
+        .padding(.horizontal, 16)
+        .background(RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.6)))
+    }
+    #endif
 
     // MARK: Achievements
 
