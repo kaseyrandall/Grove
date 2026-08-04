@@ -1,10 +1,11 @@
 import SwiftUI
 import SwiftData
 
-/// Customize an individual friend: give them a nickname, choose which Grove zone
-/// they live in, or release them back to the wild. Edits the friend's `Catch`
-/// directly. Releasing is signalled to the presenter via `onRelease` (which
-/// performs the delete once this sheet closes, so we never touch a deleted model).
+/// Customize an individual friend: identify a Mystery Friend, give them a
+/// nickname, choose which Grove zone they live in, or release them back to the
+/// wild. Edits the friend's `Catch` directly. Releasing is signalled to the
+/// presenter via `onRelease` (which performs the delete once this sheet closes,
+/// so we never touch a deleted model).
 struct EditFriendView: View {
     let friend: Catch
     let onRelease: () -> Void
@@ -12,6 +13,8 @@ struct EditFriendView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
 
+    /// The friend's kind — mutable so a Mystery Friend can be identified here.
+    @State private var species: Species
     @State private var nickname: String
     @State private var zone: Habitat
     @State private var showReleaseConfirm = false
@@ -21,11 +24,12 @@ struct EditFriendView: View {
     init(friend: Catch, onRelease: @escaping () -> Void) {
         self.friend = friend
         self.onRelease = onRelease
+        _species = State(initialValue: friend.species)
         _nickname = State(initialValue: friend.nickname ?? "")
         _zone = State(initialValue: friend.effectiveZone)
     }
 
-    private var species: Species { friend.species }
+    private var isMystery: Bool { species.id == Species.mystery.id }
 
     var body: some View {
         NavigationStack {
@@ -35,6 +39,7 @@ struct EditFriendView: View {
                 ScrollView {
                     VStack(spacing: 22) {
                         preview
+                        if isMystery { identifySection }
                         nicknameField
                         zonePicker
                         releaseButton
@@ -77,7 +82,70 @@ struct EditFriendView: View {
         .frame(height: 130)
         .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(alignment: .bottomTrailing) {
+            if !isMystery {
+                Text("\(species.emoji) \(species.name)")
+                    .font(.system(.caption, design: .rounded, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                    .padding(.horizontal, 10).padding(.vertical, 6)
+                    .background(Capsule().fill(.white.opacity(0.92)))
+                    .padding(12)
+            }
+        }
         .animation(.easeInOut(duration: 0.25), value: zone)
+    }
+
+    // MARK: Identify (Mystery Friends only)
+
+    private var identifySection: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                sectionLabel("WHAT IS IT?")
+                Text("Tap the animal you spotted to identify this friend.")
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundStyle(Theme.ink.opacity(0.55))
+                    .padding(.leading, 6)
+            }
+
+            ForEach(Habitat.ordered) { habitat in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("\(habitat.emoji) \(habitat.shortName)")
+                        .font(.system(.caption2, design: .rounded, weight: .bold))
+                        .foregroundStyle(Theme.ink.opacity(0.5))
+                        .padding(.leading, 6)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(CreatureCatalog.species(in: habitat)) { candidate in
+                                candidateChip(candidate)
+                            }
+                        }
+                        .padding(.horizontal, 4)
+                    }
+                }
+            }
+        }
+    }
+
+    private func candidateChip(_ candidate: Species) -> some View {
+        Button {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
+                species = candidate
+                zone = candidate.zone
+            }
+        } label: {
+            HStack(spacing: 5) {
+                Text(candidate.emoji)
+                Text(candidate.name)
+                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Capsule().fill(.white))
+            .overlay(Capsule().stroke(candidate.rarity.tint, lineWidth: 1.5))
+        }
+        .buttonStyle(.plain)
     }
 
     private var nicknameField: some View {
@@ -145,9 +213,20 @@ struct EditFriendView: View {
     }
 
     private func save() {
+        // If a Mystery Friend was identified, re-log it as the chosen kind and
+        // recompute its first-of-kind bonus + sparks.
+        if species.id != friend.speciesID {
+            let others = (try? context.fetch(FetchDescriptor<Catch>())) ?? []
+            let isFirst = !others.contains { $0 !== friend && $0.speciesID == species.id }
+            friend.speciesID = species.id
+            friend.isFirstSighting = isFirst
+            friend.sparksEarned = Progression.sparks(for: species, isFirstSighting: isFirst)
+        }
+
         let trimmed = nickname.trimmingCharacters(in: .whitespacesAndNewlines)
         friend.nickname = trimmed.isEmpty ? nil : trimmed
         friend.zoneOverride = (zone == species.zone) ? nil : zone
+
         try? context.save()
         dismiss()
     }

@@ -14,6 +14,7 @@ struct GuideEntryView: View {
     private var species: Species { friend.species }
     private var zone: Habitat { friend.effectiveZone }
     private var nickname: String? { friend.nickname }
+    private var isMystery: Bool { species.id == Species.mystery.id }
 
     var body: some View {
         ZStack {
@@ -92,7 +93,11 @@ struct GuideEntryView: View {
                 .foregroundStyle(Theme.ink)
 
             Button { showEdit = true } label: {
-                if let nickname, !nickname.isEmpty {
+                if isMystery {
+                    Label("Tap to identify this friend", systemImage: "questionmark.circle.fill")
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .foregroundStyle(Theme.accent)
+                } else if let nickname, !nickname.isEmpty {
                     Text("you named it “\(nickname)”  ✎")
                         .font(.system(.subheadline, design: .rounded))
                         .foregroundStyle(Theme.ink.opacity(0.7))

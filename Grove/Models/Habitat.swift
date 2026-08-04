@@ -9,6 +9,7 @@ enum Habitat: String, CaseIterable, Codable, Identifiable {
     case meadow
     case woods
     case sky
+    case wilds
 
     var id: String { rawValue }
 
@@ -20,6 +21,7 @@ enum Habitat: String, CaseIterable, Codable, Identifiable {
         case .meadow: return 2
         case .woods:  return 3
         case .sky:    return 4
+        case .wilds:  return 5
         }
     }
 
@@ -31,6 +33,7 @@ enum Habitat: String, CaseIterable, Codable, Identifiable {
         case .meadow: return "The Meadow"
         case .woods:  return "The Woods"
         case .sky:    return "The Treetops"
+        case .wilds:  return "The Wilds"
         }
     }
 
@@ -42,6 +45,7 @@ enum Habitat: String, CaseIterable, Codable, Identifiable {
         case .meadow: return "Meadow"
         case .woods:  return "Woods"
         case .sky:    return "Treetops"
+        case .wilds:  return "Wilds"
         }
     }
 
@@ -52,6 +56,7 @@ enum Habitat: String, CaseIterable, Codable, Identifiable {
         case .meadow: return "🌼"
         case .woods:  return "🌲"
         case .sky:    return "🌤️"
+        case .wilds:  return "🌴"
         }
     }
 
@@ -64,6 +69,7 @@ enum Habitat: String, CaseIterable, Codable, Identifiable {
         case .meadow: colors = [Color(hex: 0xF4F6D9), Color(hex: 0xE6EFC2)]
         case .woods:  colors = [Color(hex: 0xDCF0DC), Color(hex: 0xC2E4C2)]
         case .sky:    colors = [Color(hex: 0xDDEFFF), Color(hex: 0xC7E4FF)]
+        case .wilds:  colors = [Color(hex: 0xFCE9C9), Color(hex: 0xF6D6A0)]
         }
         return LinearGradient(colors: colors, startPoint: .top, endPoint: .bottom)
     }
