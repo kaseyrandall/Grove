@@ -7,7 +7,13 @@ import SwiftData
 struct GroveView: View {
     @Query(sort: \Catch.caughtAt, order: .reverse) private var catches: [Catch]
 
+    /// Play the graceful entrance only the first time the Grove is ever shown —
+    /// i.e. right after the tutorial.
+    @AppStorage("hasSeenGroveIntro") private var seenIntro = false
+    @State private var revealed = false
+
     private var friendCount: Int { catches.count }
+    private var shown: Bool { seenIntro || revealed }
 
     var body: some View {
         NavigationStack {
@@ -18,10 +24,20 @@ struct GroveView: View {
                     header
                         .padding(.horizontal)
                         .padding(.top, 4)
+                        .opacity(shown ? 1 : 0)
+                        .offset(y: shown ? 0 : -10)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: shown)
 
                     VStack(spacing: 14) {
-                        ForEach(Habitat.ordered) { zone in
+                        ForEach(Array(Habitat.ordered.enumerated()), id: \.element) { index, zone in
                             ZoneCard(zone: zone, catches: catches)
+                                .opacity(shown ? 1 : 0)
+                                .offset(y: shown ? 0 : 26)
+                                .animation(
+                                    .spring(response: 0.55, dampingFraction: 0.82)
+                                    .delay(0.1 + Double(index) * 0.07),
+                                    value: shown
+                                )
                         }
                     }
                     .padding()
@@ -29,6 +45,12 @@ struct GroveView: View {
                 }
             }
             .navigationTitle("Your Grove")
+            .onAppear {
+                guard !seenIntro else { return }
+                revealed = true
+                // Persist once the cascade has finished so it never replays.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { seenIntro = true }
+            }
         }
     }
 

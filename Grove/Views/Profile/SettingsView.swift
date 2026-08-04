@@ -5,6 +5,7 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage("hasCompletedOnboarding") private var hasOnboarded = false
     @AppStorage("hasSeenCatchCoachMark") private var hasSeenCoachMark = false
+    @AppStorage("hasSeenGroveIntro") private var hasSeenGroveIntro = false
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("locationTaggingEnabled") private var locationTaggingEnabled = true
 
@@ -55,6 +56,7 @@ struct SettingsView: View {
         Button {
             hasOnboarded = false
             hasSeenCoachMark = false
+            hasSeenGroveIntro = false
             showReplayConfirm = true
         } label: {
             HStack(spacing: 14) {
