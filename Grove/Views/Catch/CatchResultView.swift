@@ -15,6 +15,7 @@ struct CatchResultView: View {
     @State private var species: Species
     @State private var sparks: Int
     @State private var isFirst: Bool
+    @State private var zone: Habitat
     @State private var popped = false
 
     init(result: CatchResult) {
@@ -22,6 +23,7 @@ struct CatchResultView: View {
         _species = State(initialValue: result.species)
         _sparks = State(initialValue: result.sparks)
         _isFirst = State(initialValue: result.isFirstSighting)
+        _zone = State(initialValue: result.record.effectiveZone)
     }
 
     private var isMystery: Bool { species.id == Species.mystery.id }
@@ -50,14 +52,13 @@ struct CatchResultView: View {
                         .font(.system(size: 30, weight: .heavy, design: .rounded))
                         .foregroundStyle(Theme.ink)
                     RarityBadge(rarity: species.rarity)
-                    Text("\(species.zone.emoji) joined your \(species.zone.shortName)")
-                        .font(.system(.caption, design: .rounded, weight: .semibold))
-                        .foregroundStyle(Theme.ink.opacity(0.6))
                 }
 
                 if isMystery {
                     identifyPicker
                 }
+
+                zonePicker
 
                 sparksCard
 
@@ -167,6 +168,7 @@ struct CatchResultView: View {
         result.record.speciesID = chosen.id
         result.record.isFirstSighting = first
         result.record.sparksEarned = newSparks
+        result.record.zoneOverride = nil // default to the identified kind's zone
         try? context.save()
 
         if hapticsEnabled {
@@ -176,7 +178,45 @@ struct CatchResultView: View {
             species = chosen
             sparks = newSparks
             isFirst = first
+            zone = chosen.zone
         }
+    }
+
+    // MARK: Found-in zone
+
+    private var zonePicker: some View {
+        VStack(spacing: 8) {
+            Text("Found in your…")
+                .font(.system(.caption, design: .rounded, weight: .semibold))
+                .foregroundStyle(Theme.ink.opacity(0.55))
+
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(Habitat.ordered) { habitat in
+                        Button { setZone(habitat) } label: {
+                            Text("\(habitat.emoji) \(habitat.shortName)")
+                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                .foregroundStyle(Theme.ink)
+                                .padding(.horizontal, 12)
+                                .padding(.vertical, 8)
+                                .background(
+                                    Capsule().fill(zone == habitat ? habitat.gradient
+                                                   : LinearGradient(colors: [.white, .white], startPoint: .top, endPoint: .bottom))
+                                )
+                                .overlay(Capsule().stroke(zone == habitat ? Theme.accent : Theme.ink.opacity(0.1), lineWidth: 1.5))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 4)
+            }
+        }
+    }
+
+    private func setZone(_ habitat: Habitat) {
+        withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { zone = habitat }
+        result.record.zoneOverride = (habitat == species.zone) ? nil : habitat
+        try? context.save()
     }
 
     // MARK: Achievements
