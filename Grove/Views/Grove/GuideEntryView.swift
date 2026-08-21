@@ -36,7 +36,7 @@ struct GuideEntryView: View {
                 .padding(.bottom, Theme.tabBarClearance)
             }
         }
-        .navigationTitle(species.name)
+        .navigationTitle("\(species.emoji) \(species.name)")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             // Fill in the place name for older catches (or if it wasn't ready yet).
@@ -102,9 +102,13 @@ struct GuideEntryView: View {
 
     private var nameBlock: some View {
         VStack(spacing: 4) {
-            Text(species.name)
+            // The friend's own name leads — their nickname if they have one,
+            // otherwise their kind. The kind always shows in the nav bar, so we
+            // don't repeat it here.
+            Text(friend.displayName)
                 .font(.system(size: 26, weight: .heavy, design: .rounded))
                 .foregroundStyle(Theme.ink)
+                .multilineTextAlignment(.center)
 
             Button { showEdit = true } label: {
                 if isMystery {
@@ -112,9 +116,9 @@ struct GuideEntryView: View {
                         .font(.system(.subheadline, design: .rounded, weight: .bold))
                         .foregroundStyle(Theme.accent)
                 } else if let nickname, !nickname.isEmpty {
-                    Text("you named it “\(nickname)”  ✎")
-                        .font(.system(.subheadline, design: .rounded))
-                        .foregroundStyle(Theme.ink.opacity(0.7))
+                    Label("Tap to rename", systemImage: "pencil")
+                        .font(.system(.caption, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Theme.ink.opacity(0.4))
                 } else {
                     Label("Give it a nickname", systemImage: "pencil")
                         .font(.system(.subheadline, design: .rounded, weight: .semibold))
