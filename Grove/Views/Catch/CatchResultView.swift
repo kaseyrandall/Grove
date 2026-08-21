@@ -6,6 +6,9 @@ import SwiftData
 /// who it really was — which re-logs the catch as that friend.
 struct CatchResultView: View {
     let result: CatchResult
+    /// Called when the player is done celebrating — the presenter uses it to
+    /// leave the catch flow (e.g. hop over to the Grove to see the new friend).
+    var onDone: () -> Void = {}
 
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var context
@@ -18,9 +21,12 @@ struct CatchResultView: View {
     @State private var zone: Habitat
     @State private var wasMystery: Bool
     @State private var popped = false
+    /// Drives the push to the full, searchable catalog.
+    @State private var showPicker = false
 
-    init(result: CatchResult) {
+    init(result: CatchResult, onDone: @escaping () -> Void = {}) {
         self.result = result
+        self.onDone = onDone
         _species = State(initialValue: result.species)
         _sparks = State(initialValue: result.sparks)
         _isFirst = State(initialValue: result.isFirstSighting)
@@ -55,9 +61,7 @@ struct CatchResultView: View {
                                 RarityBadge(rarity: species.rarity)
                             }
 
-                            if wasMystery {
-                                identifyPicker
-                            }
+                            identifySection
 
                             zonePicker
 
@@ -80,6 +84,11 @@ struct CatchResultView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(isPresented: $showPicker) {
+                SpeciesPickerView(selectedID: species.id) { picked in
+                    correct(to: picked)
+                }
+            }
         }
         .onAppear {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.55)) {
@@ -90,23 +99,35 @@ struct CatchResultView: View {
 
     private var actionButtons: some View {
         VStack(spacing: 10) {
-            NavigationLink {
-                GuideEntryView(friend: result.record)
-            } label: {
-                Text("View friend details")
-                    .font(.system(.headline, design: .rounded, weight: .bold))
-                    .foregroundStyle(Theme.accent)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 14)
-                    .background(Capsule().fill(.white))
-                    .overlay(Capsule().stroke(Theme.accent.opacity(0.4), lineWidth: 1.5))
+            GroveButton(title: "Done", systemImage: "checkmark") {
+                onDone()
             }
-            .buttonStyle(.plain)
+            HStack(spacing: 10) {
+                NavigationLink {
+                    GuideEntryView(friend: result.record)
+                } label: {
+                    secondaryLabel("Details", systemImage: "book.closed.fill")
+                }
+                .buttonStyle(.plain)
 
-            GroveButton(title: "Snap another", systemImage: "camera.fill") {
-                dismiss()
+                Button { dismiss() } label: {
+                    secondaryLabel("Snap another", systemImage: "camera.fill")
+                }
+                .buttonStyle(.plain)
             }
         }
+    }
+
+    private func secondaryLabel(_ title: String, systemImage: String) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage)
+            Text(title).font(.system(.subheadline, design: .rounded, weight: .bold))
+        }
+        .foregroundStyle(Theme.accent)
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(Capsule().fill(.white))
+        .overlay(Capsule().stroke(Theme.accent.opacity(0.4), lineWidth: 1.5))
     }
 
     // MARK: Photo
@@ -154,36 +175,49 @@ struct CatchResultView: View {
 
     // MARK: Mystery identification
 
-    private var identifyPicker: some View {
-        VStack(spacing: 10) {
-            Text(isMystery ? "Know who this is? Tap to log it:" : "Not quite? Tap the right one:")
-                .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                .foregroundStyle(Theme.ink.opacity(0.7))
+    /// Best guesses drawn from this photo's Vision labels, minus what's already
+    /// chosen — the same signal the editor uses.
+    private var suggestions: [Species] {
+        CreatureCatalog.smartSuggestions(labels: result.visionLabels)
+            .filter { $0.id != species.id }
+    }
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(CreatureCatalog.all) { candidate in
-                        let selected = candidate.id == species.id
-                        Button {
-                            correct(to: candidate)
-                        } label: {
-                            HStack(spacing: 5) {
-                                Text(candidate.emoji)
-                                Text(candidate.name)
-                                    .font(.system(.caption, design: .rounded, weight: .semibold))
-                                    .foregroundStyle(Theme.ink)
-                            }
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 8)
-                            .background(Capsule().fill(selected ? candidate.rarity.tint : .white))
-                            .overlay(Capsule().stroke(selected ? Theme.accent : candidate.rarity.tint,
-                                                      lineWidth: selected ? 2.5 : 1.5))
+    /// Identify a Mystery Friend, or correct a wrong guess — mirrors the editor:
+    /// a few photo-based suggestions up front, the full catalog behind a door.
+    private var identifySection: some View {
+        VStack(spacing: 10) {
+            if wasMystery {
+                Text(isMystery ? "Know who this is?" : "Not quite? Tap the right one:")
+                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .foregroundStyle(Theme.ink.opacity(0.7))
+
+                if !suggestions.isEmpty {
+                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 10)], spacing: 10) {
+                        ForEach(suggestions) { candidate in
+                            SpeciesTile(species: candidate, isSelected: false) { correct(to: candidate) }
                         }
-                        .buttonStyle(.plain)
                     }
                 }
-                .padding(.horizontal, 4)
             }
+
+            Button { showPicker = true } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "square.grid.2x2.fill").foregroundStyle(Theme.accent)
+                    Text(isMystery ? "Browse all animals" : "Not a \(species.name)? Choose another")
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    Spacer(minLength: 0)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(Theme.ink.opacity(0.3))
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.white))
+            }
+            .buttonStyle(.plain)
         }
     }
 

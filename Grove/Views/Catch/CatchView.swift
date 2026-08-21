@@ -10,6 +10,10 @@ import PhotosUI
 /// loop stays testable in the Simulator, which has no camera. It is compiled out
 /// of release builds entirely.)
 struct CatchView: View {
+    /// Called when the player finishes a catch and wants out of the flow —
+    /// the root uses it to slide over to the Grove.
+    var onFinished: () -> Void = {}
+
     @Environment(\.modelContext) private var context
     @Query private var allCatches: [Catch]
 
@@ -47,8 +51,12 @@ struct CatchView: View {
             location.stop()
         }
         .sheet(item: $result) { result in
-            CatchResultView(result: result)
-                .presentationDetents([.large])
+            CatchResultView(result: result, onDone: {
+                self.result = nil
+                onFinished()
+            })
+            .presentationDetents([.large])
+            .presentationDragIndicator(.visible)
         }
     }
 

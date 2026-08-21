@@ -23,7 +23,9 @@ struct RootView: View {
             switch selection {
             case .grove:    GroveView()
             case .map:      DiscoveryMapView()
-            case .catchTab: CatchView()
+            case .catchTab: CatchView(onFinished: {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { selection = .grove }
+            })
             case .journal:  JournalView()
             case .profile:  ProfileView()
             }
