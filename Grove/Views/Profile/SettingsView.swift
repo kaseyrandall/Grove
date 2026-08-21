@@ -9,8 +9,10 @@ struct SettingsView: View {
     @AppStorage("hasSeenGroveIntro") private var hasSeenGroveIntro = false
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("locationTaggingEnabled") private var locationTaggingEnabled = true
+    @AppStorage("notificationsEnabled") private var notificationsEnabled = true
 
     @Environment(\.modelContext) private var context
+    @Query private var catches: [Catch]
     @State private var showReplayConfirm = false
     @State private var showEraseConfirm = false
 
@@ -45,6 +47,21 @@ struct SettingsView: View {
 
     private var preferencesCard: some View {
         VStack(spacing: 0) {
+            Toggle(isOn: $notificationsEnabled) {
+                settingLabel("Reminders", systemImage: "bell.fill")
+            }
+            .tint(Theme.accent)
+            .padding()
+            .onChange(of: notificationsEnabled) { _, on in
+                if on {
+                    NotificationManager.refresh(catches: catches, enabled: true)
+                } else {
+                    NotificationManager.cancelAll()
+                }
+            }
+
+            Divider().padding(.leading, 56)
+
             Toggle(isOn: $hapticsEnabled) {
                 settingLabel("Haptics", systemImage: "hand.tap.fill")
             }

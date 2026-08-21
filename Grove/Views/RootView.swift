@@ -9,6 +9,8 @@ enum RootTab: Hashable {
 struct RootView: View {
     @AppStorage("hasCompletedOnboarding") private var hasOnboarded = false
     @AppStorage("hasSeenCatchCoachMark") private var hasSeenCoachMark = false
+    @AppStorage("notificationsEnabled") private var notificationsEnabled = true
+    @Environment(\.scenePhase) private var scenePhase
     @State private var selection: RootTab = .grove
     @Query private var catches: [Catch]
 
@@ -46,9 +48,20 @@ struct RootView: View {
         .onChange(of: selection) { _, newValue in
             if newValue == .catchTab { hasSeenCoachMark = true }
         }
+        // Retention reminders: reschedule on launch, when a catch lands, and
+        // whenever we come back to the foreground.
+        .task { refreshReminders() }
+        .onChange(of: catches.count) { _, _ in refreshReminders() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { refreshReminders() }
+        }
         .fullScreenCover(isPresented: onboardingBinding) {
             OnboardingView { hasOnboarded = true }
         }
+    }
+
+    private func refreshReminders() {
+        NotificationManager.refresh(catches: catches, enabled: notificationsEnabled)
     }
 
     /// Presents onboarding whenever it hasn't been completed — so "Replay the

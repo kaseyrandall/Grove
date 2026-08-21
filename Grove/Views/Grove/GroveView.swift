@@ -28,6 +28,13 @@ struct GroveView: View {
                         .offset(y: shown ? 0 : -10)
                         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: shown)
 
+                    dailyChallengeCard
+                        .padding(.horizontal)
+                        .padding(.top, 12)
+                        .opacity(shown ? 1 : 0)
+                        .offset(y: shown ? 0 : -6)
+                        .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.05), value: shown)
+
                     HStack(alignment: .top, spacing: 12) {
                         masonryColumn(masonry.left)
                         masonryColumn(masonry.right)
@@ -93,7 +100,7 @@ struct GroveView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text(friendCount == 0
                      ? "Your Grove is waiting"
-                     : "\(friendCount) friend\(friendCount == 1 ? "" : "s") have come home")
+                     : "\(friendCount) friend\(friendCount == 1 ? " has" : "s have") come home")
                     .font(.system(.headline, design: .rounded, weight: .bold))
                     .foregroundStyle(Theme.ink)
                 Text("Grow a place full of the life you've met.")
@@ -103,6 +110,46 @@ struct GroveView: View {
             Spacer()
         }
         .padding(.vertical, 4)
+    }
+
+    /// Today's bite-sized goal — a fresh reason to open the app each day.
+    private var dailyChallengeCard: some View {
+        let challenge = DailyChallenge.today()
+        let todays = catches.filter { Calendar.current.isDateInToday($0.caughtAt) }
+        let stats = PlayerStats(catches: catches)
+        let complete = challenge.isComplete(todays, stats)
+
+        return HStack(spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(complete ? Theme.mint.opacity(0.55) : Theme.accent.opacity(0.14))
+                    .frame(width: 48, height: 48)
+                Text(complete ? "✅" : challenge.emoji)
+                    .font(.system(size: 24))
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                Text("TODAY'S CHALLENGE")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundStyle(Theme.ink.opacity(0.4))
+                Text(challenge.title)
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(2)
+                if complete {
+                    Text("Done — nice work! 🎉")
+                        .font(.system(.caption, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                } else if challenge.goal > 1 {
+                    Text("\(challenge.current(todays, stats))/\(challenge.goal)")
+                        .font(.system(.caption, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Theme.ink.opacity(0.5))
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity)
+        .softCard()
     }
 }
 
