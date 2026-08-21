@@ -28,21 +28,9 @@ struct GroveView: View {
                         .offset(y: shown ? 0 : -10)
                         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: shown)
 
-                    LazyVGrid(
-                        columns: [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)],
-                        alignment: .leading,
-                        spacing: 12
-                    ) {
-                        ForEach(Array(Habitat.ordered.enumerated()), id: \.element) { index, zone in
-                            ZoneCard(zone: zone, catches: catches)
-                                .opacity(shown ? 1 : 0)
-                                .offset(y: shown ? 0 : 26)
-                                .animation(
-                                    .spring(response: 0.55, dampingFraction: 0.82)
-                                    .delay(0.1 + Double(index) * 0.07),
-                                    value: shown
-                                )
-                        }
+                    HStack(alignment: .top, spacing: 12) {
+                        masonryColumn(masonry.left)
+                        masonryColumn(masonry.right)
                     }
                     .padding()
                     .padding(.bottom, Theme.tabBarClearance)
@@ -56,6 +44,47 @@ struct GroveView: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { seenIntro = true }
             }
         }
+    }
+
+    /// Split the zones into two independently-flowing columns, greedily placing
+    /// each into whichever column is currently shorter. Unlike a `LazyVGrid`,
+    /// this lets a tall, busy zone sit beside a short one without a locked-row
+    /// gap — the cards pack gracefully however full each zone happens to be.
+    private var masonry: (left: [(index: Int, zone: Habitat)], right: [(index: Int, zone: Habitat)]) {
+        var left: [(index: Int, zone: Habitat)] = []
+        var right: [(index: Int, zone: Habitat)] = []
+        var leftWeight = 0.0, rightWeight = 0.0
+        for (index, zone) in Habitat.ordered.enumerated() {
+            if leftWeight <= rightWeight {
+                left.append((index, zone)); leftWeight += weight(of: zone)
+            } else {
+                right.append((index, zone)); rightWeight += weight(of: zone)
+            }
+        }
+        return (left, right)
+    }
+
+    /// A rough estimate of a zone card's height, used only to balance columns.
+    private func weight(of zone: Habitat) -> Double {
+        let residents = catches.filter { $0.effectiveZone == zone }.count
+        guard residents > 0 else { return 1 }              // header + "quiet spot" line
+        return 1 + (Double(residents) / 3.0).rounded(.up)  // header + rows of avatars
+    }
+
+    private func masonryColumn(_ items: [(index: Int, zone: Habitat)]) -> some View {
+        VStack(spacing: 12) {
+            ForEach(items, id: \.zone) { item in
+                ZoneCard(zone: item.zone, catches: catches)
+                    .opacity(shown ? 1 : 0)
+                    .offset(y: shown ? 0 : 26)
+                    .animation(
+                        .spring(response: 0.55, dampingFraction: 0.82)
+                        .delay(0.1 + Double(item.index) * 0.07),
+                        value: shown
+                    )
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 
     private var header: some View {
@@ -152,33 +181,39 @@ struct ResidentPortrait: View {
     private var startDelay: Double { Double(index) * 0.28 }
 
     var body: some View {
-        VStack(spacing: 5) {
-            ZStack {
-                Circle().fill(.white)
-                if let data = friend.photoData, let ui = UIImage(data: data) {
-                    Image(uiImage: ui)
-                        .resizable()
-                        .scaledToFill()
-                        .clipShape(Circle())
-                        .padding(3)
-                } else {
-                    Text(friend.species.emoji).font(.system(size: 26))
-                }
+        ZStack {
+            Circle().fill(.white)
+            if let data = friend.photoData, let ui = UIImage(data: data) {
+                Image(uiImage: ui)
+                    .resizable()
+                    .scaledToFill()
+                    .clipShape(Circle())
+                    .padding(3)
+            } else {
+                Text(friend.species.emoji).font(.system(size: 26))
             }
-            .frame(width: 56, height: 56)
-            .overlay(Circle().stroke(friend.species.rarity.tint, lineWidth: 3))
-            .shadow(color: Theme.ink.opacity(0.15),
-                    radius: floating ? 5 : 3,
-                    y: floating ? 5 : 2)
-            .rotationEffect(.degrees(floating ? 2.5 : -2.5))
-            .offset(y: floating ? -4 : 3)
-
-            Text(friend.displayName)
-                .font(.system(.caption2, design: .rounded, weight: .semibold))
-                .foregroundStyle(Theme.ink)
-                .lineLimit(1)
-                .frame(maxWidth: 66)
         }
+        .frame(width: 56, height: 56)
+        .overlay(Circle().stroke(friend.species.rarity.tint, lineWidth: 3))
+        // The kind, as a small badge on the corner — replaces the name label.
+        // Skipped when there's no photo, since the avatar is already the emoji.
+        .overlay(alignment: .bottomTrailing) {
+            if friend.photoData != nil {
+                Text(friend.species.emoji)
+                    .font(.system(size: 13))
+                    .frame(width: 22, height: 22)
+                    .background(Circle().fill(.white))
+                    .overlay(Circle().stroke(friend.species.rarity.tint.opacity(0.6), lineWidth: 1.5))
+                    .shadow(color: Theme.ink.opacity(0.15), radius: 2, y: 1)
+                    .offset(x: 3, y: 3)
+            }
+        }
+        .shadow(color: Theme.ink.opacity(0.15),
+                radius: floating ? 5 : 3,
+                y: floating ? 5 : 2)
+        .rotationEffect(.degrees(floating ? 2.5 : -2.5))
+        .offset(y: floating ? -4 : 3)
+        .accessibilityLabel(friend.displayName)
         .onAppear {
             guard !reduceMotion else { return }
             withAnimation(
