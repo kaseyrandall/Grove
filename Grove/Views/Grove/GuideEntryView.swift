@@ -38,6 +38,7 @@ struct GuideEntryView: View {
         }
         .navigationTitle("\(species.emoji) \(species.name)")
         .navigationBarTitleDisplayMode(.inline)
+        .groveTabBarHidden()
         .task {
             // Fill in the place name for older catches (or if it wasn't ready yet).
             if friend.placeName == nil, let lat = friend.latitude, let lng = friend.longitude {

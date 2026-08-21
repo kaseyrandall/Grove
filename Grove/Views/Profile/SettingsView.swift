@@ -32,6 +32,7 @@ struct SettingsView: View {
         }
         .navigationTitle("Settings")
         .navigationBarTitleDisplayMode(.inline)
+        .groveTabBarHidden()
         .alert("Intro reset", isPresented: $showReplayConfirm) {
             Button("OK", role: .cancel) {}
         } message: {

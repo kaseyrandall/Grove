@@ -30,6 +30,7 @@ struct AchievementsView: View {
         }
         .navigationTitle("Achievements")
         .navigationBarTitleDisplayMode(.inline)
+        .groveTabBarHidden()
     }
 
     private var summary: some View {
