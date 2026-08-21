@@ -116,20 +116,32 @@ struct EditFriendView: View {
         VStack(alignment: .leading, spacing: 12) {
             sectionLabel("TYPE OF FRIEND")
 
-            if !offeredSuggestions.isEmpty {
-                Text(isMystery ? "✨ Best guesses from your photo" : "✨ Or did you mean…")
-                    .font(.system(.caption2, design: .rounded, weight: .bold))
-                    .foregroundStyle(Theme.ink.opacity(0.5))
-                    .padding(.leading, 6)
+            // Lead with whatever's confident: for an identified friend that's
+            // the current pick; for a Mystery Friend it's the photo guesses.
+            if isMystery {
+                suggestionsBlock
+                browseButton
+            } else {
+                browseButton
+                suggestionsBlock
+            }
+        }
+    }
 
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 10)], spacing: 10) {
-                    ForEach(offeredSuggestions) { candidate in
-                        SpeciesTile(species: candidate, isSelected: false) { select(candidate) }
-                    }
+    /// The photo-derived shortlist — framed as the primary recommendation for a
+    /// Mystery Friend, or as alternatives ("or did you mean…") once identified.
+    @ViewBuilder private var suggestionsBlock: some View {
+        if !offeredSuggestions.isEmpty {
+            Text(isMystery ? "✨ Best guesses from your photo" : "✨ Or did you mean…")
+                .font(.system(.caption2, design: .rounded, weight: .bold))
+                .foregroundStyle(Theme.ink.opacity(0.5))
+                .padding(.leading, 6)
+
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 10)], spacing: 10) {
+                ForEach(offeredSuggestions) { candidate in
+                    SpeciesTile(species: candidate, isSelected: false) { select(candidate) }
                 }
             }
-
-            browseButton
         }
     }
 
