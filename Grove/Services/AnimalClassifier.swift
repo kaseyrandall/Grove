@@ -21,7 +21,7 @@ enum AnimalClassifier {
                 let handler = VNImageRequestHandler(cgImage: cgImage, orientation: orientation, options: [:])
                 do {
                     try handler.perform([request])
-                    let observations = (request.results as? [VNClassificationObservation]) ?? []
+                    let observations = request.results ?? []
                     let labels = observations
                         .filter { $0.confidence > 0.10 }
                         .prefix(12)
