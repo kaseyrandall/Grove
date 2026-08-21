@@ -100,29 +100,74 @@ struct JournalView: View {
 
     // MARK: Achievements summary
 
+    /// How many badge dots to preview inline before collapsing to "+N".
+    private let badgePreviewCap = 5
+
     private var achievementsCard: some View {
-        NavigationLink {
+        let unlocked = AchievementCatalog.all.filter { $0.isUnlocked(stats) }
+        return NavigationLink {
             AchievementsView()
         } label: {
-            HStack(spacing: 16) {
-                Text("🎖").font(.system(size: 40))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Achievements")
-                        .font(.system(.headline, design: .rounded, weight: .bold))
-                        .foregroundStyle(Theme.ink)
-                    Text("\(AchievementCatalog.unlockedCount(stats)) of \(AchievementCatalog.all.count) unlocked")
-                        .font(.system(.subheadline, design: .rounded))
-                        .foregroundStyle(Theme.ink.opacity(0.7))
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 16) {
+                    Text("🎖").font(.system(size: 40))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Achievements")
+                            .font(.system(.headline, design: .rounded, weight: .bold))
+                            .foregroundStyle(Theme.ink)
+                        Text("\(unlocked.count) of \(AchievementCatalog.all.count) unlocked")
+                            .font(.system(.subheadline, design: .rounded))
+                            .foregroundStyle(Theme.ink.opacity(0.7))
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(Theme.ink.opacity(0.3))
                 }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .foregroundStyle(Theme.ink.opacity(0.3))
+
+                badgePreviewRow(unlocked: unlocked)
             }
             .padding()
             .frame(maxWidth: .infinity)
             .softCard()
         }
         .buttonStyle(.plain)
+    }
+
+    /// A row of the badges you've unlocked — or a dimmed teaser of what's out
+    /// there when you're just getting started.
+    @ViewBuilder
+    private func badgePreviewRow(unlocked: [Achievement]) -> some View {
+        HStack(spacing: 8) {
+            if unlocked.isEmpty {
+                ForEach(AchievementCatalog.all.prefix(badgePreviewCap)) { achievement in
+                    badgeDot(achievement.emoji, unlocked: false)
+                }
+            } else {
+                ForEach(unlocked.prefix(badgePreviewCap)) { achievement in
+                    badgeDot(achievement.emoji, unlocked: true)
+                }
+                if unlocked.count > badgePreviewCap {
+                    Text("+\(unlocked.count - badgePreviewCap)")
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .foregroundStyle(Theme.ink.opacity(0.55))
+                        .frame(width: 40, height: 40)
+                        .background(Circle().fill(Theme.ink.opacity(0.06)))
+                }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func badgeDot(_ emoji: String, unlocked: Bool) -> some View {
+        ZStack {
+            Circle()
+                .fill(unlocked ? Theme.gold.opacity(0.5) : Theme.ink.opacity(0.06))
+                .frame(width: 40, height: 40)
+            Text(emoji)
+                .font(.system(size: 20))
+                .grayscale(unlocked ? 0 : 1)
+                .opacity(unlocked ? 1 : 0.4)
+        }
     }
 
     // MARK: Rarity
@@ -141,24 +186,40 @@ struct JournalView: View {
                 }
             }
 
-            ForEach(Rarity.allCases.reversed(), id: \.self) { rarity in
-                let total = CreatureCatalog.all.filter { $0.rarity == rarity }.count
-                let count = stats.count(of: rarity)
-                HStack {
-                    Text("\(rarity.badge) \(rarity.title)")
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                        .foregroundStyle(Theme.ink)
-                    Spacer()
-                    Text("\(count)/\(total)")
-                        .font(.system(.subheadline, design: .rounded, weight: .bold))
-                        .foregroundStyle(count == total && total > 0 ? Theme.accent : Theme.ink.opacity(0.6))
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 100), spacing: 10)], spacing: 10) {
+                ForEach(Rarity.allCases.reversed(), id: \.self) { rarity in
+                    rarityTile(rarity)
                 }
-                .padding(.vertical, 4)
             }
         }
         .padding()
         .frame(maxWidth: .infinity, alignment: .leading)
         .softCard()
+    }
+
+    private func rarityTile(_ rarity: Rarity) -> some View {
+        let total = CreatureCatalog.all.filter { $0.rarity == rarity }.count
+        let count = stats.count(of: rarity)
+        let complete = count == total && total > 0
+        return VStack(spacing: 5) {
+            Text(rarity.badge).font(.system(size: 22))
+            Text(rarity.title)
+                .font(.system(.caption, design: .rounded, weight: .semibold))
+                .foregroundStyle(Theme.ink)
+            Text("\(count)/\(total)")
+                .font(.system(.subheadline, design: .rounded, weight: .bold))
+                .foregroundStyle(complete ? Theme.accent : Theme.ink.opacity(0.65))
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 14)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(rarity.tint.opacity(complete ? 0.35 : 0.18))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .stroke(complete ? rarity.tint : .clear, lineWidth: 2)
+        )
     }
 }
 
