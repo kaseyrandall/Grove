@@ -379,6 +379,82 @@ enum CreatureCatalog {
         all.filter { $0.zone == zone }
     }
 
+    /// The whole guide sorted by name — the browse order for pickers.
+    static let alphabetical: [Species] = all.sorted { $0.name < $1.name }
+
+    /// Exact-keyword shortlist: every species whose `matchKeywords` overlap the
+    /// labels, ranked by number of hits then rarity. This is the same signal
+    /// `match` uses, so it only fires when Vision named something we know.
+    static func keywordMatches(labels: [String], limit: Int = 6) -> [Species] {
+        guard !labels.isEmpty else { return [] }
+        let scored: [(species: Species, hits: Int)] = all.compactMap { species in
+            let hits = species.matchKeywords.reduce(0) { count, keyword in
+                count + (labels.contains { $0.contains(keyword) } ? 1 : 0)
+            }
+            return hits > 0 ? (species, hits) : nil
+        }
+        return scored
+            .sorted { $0.hits != $1.hits ? $0.hits > $1.hits : $0.species.rarity > $1.species.rarity }
+            .prefix(limit)
+            .map(\.species)
+    }
+
+    /// Best-guess shortlist for the identify UI. Starts from exact keyword
+    /// matches, then — crucially for a Mystery Friend, which exists *because*
+    /// exact matching failed — falls back to Vision's coarse group labels
+    /// ("bird", "rodent", "insect"…) mapped to likely catalog residents. The
+    /// map below is curated and meant to be tuned against real Vision output.
+    static func smartSuggestions(labels: [String], limit: Int = 6) -> [Species] {
+        guard !labels.isEmpty else { return [] }
+        var picks = keywordMatches(labels: labels, limit: limit)
+        guard picks.count < limit else { return Array(picks.prefix(limit)) }
+
+        var seen = Set(picks.map(\.id))
+        for label in labels {
+            for group in categoryGroups where group.tokens.contains(where: { label.contains($0) }) {
+                for id in group.ids where !seen.contains(id) {
+                    if let species = byID[id] {
+                        picks.append(species)
+                        seen.insert(id)
+                    }
+                    if picks.count >= limit { return Array(picks.prefix(limit)) }
+                }
+            }
+        }
+        return Array(picks.prefix(limit))
+    }
+
+    /// Coarse Vision groups → a handful of likely catalog friends. Ordered
+    /// specific → generic so a precise label ("duck") wins over a broad one
+    /// ("bird") before the catch-all ("animal") ever applies. Matching is a
+    /// substring test against each Vision label, so keep tokens distinctive.
+    private static let categoryGroups: [(tokens: [String], ids: [String])] = [
+        (["duck", "mallard", "waterfowl", "goose"],           ["duck", "swan"]),
+        (["seabird", "gull", "pelican", "albatross"],         ["swan", "duck"]),
+        (["songbird", "finch", "sparrow", "robin", "wren"],   ["sparrow", "robin"]),
+        (["raptor", "hawk", "eagle", "falcon", "owl"],        ["eagle", "owl"]),
+        (["parrot", "macaw", "cockatoo"],                     ["parrot"]),
+        (["bird", "fowl", "poultry"],                         ["sparrow", "pigeon", "crow", "robin", "duck", "chicken"]),
+        (["kitten", "feline"],                                ["housecat"]),
+        (["puppy", "canine", "retriever", "terrier"],         ["dog"]),
+        (["squirrel", "chipmunk", "rodent", "mouse"],         ["squirrel", "mouse"]),
+        (["rabbit", "hare", "bunny"],                         ["rabbit"]),
+        (["deer", "fawn", "elk", "moose"],                    ["deer"]),
+        (["butterfly", "moth"],                               ["butterfly"]),
+        (["bee", "wasp", "hornet"],                           ["bee"]),
+        (["beetle", "ladybug", "ladybird"],                   ["ladybug"]),
+        (["insect", "cricket", "grasshopper"],                ["bee", "butterfly", "ladybug", "ant", "grasshopper"]),
+        (["spider", "arachnid", "tarantula"],                 ["spider"]),
+        (["snake", "serpent", "python", "cobra"],             ["snake"]),
+        (["lizard", "gecko", "iguana", "reptile"],            ["lizard"]),
+        (["turtle", "tortoise"],                              ["turtle"]),
+        (["frog", "toad", "amphibian"],                       ["frog"]),
+        (["goldfish", "carp"],                                ["fish"]),
+        (["dolphin", "whale", "porpoise"],                    ["dolphin"]),
+        (["crab", "lobster", "crayfish"],                     ["crab"]),
+        (["mammal", "wildlife", "animal"],                    ["squirrel", "rabbit", "fox", "dog", "housecat", "deer"]),
+    ]
+
     /// Given Vision's top labels (already lowercased), pick the best friend.
     /// Prefers rarer matches so a lucky "fox" beats a background "dog".
     /// Falls back to the Mystery Friend so every snap yields something.
