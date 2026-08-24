@@ -29,6 +29,7 @@ struct GroveView: View {
                         .animation(.spring(response: 0.5, dampingFraction: 0.8), value: shown)
 
                     dailyChallengeCard
+                        .coachTarget(.dailyGoal)
                         .padding(.horizontal)
                         .padding(.top, 12)
                         .opacity(shown ? 1 : 0)
@@ -201,6 +202,8 @@ struct ZoneCard: View {
                             ResidentPortrait(friend: friend, index: index)
                         }
                         .buttonStyle(.plain)
+                        // Point the "meet your friend" mark at the very first catch.
+                        .coachTarget(.meetFriend, active: catches.count == 1)
                     }
                 }
                 .padding(.vertical, 6)

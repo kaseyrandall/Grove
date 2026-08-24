@@ -5,7 +5,9 @@ import SwiftData
 /// app does (accounts, notifications, etc.).
 struct SettingsView: View {
     @AppStorage("hasCompletedOnboarding") private var hasOnboarded = false
-    @AppStorage("hasSeenCatchCoachMark") private var hasSeenCoachMark = false
+    @AppStorage("hasSeenCatchCoachMark") private var hasSeenSnapCoach = false
+    @AppStorage("hasSeenMeetCoach") private var hasSeenMeetCoach = false
+    @AppStorage("hasSeenGoalCoach") private var hasSeenGoalCoach = false
     @AppStorage("hasSeenGroveIntro") private var hasSeenGroveIntro = false
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("locationTaggingEnabled") private var locationTaggingEnabled = true
@@ -83,7 +85,9 @@ struct SettingsView: View {
     private var introCard: some View {
         Button {
             hasOnboarded = false
-            hasSeenCoachMark = false
+            hasSeenSnapCoach = false
+            hasSeenMeetCoach = false
+            hasSeenGoalCoach = false
             hasSeenGroveIntro = false
             showReplayConfirm = true
         } label: {

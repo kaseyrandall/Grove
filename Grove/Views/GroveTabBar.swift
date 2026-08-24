@@ -5,7 +5,6 @@ import SwiftUI
 /// above that button.
 struct GroveTabBar: View {
     @Binding var selection: RootTab
-    var showCoachMark: Bool
     var onCatch: () -> Void
 
     var body: some View {
@@ -39,14 +38,7 @@ struct GroveTabBar: View {
             }
             .buttonStyle(BouncyButtonStyle())
             .offset(y: -18)
-            .overlay(alignment: .top) {
-                if showCoachMark {
-                    CatchCoachMark(onTap: onCatch)
-                        .fixedSize()
-                        .offset(y: -62)
-                        .transition(.opacity)
-                }
-            }
+            .coachTarget(.snap)
         }
         // Extra top room so the raised Catch button is inside the bar's reserved
         // safe-area height — scroll content then clears it instead of hiding behind.
