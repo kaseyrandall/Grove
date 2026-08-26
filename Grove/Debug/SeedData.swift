@@ -18,7 +18,7 @@ enum SeedData {
     /// (speciesID, daysAgo, optional nickname) — spread across zones, rarities,
     /// and recent days (including a live streak ending today).
     private static let samples: [(String, Int, String?)] = [
-        ("sparrow",   0, nil),
+        ("bird",      0, nil),
         ("squirrel",  0, "Nibbles"),
         ("pigeon",    1, nil),
         ("duck",      1, "Puddles"),

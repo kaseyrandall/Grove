@@ -17,11 +17,14 @@ enum CreatureCatalog {
                 blurb: "The friendly city local. Always around, always hungry.",
                 habitatNote: "Sidewalks & park benches",
                 matchKeywords: ["pigeon", "dove"]),
-        Species(id: "sparrow", name: "Sparrow", emoji: "🐤",
+        // The catch-all for little birds no one can quite name — sparrows,
+        // finches, wrens and friends. Pigeon stays its own thing; the showy
+        // birds (owl, eagle, peacock…) keep their own slots too.
+        Species(id: "bird", name: "Bird", emoji: "🐦",
                 rarity: .common, zone: .garden,
-                blurb: "A tiny chirpy ball of feathers with a big personality.",
-                habitatNote: "Hedges & bushes",
-                matchKeywords: ["sparrow", "songbird", "finch", "bird"]),
+                blurb: "A little flit of feathers, too quick to name — and that's half the charm.",
+                habitatNote: "Hedges, wires & rooftops",
+                matchKeywords: ["sparrow", "finch", "wren", "songbird", "small bird", "bird"]),
         Species(id: "housecat", name: "Cat", emoji: "🐱",
                 rarity: .common, zone: .home,
                 blurb: "Technically wild if it's sitting on a fence judging you.",
@@ -243,11 +246,6 @@ enum CreatureCatalog {
                 blurb: "A dog's cooler, scarier ancestor. Runs with family.",
                 habitatNote: "Remote wilderness",
                 matchKeywords: ["wolf", "coyote"]),
-        Species(id: "deer-white", name: "White Deer", emoji: "🦌",
-                rarity: .legendary, zone: .woods,
-                blurb: "A pale ghost of the forest. Spotting one is pure luck.",
-                habitatNote: "Misty mountain woods",
-                matchKeywords: []),
 
         // MARK: The Treetops — up where the sky lives
         Species(id: "hummingbird", name: "Hummingbird", emoji: "🐦",
@@ -431,10 +429,10 @@ enum CreatureCatalog {
     private static let categoryGroups: [(tokens: [String], ids: [String])] = [
         (["duck", "mallard", "waterfowl", "goose"],           ["duck", "swan"]),
         (["seabird", "gull", "pelican", "albatross"],         ["swan", "duck"]),
-        (["songbird", "finch", "sparrow", "robin", "wren"],   ["sparrow", "robin"]),
+        (["songbird", "finch", "sparrow", "robin", "wren"],   ["bird", "robin"]),
         (["raptor", "hawk", "eagle", "falcon", "owl"],        ["eagle", "owl"]),
         (["parrot", "macaw", "cockatoo"],                     ["parrot"]),
-        (["bird", "fowl", "poultry"],                         ["sparrow", "pigeon", "crow", "robin", "duck", "chicken"]),
+        (["bird", "fowl", "poultry"],                         ["bird", "pigeon", "crow", "robin", "duck", "chicken"]),
         (["kitten", "feline"],                                ["housecat"]),
         (["puppy", "canine", "retriever", "terrier"],         ["dog"]),
         (["squirrel", "chipmunk", "rodent", "mouse"],         ["squirrel", "mouse"]),
