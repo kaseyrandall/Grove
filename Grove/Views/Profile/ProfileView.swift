@@ -17,6 +17,7 @@ struct ProfileView: View {
                 ScrollView {
                     VStack(spacing: 20) {
                         headerCard
+                        achievementsCard
                         menuCard
                         #if DEBUG
                         developerCard
@@ -52,6 +53,78 @@ struct ProfileView: View {
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
         .softCard()
+    }
+
+    // MARK: Achievements — your trophy shelf
+
+    /// How many badge dots to preview inline before collapsing to "+N".
+    private let badgePreviewCap = 5
+
+    private var achievementsCard: some View {
+        let unlocked = AchievementCatalog.all.filter { $0.isUnlocked(stats) }
+        return NavigationLink {
+            AchievementsView()
+        } label: {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(spacing: 16) {
+                    Text("🎖").font(.system(size: 40))
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Achievements")
+                            .font(.system(.headline, design: .rounded, weight: .bold))
+                            .foregroundStyle(Theme.ink)
+                        Text("\(unlocked.count) of \(AchievementCatalog.all.count) unlocked")
+                            .font(.system(.subheadline, design: .rounded))
+                            .foregroundStyle(Theme.ink.opacity(0.7))
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .foregroundStyle(Theme.ink.opacity(0.3))
+                }
+
+                badgePreviewRow(unlocked: unlocked)
+            }
+            .padding()
+            .frame(maxWidth: .infinity)
+            .softCard()
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// A row of the badges you've unlocked — or a dimmed teaser of what's out
+    /// there when you're just getting started.
+    @ViewBuilder
+    private func badgePreviewRow(unlocked: [Achievement]) -> some View {
+        HStack(spacing: 8) {
+            if unlocked.isEmpty {
+                ForEach(AchievementCatalog.all.prefix(badgePreviewCap)) { achievement in
+                    badgeDot(achievement.emoji, unlocked: false)
+                }
+            } else {
+                ForEach(unlocked.prefix(badgePreviewCap)) { achievement in
+                    badgeDot(achievement.emoji, unlocked: true)
+                }
+                if unlocked.count > badgePreviewCap {
+                    Text("+\(unlocked.count - badgePreviewCap)")
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .foregroundStyle(Theme.ink.opacity(0.55))
+                        .frame(width: 40, height: 40)
+                        .background(Circle().fill(Theme.ink.opacity(0.06)))
+                }
+            }
+            Spacer(minLength: 0)
+        }
+    }
+
+    private func badgeDot(_ emoji: String, unlocked: Bool) -> some View {
+        ZStack {
+            Circle()
+                .fill(unlocked ? Theme.gold.opacity(0.5) : Theme.ink.opacity(0.06))
+                .frame(width: 40, height: 40)
+            Text(emoji)
+                .font(.system(size: 20))
+                .grayscale(unlocked ? 0 : 1)
+                .opacity(unlocked ? 1 : 0.4)
+        }
     }
 
     // MARK: Menu
