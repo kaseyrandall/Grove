@@ -9,6 +9,11 @@ struct ProfileView: View {
 
     private var stats: PlayerStats { PlayerStats(catches: catches) }
 
+    /// Marketing version (e.g. "1.0"), read from the bundle so it never goes stale.
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
+    }
+
     var body: some View {
         NavigationStack {
             ZStack {
@@ -22,7 +27,7 @@ struct ProfileView: View {
                         #if DEBUG
                         developerCard
                         #endif
-                        Text("Grove v0.1")
+                        Text("Grove \(appVersion)")
                             .font(.system(.caption2, design: .rounded))
                             .foregroundStyle(Theme.ink.opacity(0.35))
                             .padding(.top, 4)
