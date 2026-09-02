@@ -184,7 +184,7 @@ private struct SpeciesGuideSheet: View {
                         .font(.system(.body, design: .rounded))
                         .foregroundStyle(Theme.ink.opacity(0.6))
                         .multilineTextAlignment(.center)
-                    Label("Look in the \(species.zone.shortName) - \(species.habitatNote)",
+                    Label("Look in the \(species.zone.shortName) — \(species.habitatNote)",
                           systemImage: "map.fill")
                         .font(.system(.subheadline, design: .rounded, weight: .semibold))
                         .foregroundStyle(Theme.accent)

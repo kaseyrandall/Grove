@@ -12,8 +12,8 @@ enum CoachStep: Int, CaseIterable {
     var text: String {
         switch self {
         case .snap:       return "Tap here to snap\nyour first friend!"
-        case .meetFriend: return "Here's your first friend -\ntap to see their details."
-        case .dailyGoal:  return "A fresh challenge each day -\nyour reason to come back!"
+        case .meetFriend: return "Here's your first friend —\ntap to see their details."
+        case .dailyGoal:  return "A fresh challenge each day —\nyour reason to come back!"
         }
     }
 

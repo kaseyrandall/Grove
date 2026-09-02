@@ -65,7 +65,7 @@ enum NotificationManager {
         if let later = time(hour: 11, daysFromNow: 5, from: now, calendar: calendar) {
             add(id: comebackLaterID, at: later, calendar: calendar,
                 title: "New friends are waiting 🦔",
-                body: "It's been a few days - go meet someone new out in the wild.")
+                body: "It's been a few days — go meet someone new out in the wild.")
         }
     }
 
