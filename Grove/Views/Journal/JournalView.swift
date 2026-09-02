@@ -18,6 +18,7 @@ struct JournalView: View {
                         streakCard
                         levelCard
                         statsRow
+                        fieldGuideCard
                         achievementsCard
                         rarityCard
                     }
@@ -27,6 +28,35 @@ struct JournalView: View {
             }
             .navigationTitle("Journal")
         }
+    }
+
+    // MARK: Field Guide
+
+    private var fieldGuideCard: some View {
+        let total = CreatureCatalog.all.count
+        let met = stats.caughtSpeciesIDs.intersection(Set(CreatureCatalog.all.map(\.id))).count
+        return NavigationLink {
+            FieldGuideView()
+        } label: {
+            HStack(spacing: 16) {
+                Text("📖").font(.system(size: 40))
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Field Guide")
+                        .font(.system(.headline, design: .rounded, weight: .bold))
+                        .foregroundStyle(Theme.ink)
+                    Text("\(met) of \(total) friends met")
+                        .font(.system(.subheadline, design: .rounded))
+                        .foregroundStyle(Theme.ink.opacity(0.7))
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .foregroundStyle(Theme.ink.opacity(0.3))
+            }
+            .padding()
+            .frame(maxWidth: .infinity)
+            .softCard()
+        }
+        .buttonStyle(.plain)
     }
 
     // MARK: Streak
