@@ -290,7 +290,7 @@ struct CatchResultView: View {
             Text("🔎 Vision saw")
                 .font(.system(size: 10, weight: .bold, design: .monospaced))
                 .foregroundStyle(Theme.ink.opacity(0.5))
-            Text(result.visionLabels.isEmpty ? "— nothing —" : result.visionLabels.prefix(8).joined(separator: ", "))
+            Text(result.visionLabels.isEmpty ? "- nothing -" : result.visionLabels.prefix(8).joined(separator: ", "))
                 .font(.system(size: 11, design: .monospaced))
                 .foregroundStyle(Theme.ink.opacity(0.7))
                 .multilineTextAlignment(.center)

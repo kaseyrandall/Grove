@@ -73,18 +73,18 @@ struct OnboardingSlide {
         OnboardingSlide(
             emojis: ["🌳", "🦊", "🐿️", "🦆"],
             title: "Welcome to Grove",
-            body: "Grow a place full of the life you've met — one photo at a time.",
+            body: "Grow a place full of the life you've met - one photo at a time.",
             tint: Theme.mint
         ),
         OnboardingSlide(
             emojis: ["📸", "🦊"],
             title: "Spot & snap",
-            body: "See an animal out in the wild? Take its photo and Grove figures out who it is — instantly, right on your phone.",
+            body: "See an animal out in the wild? Take its photo and Grove figures out who it is - instantly, right on your phone.",
             tint: Theme.sky
         ),
         OnboardingSlide(
             emojis: ["🏡", "🌊", "🌲"],
-            title: "They come home to your Grove",
+            title: "A home for every friend",
             body: "Every friend you meet settles into its cozy corner of your world. Keep exploring to fill each habitat with life.",
             tint: Theme.lavender
         ),

@@ -22,7 +22,7 @@ enum CreatureCatalog {
         // birds (owl, eagle, peacock…) keep their own slots too.
         Species(id: "bird", name: "Bird", emoji: "🐦",
                 rarity: .common, zone: .garden,
-                blurb: "A little flit of feathers, too quick to name — and that's half the charm.",
+                blurb: "A little flit of feathers, too quick to name - and that's half the charm.",
                 habitatNote: "Hedges, wires & rooftops",
                 matchKeywords: ["sparrow", "finch", "wren", "songbird", "small bird", "bird"]),
         Species(id: "housecat", name: "Cat", emoji: "🐱",

@@ -137,7 +137,7 @@ struct GroveView: View {
                     .foregroundStyle(Theme.ink)
                     .lineLimit(2)
                 if complete {
-                    Text("Done — nice work! 🎉")
+                    Text("Done - nice work! 🎉")
                         .font(.system(.caption, design: .rounded, weight: .semibold))
                         .foregroundStyle(Theme.accent)
                 } else if challenge.goal > 1 {

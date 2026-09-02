@@ -263,7 +263,7 @@ struct EditFriendView: View {
         let labels = await AnimalClassifier.classify(ui)
         let picks = CreatureCatalog.smartSuggestions(labels: labels)
         #if DEBUG
-        print("🔎 Identify suggestions — Vision: \(labels) → \(picks.map(\.name))")
+        print("🔎 Identify suggestions - Vision: \(labels) → \(picks.map(\.name))")
         #endif
         await MainActor.run { suggestions = picks }
     }
