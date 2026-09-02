@@ -5,14 +5,37 @@ import SwiftData
 /// Developer-only sample data for the Grove, so you can see populated zones,
 /// the Map, streaks, and Achievements without hand-catching everything.
 ///
-/// Seeded catches are recognizable by having **no photo** (a real catch always
-/// stores the photo you took), so the toggle can add or remove exactly the
-/// sample set without touching anything you caught for real.
+/// Each seeded catch carries a bundled **sample photo** (see `SamplePhotos/`),
+/// so a seeded Grove looks exactly like a real player's — real thumbnails, not
+/// emoji placeholders — which is what we want for App Store screenshots. Seed
+/// records are recognized by that known photo (or by having no photo at all, if
+/// the bundled image is somehow missing), so the toggle can add or remove
+/// exactly the sample set without touching anything you caught for real.
 enum SeedData {
 
     /// Whether sample data is currently present.
     static func isPresent(in catches: [Catch]) -> Bool {
-        catches.contains { $0.photoData == nil }
+        catches.contains { isSeed($0) }
+    }
+
+    /// A catch is sample data if it has no photo, or its photo is one of our
+    /// bundled sample images. A real catch stores a photo the player took, which
+    /// never matches either test.
+    private static func isSeed(_ record: Catch) -> Bool {
+        guard let data = record.photoData else { return true }
+        return samplePhotoData.contains(data)
+    }
+
+    /// The bundled sample photos, loaded once and keyed for fast membership
+    /// tests. Missing files are simply skipped (those species fall back to nil).
+    private static let samplePhotoData: Set<Data> = {
+        Set(samples.compactMap { photo(for: $0.0) })
+    }()
+
+    /// Loads `SamplePhotos/<speciesID>.jpg` from the app bundle, if present.
+    private static func photo(for speciesID: String) -> Data? {
+        guard let url = Bundle.main.url(forResource: speciesID, withExtension: "jpg") else { return nil }
+        return try? Data(contentsOf: url)
     }
 
     /// (speciesID, daysAgo, optional nickname) — spread across zones, rarities,
@@ -46,7 +69,7 @@ enum SeedData {
                 sparksEarned: Progression.sparks(for: species, isFirstSighting: true),
                 isFirstSighting: true,
                 nickname: sample.2,
-                photoData: nil, // marks this as seed data
+                photoData: photo(for: species.id), // real sample thumbnail (see SamplePhotos/)
                 latitude: baseLat + Double(index % 5) * 0.004 - 0.008,
                 longitude: baseLng + Double(index / 5) * 0.004 - 0.006
             )
@@ -55,10 +78,10 @@ enum SeedData {
         try? context.save()
     }
 
-    /// Remove only the seeded (photo-less) catches.
+    /// Remove only the seeded catches, leaving anything the player caught.
     static func clear(context: ModelContext) {
         guard let all = try? context.fetch(FetchDescriptor<Catch>()) else { return }
-        for record in all where record.photoData == nil {
+        for record in all where isSeed(record) {
             context.delete(record)
         }
         try? context.save()
