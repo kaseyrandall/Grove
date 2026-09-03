@@ -54,6 +54,21 @@ struct GroveView: View {
                 }
             }
             .navigationTitle("Your Grove")
+            .toolbar {
+                if challengeDismissed {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button {
+                            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                                challengeDismissedDay = 0
+                            }
+                        } label: {
+                            Image(systemName: "target")
+                        }
+                        .tint(Theme.accent)
+                        .accessibilityLabel("Show today's challenge")
+                    }
+                }
+            }
             .onAppear {
                 guard !seenIntro else { return }
                 revealed = true
