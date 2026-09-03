@@ -12,11 +12,14 @@ struct GroveView: View {
     @AppStorage("hasSeenGroveIntro") private var seenIntro = false
     @State private var revealed = false
 
-    /// The day (day-number since 1970) the player dismissed today's challenge.
-    /// The card reappears on its own when a new day's challenge rotates in.
+    /// The day (day-number since 1970) the player dismissed today's challenge,
+    /// persisted so it stays dismissed across launches until a new day rotates
+    /// in. The visible state is driven by `challengeDismissed` (a `@State`) so
+    /// the show/hide animates — setting `@AppStorage` inside `withAnimation`
+    /// does not reliably carry the transaction.
     @AppStorage("challengeDismissedDay") private var challengeDismissedDay = 0
+    @State private var challengeDismissed = false
     private var todayKey: Int { Int((Calendar.current.startOfDay(for: .now).timeIntervalSince1970 / 86_400).rounded()) }
-    private var challengeDismissed: Bool { challengeDismissedDay == todayKey }
 
     private var friendCount: Int { catches.count }
     private var shown: Bool { seenIntro || revealed }
@@ -55,6 +58,7 @@ struct GroveView: View {
             }
             .navigationTitle("Your Grove")
             .onAppear {
+                challengeDismissed = (challengeDismissedDay == todayKey)
                 guard !seenIntro else { return }
                 revealed = true
                 // Persist once the cascade has finished so it never replays.
@@ -137,8 +141,9 @@ struct GroveView: View {
     private var reopenChallengeButton: some View {
         Button {
             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
-                challengeDismissedDay = 0
+                challengeDismissed = false
             }
+            challengeDismissedDay = 0
         } label: {
             Image(systemName: "calendar")
                 .font(.system(size: 16, weight: .semibold))
@@ -192,8 +197,9 @@ struct GroveView: View {
         .overlay(alignment: .topTrailing) {
             Button {
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
-                    challengeDismissedDay = todayKey
+                    challengeDismissed = true
                 }
+                challengeDismissedDay = todayKey
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
