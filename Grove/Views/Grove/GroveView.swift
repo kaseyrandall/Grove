@@ -19,6 +19,9 @@ struct GroveView: View {
     /// does not reliably carry the transaction.
     @AppStorage("challengeDismissedDay") private var challengeDismissedDay = 0
     @State private var challengeDismissed = false
+    /// Whether today's challenge was already complete when it was dismissed. If
+    /// not, and it later completes while collapsed, we badge the reopen button.
+    @AppStorage("challengeDismissedComplete") private var dismissedWhileComplete = false
     private var todayKey: Int { Int((Calendar.current.startOfDay(for: .now).timeIntervalSince1970 / 86_400).rounded()) }
 
     private var friendCount: Int { catches.count }
@@ -139,7 +142,11 @@ struct GroveView: View {
     /// Shown in the top-right once the card is dismissed, to bring it back — a
     /// calendar, since the challenge is a daily/event thing.
     private var reopenChallengeButton: some View {
-        Button {
+        let challenge = DailyChallenge.today()
+        let todays = catches.filter { Calendar.current.isDateInToday($0.caughtAt) }
+        // Completed since it was collapsed (and it wasn't already done then).
+        let justCompleted = challenge.isComplete(todays, PlayerStats(catches: catches)) && !dismissedWhileComplete
+        return Button {
             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
                 challengeDismissed = false
             }
@@ -151,9 +158,19 @@ struct GroveView: View {
                 .frame(width: 42, height: 42)
                 .background(Circle().fill(.white))
                 .shadow(color: Theme.ink.opacity(0.1), radius: 8, y: 4)
+                .overlay(alignment: .topTrailing) {
+                    if justCompleted {
+                        Circle()
+                            .fill(Theme.accent)
+                            .frame(width: 12, height: 12)
+                            .overlay(Circle().strokeBorder(.white, lineWidth: 2))
+                            .offset(x: 3, y: -3)
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                }
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Show today's challenge")
+        .accessibilityLabel(justCompleted ? "Show today's challenge, completed" : "Show today's challenge")
     }
 
     /// Today's bite-sized goal — a fresh reason to open the app each day.
@@ -200,6 +217,7 @@ struct GroveView: View {
                     challengeDismissed = true
                 }
                 challengeDismissedDay = todayKey
+                dismissedWhileComplete = complete
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
