@@ -54,26 +54,21 @@ struct GroveView: View {
                 }
             }
             .navigationTitle("Your Grove")
-            .toolbar {
-                if challengeDismissed {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
-                                challengeDismissedDay = 0
-                            }
-                        } label: {
-                            Image(systemName: "target")
-                        }
-                        .tint(Theme.accent)
-                        .accessibilityLabel("Show today's challenge")
-                    }
-                }
-            }
             .onAppear {
                 guard !seenIntro else { return }
                 revealed = true
                 // Persist once the cascade has finished so it never replays.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { seenIntro = true }
+            }
+        }
+        // Overlaid (not a real toolbar item) so it can transition in and out
+        // gracefully instead of popping. Sits in the top-right, over the header.
+        .overlay(alignment: .topTrailing) {
+            if challengeDismissed {
+                reopenChallengeButton
+                    .padding(.trailing, 18)
+                    .padding(.top, 4)
+                    .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .topTrailing)))
             }
         }
     }
@@ -135,6 +130,25 @@ struct GroveView: View {
             Spacer()
         }
         .padding(.vertical, 4)
+    }
+
+    /// Shown in the top-right once the card is dismissed, to bring it back — a
+    /// calendar, since the challenge is a daily/event thing.
+    private var reopenChallengeButton: some View {
+        Button {
+            withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
+                challengeDismissedDay = 0
+            }
+        } label: {
+            Image(systemName: "calendar")
+                .font(.system(size: 16, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 42, height: 42)
+                .background(Circle().fill(.white))
+                .shadow(color: Theme.ink.opacity(0.1), radius: 8, y: 4)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("Show today's challenge")
     }
 
     /// Today's bite-sized goal — a fresh reason to open the app each day.
