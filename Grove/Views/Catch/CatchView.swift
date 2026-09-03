@@ -57,13 +57,6 @@ struct CatchView: View {
             .padding(.top, 6)
             .padding(.bottom, 14)
 
-            // The cozy "who's this?" moment while Grove works it out.
-            if isIdentifying {
-                IdentifyingOverlay()
-                    .ignoresSafeArea()
-                    .transition(.opacity)
-            }
-
             // Shutter flash.
             Color.white
                 .opacity(flashOpacity)
@@ -279,7 +272,9 @@ struct CatchView: View {
 
     @MainActor
     private func identify(_ image: UIImage) async {
-        withAnimation(.easeIn(duration: 0.2)) { isIdentifying = true }
+        // Blocks a second capture while we work; the celebration sheet slides
+        // up the moment we have a result (no separate loading screen).
+        isIdentifying = true
 
         let labels = await AnimalClassifier.classify(image)
         let species = CreatureCatalog.match(labels: labels)
@@ -363,72 +358,6 @@ struct CatchResult: Identifiable {
     let newAchievements: [Achievement]
     /// Raw Vision labels for this photo — used for the DEBUG identification readout.
     var visionLabels: [String] = []
-}
-
-// MARK: - Cozy "identifying" moment
-
-/// Grove peeking through its field guide: a wiggly magnifier looking over animal
-/// emojis flipping by, over a warm wash. Deliberately hand-made and playful —
-/// the opposite of a clinical scanner.
-private struct IdentifyingOverlay: View {
-    private let animals = ["🐿️", "🦊", "🐦", "🦆", "🐰", "🦋", "🐢", "🦉", "🐾", "🦌"]
-    @State private var bob = false
-    @State private var wiggle = false
-
-    var body: some View {
-        ZStack {
-            RadialGradient(
-                gradient: Gradient(colors: [Theme.cream.opacity(0.55), Theme.blush.opacity(0.42), .black.opacity(0.5)]),
-                center: UnitPoint(x: 0.5, y: 0.42), startRadius: 20, endRadius: 480
-            )
-
-            VStack(spacing: 20) {
-                ZStack {
-                    Circle().fill(Theme.cream)
-                        .frame(width: 106, height: 106)
-                        .shadow(color: .black.opacity(0.28), radius: 14, y: 8)
-                    TimelineView(.periodic(from: .now, by: 0.12)) { context in
-                        let i = Int(context.date.timeIntervalSinceReferenceDate / 0.12) % animals.count
-                        Text(animals[i]).font(.system(size: 50))
-                    }
-                    Text("🔍")
-                        .font(.system(size: 28))
-                        .rotationEffect(.degrees(wiggle ? 10 : -14))
-                        .offset(x: 34, y: 34)
-                }
-                .offset(y: bob ? -7 : 0)
-
-                Text("Who's this friend?")
-                    .font(.system(size: 20, weight: .heavy, design: .rounded))
-                    .foregroundStyle(.white)
-                    .shadow(color: .black.opacity(0.4), radius: 8, y: 2)
-            }
-
-            SparkleFloat(emoji: "✨", delay: 0).offset(x: -72, y: -58)
-            SparkleFloat(emoji: "🌿", delay: 0.5).offset(x: 66, y: -30)
-            SparkleFloat(emoji: "✨", delay: 1.0).offset(x: 24, y: -96)
-        }
-        .onAppear {
-            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { bob = true }
-            withAnimation(.easeInOut(duration: 0.6).repeatForever(autoreverses: true)) { wiggle = true }
-        }
-    }
-}
-
-private struct SparkleFloat: View {
-    let emoji: String
-    let delay: Double
-    @State private var up = false
-
-    var body: some View {
-        Text(emoji)
-            .font(.system(size: 18))
-            .opacity(up ? 0 : 0.9)
-            .offset(y: up ? -22 : 6)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 2).repeatForever(autoreverses: false).delay(delay)) { up = true }
-            }
-    }
 }
 
 // MARK: - Viewfinder chrome
