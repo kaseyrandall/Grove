@@ -2,7 +2,8 @@ import AVFoundation
 import UIKit
 
 /// A minimal AVFoundation capture wrapper for the Catch screen.
-/// Handles permission, live preview, and a single photo capture.
+/// Handles permission, live preview, a single photo capture, and the small set
+/// of viewfinder controls the immersive camera offers: flip, flash, tap-to-focus.
 ///
 /// Note: the camera only works on a real device. In the Simulator, use the
 /// "Pick from Library" path on the Catch screen instead.
@@ -14,10 +15,15 @@ final class CameraModel: NSObject, ObservableObject {
 
     let session = AVCaptureSession()
     @Published var status: Status = .idle
+    /// Which camera is live. Drives the flip control's state.
+    @Published private(set) var position: AVCaptureDevice.Position = .back
+    /// Flash for the next photo. Ignored by cameras without a flash.
+    @Published var flashMode: AVCaptureDevice.FlashMode = .off
 
     private let output = AVCapturePhotoOutput()
     private let sessionQueue = DispatchQueue(label: "com.grove.camera.session")
     private var captureHandler: ((UIImage?) -> Void)?
+    private var currentInput: AVCaptureDeviceInput?
 
     // MARK: Setup
 
@@ -54,16 +60,13 @@ final class CameraModel: NSObject, ObservableObject {
                 self.session.beginConfiguration()
                 self.session.sessionPreset = .photo
 
-                guard
-                    let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
-                    let input = try? AVCaptureDeviceInput(device: device),
-                    self.session.canAddInput(input)
-                else {
+                guard let input = self.makeInput(position: self.position) else {
                     self.session.commitConfiguration()
                     DispatchQueue.main.async { self.status = .unavailable }
                     return
                 }
                 self.session.addInput(input)
+                self.currentInput = input
 
                 if self.session.canAddOutput(self.output) {
                     self.session.addOutput(self.output)
@@ -78,6 +81,59 @@ final class CameraModel: NSObject, ObservableObject {
         }
     }
 
+    private func makeInput(position: AVCaptureDevice.Position) -> AVCaptureDeviceInput? {
+        guard
+            let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position),
+            let input = try? AVCaptureDeviceInput(device: device),
+            session.canAddInput(input)
+        else { return nil }
+        return input
+    }
+
+    // MARK: Viewfinder controls
+
+    /// Swaps between the front and back cameras.
+    func flip() {
+        sessionQueue.async { [weak self] in
+            guard let self, let current = self.currentInput else { return }
+            let newPosition: AVCaptureDevice.Position = (self.position == .back) ? .front : .back
+
+            self.session.beginConfiguration()
+            self.session.removeInput(current)
+            if let input = self.makeInput(position: newPosition) {
+                self.session.addInput(input)
+                self.currentInput = input
+                DispatchQueue.main.async { self.position = newPosition }
+            } else {
+                // Couldn't switch — put the original camera back.
+                if self.session.canAddInput(current) { self.session.addInput(current) }
+            }
+            self.session.commitConfiguration()
+        }
+    }
+
+    /// Focuses (and meters exposure) at a point in the preview layer's
+    /// device-space coordinates, from a tap.
+    func focus(at devicePoint: CGPoint) {
+        sessionQueue.async { [weak self] in
+            guard let device = self?.currentInput?.device else { return }
+            do {
+                try device.lockForConfiguration()
+                if device.isFocusPointOfInterestSupported {
+                    device.focusPointOfInterest = devicePoint
+                    device.focusMode = device.isFocusModeSupported(.autoFocus) ? .autoFocus : device.focusMode
+                }
+                if device.isExposurePointOfInterestSupported {
+                    device.exposurePointOfInterest = devicePoint
+                    device.exposureMode = device.isExposureModeSupported(.autoExpose) ? .autoExpose : device.exposureMode
+                }
+                device.unlockForConfiguration()
+            } catch {
+                // Focus is a nicety; never surface a failure to the player.
+            }
+        }
+    }
+
     // MARK: Capture
 
     /// Captures a single photo. The completion is delivered on the main thread.
@@ -89,6 +145,9 @@ final class CameraModel: NSObject, ObservableObject {
             }
             self.captureHandler = completion
             let settings = AVCapturePhotoSettings()
+            if self.output.supportedFlashModes.contains(self.flashMode) {
+                settings.flashMode = self.flashMode
+            }
             self.output.capturePhoto(with: settings, delegate: self)
         }
     }
