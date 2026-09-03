@@ -171,18 +171,21 @@ struct CatchView: View {
         VStack(spacing: 14) {
             safetyLine
             HStack {
-                Group {
+                // Fixed-size side slots keep the shutter centered even before the
+                // camera authorizes (and the flip button appears) or when there's
+                // no last catch yet — an empty view alone would collapse to zero.
+                sideSlot(alignment: .leading) {
                     if camera.status == .authorized {
                         circleButton("arrow.triangle.2.circlepath") { camera.flip() }
+                            .transition(.opacity.combined(with: .scale))
                     }
                 }
-                .frame(width: 52, alignment: .leading)
 
                 Spacer()
                 shutterButton
                 Spacer()
 
-                Group {
+                sideSlot(alignment: .trailing) {
                     if let last = lastCatch, let data = last.photoData, let ui = UIImage(data: data) {
                         Button { onFinished() } label: {
                             Image(uiImage: ui)
@@ -194,8 +197,8 @@ struct CatchView: View {
                         .buttonStyle(.plain)
                     }
                 }
-                .frame(width: 52, alignment: .trailing)
             }
+            .animation(.easeInOut(duration: 0.25), value: camera.status)
 
             #if DEBUG
             debugLibraryPicker
@@ -229,6 +232,14 @@ struct CatchView: View {
         .buttonStyle(BouncyButtonStyle())
         .disabled(camera.status != .authorized || isIdentifying)
         .opacity(camera.status == .authorized ? 1 : 0.45)
+    }
+
+    /// A fixed 52pt-wide slot flanking the shutter. Always reserves its width so
+    /// the shutter stays centered whether or not its content is present yet.
+    private func sideSlot<Content: View>(alignment: Alignment, @ViewBuilder content: () -> Content) -> some View {
+        Color.clear
+            .frame(width: 52, height: 52)
+            .overlay(alignment: alignment, content: content)
     }
 
     private func circleButton(_ systemName: String, action: @escaping () -> Void) -> some View {
