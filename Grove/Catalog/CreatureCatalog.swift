@@ -71,27 +71,22 @@ enum CreatureCatalog {
                 habitatNote: "Muddy farmyards",
                 matchKeywords: ["pig", "hog", "swine"]),
 
-        // MARK: The Pond — waterside regulars
+        // MARK: The Pond — freshwater regulars
         Species(id: "fish", name: "Fish", emoji: "🐟",
                 rarity: .common, zone: .pond,
                 blurb: "Blub. A classic. Never not vibing.",
                 habitatNote: "Ponds & streams",
-                matchKeywords: ["fish", "goldfish", "carp"]),
+                matchKeywords: ["fish", "goldfish", "carp", "koi", "trout", "salmon", "minnow"]),
         Species(id: "duck", name: "Duck", emoji: "🦆",
                 rarity: .uncommon, zone: .pond,
                 blurb: "Serene on the surface, paddling like mad underneath. Relatable.",
                 habitatNote: "Ponds & lakesides",
-                matchKeywords: ["duck", "mallard", "waterfowl", "goose"]),
+                matchKeywords: ["duck", "duckling", "mallard", "waterfowl", "goose", "gosling"]),
         Species(id: "turtle", name: "Turtle", emoji: "🐢",
                 rarity: .uncommon, zone: .pond,
                 blurb: "In no hurry whatsoever. An icon of taking it easy.",
                 habitatNote: "Sunny logs by the water",
                 matchKeywords: ["turtle", "tortoise", "terrapin"]),
-        Species(id: "crab", name: "Crab", emoji: "🦀",
-                rarity: .uncommon, zone: .pond,
-                blurb: "Walks its own way. Respect the pinch.",
-                habitatNote: "Rock pools & shorelines",
-                matchKeywords: ["crab", "crayfish", "lobster"]),
         Species(id: "frog", name: "Frog", emoji: "🐸",
                 rarity: .rare, zone: .pond,
                 blurb: "Green, glossy, and extremely pleased with himself.",
@@ -107,36 +102,48 @@ enum CreatureCatalog {
                 blurb: "Nature's engineer. Never off the clock.",
                 habitatNote: "Wooded streams",
                 matchKeywords: ["beaver"]),
-        Species(id: "seal", name: "Seal", emoji: "🦭",
-                rarity: .rare, zone: .pond,
-                blurb: "A wet potato with the sweetest eyes. Perfect.",
-                habitatNote: "Rocky coasts",
-                matchKeywords: ["seal", "sea lion", "walrus"]),
         Species(id: "swan", name: "Swan", emoji: "🦢",
                 rarity: .epic, zone: .pond,
                 blurb: "Elegance on water, absolute menace up close.",
                 habitatNote: "Still lakes",
                 matchKeywords: ["swan"]),
+
+        // MARK: The Coast — where the land meets the sea
+        Species(id: "crab", name: "Crab", emoji: "🦀",
+                rarity: .uncommon, zone: .coast,
+                blurb: "Walks its own way. Respect the pinch.",
+                habitatNote: "Rock pools & shorelines",
+                matchKeywords: ["crab", "crayfish", "lobster"]),
+        Species(id: "seal", name: "Seal", emoji: "🦭",
+                rarity: .rare, zone: .coast,
+                blurb: "A wet potato with the sweetest eyes. Perfect.",
+                habitatNote: "Rocky coasts",
+                matchKeywords: ["seal", "sea lion", "walrus"]),
         Species(id: "flamingo", name: "Flamingo", emoji: "🦩",
-                rarity: .epic, zone: .pond,
+                rarity: .epic, zone: .coast,
                 blurb: "Pink, poised, and standing on one leg out of spite.",
                 habitatNote: "Shallow lagoons",
                 matchKeywords: ["flamingo"]),
         Species(id: "penguin", name: "Penguin", emoji: "🐧",
-                rarity: .epic, zone: .pond,
+                rarity: .epic, zone: .coast,
                 blurb: "Dressed for a gala it will never attend.",
                 habitatNote: "Cold shores",
                 matchKeywords: ["penguin"]),
         Species(id: "dolphin", name: "Dolphin", emoji: "🐬",
-                rarity: .epic, zone: .pond,
+                rarity: .epic, zone: .coast,
                 blurb: "Smiling, brilliant, and clearly up to something.",
                 habitatNote: "Open water",
                 matchKeywords: ["dolphin", "porpoise"]),
         Species(id: "octopus", name: "Octopus", emoji: "🐙",
-                rarity: .epic, zone: .pond,
+                rarity: .epic, zone: .coast,
                 blurb: "Eight arms, three hearts, zero bones, infinite mystery.",
                 habitatNote: "Reefs & tide pools",
                 matchKeywords: ["octopus", "squid"]),
+        Species(id: "whale", name: "Whale", emoji: "🐳",
+                rarity: .legendary, zone: .coast,
+                blurb: "The gentlest giant in the whole wide ocean. A once-in-a-lifetime hello.",
+                habitatNote: "Deep open sea",
+                matchKeywords: ["whale", "orca", "humpback", "narwhal"]),
 
         // MARK: The Meadow — field, farm & tiny things
         Species(id: "bee", name: "Bee", emoji: "🐝",
@@ -397,6 +404,29 @@ enum CreatureCatalog {
         }
     }
 
+    /// Vision's coarse animal-family words. Used only to answer "did the photo
+    /// contain *an* animal, even one not in our guide?" — so we can gently turn
+    /// away a picture of lunch instead of minting a Mystery Friend for it.
+    private static let animalIndicators: [String] = [
+        "animal", "wildlife", "pet", "mammal", "bird", "fish", "insect",
+        "reptile", "amphibian", "arachnid", "invertebrate", "crustacean",
+        "mollusk", "rodent", "primate", "feline", "canine", "marsupial",
+        "carnivore", "herbivore", "ungulate", "waterfowl", "songbird",
+        "seabird", "raptor", "livestock", "cattle", "poultry",
+    ]
+
+    /// Whether Vision's labels suggest the photo actually holds an animal.
+    /// `nil` means "can't tell" — no labels came back (the Simulator returns
+    /// none, and a failed request is empty too), so callers must not reject on
+    /// `nil`. A catalog keyword hit is a definite yes; otherwise we look for
+    /// Vision's broad family words. Lets the Catch flow decline a clearly
+    /// non-animal photo rather than inventing a friend for it.
+    static func looksLikeAnimal(labels: [String]) -> Bool? {
+        guard !labels.isEmpty else { return nil }
+        if !keywordMatches(labels: labels, limit: 1).isEmpty { return true }
+        return animalIndicators.contains { keyword($0, matches: labels) }
+    }
+
     /// Exact-keyword shortlist: every species whose `matchKeywords` overlap the
     /// labels, ranked by number of hits then rarity. This is the same signal
     /// `match` uses, so it only fires when Vision named something we know.
@@ -465,7 +495,8 @@ enum CreatureCatalog {
         (["turtle", "tortoise"],                              ["turtle"]),
         (["frog", "toad", "amphibian"],                       ["frog"]),
         (["goldfish", "carp"],                                ["fish"]),
-        (["dolphin", "whale", "porpoise"],                    ["dolphin"]),
+        (["whale", "orca", "humpback", "narwhal"],            ["whale", "dolphin"]),
+        (["dolphin", "porpoise"],                             ["dolphin", "whale"]),
         (["crab", "lobster", "crayfish"],                     ["crab"]),
         (["mammal", "wildlife", "animal"],                    ["squirrel", "rabbit", "fox", "dog", "housecat", "deer"]),
     ]

@@ -12,8 +12,9 @@ struct Species: Identifiable, Hashable {
     let zone: Habitat       // which part of the Grove it settles into
     let blurb: String       // a friendly field note
     let habitatNote: String // where you'd find it in the wild
-    /// Vision classification labels that should map to this friend.
-    /// Matching is a lowercased "contains" test, so keep these simple.
+    /// Vision classification labels that should map to this friend. Matching is
+    /// a lowercased, word-boundary test (see `CreatureCatalog.keyword(_:matches:)`),
+    /// so single words like "ant" won't trip on "plant". Keep these simple.
     let matchKeywords: [String]
 
     /// The special fallback used when Vision can't confidently name what it saw,
