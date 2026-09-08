@@ -19,6 +19,9 @@ final class CameraModel: NSObject, ObservableObject {
     @Published private(set) var position: AVCaptureDevice.Position = .back
     /// Flash for the next photo. Ignored by cameras without a flash.
     @Published var flashMode: AVCaptureDevice.FlashMode = .off
+    /// Current pinch-zoom factor (1× = no zoom). Capped for a cozy, usable range.
+    @Published private(set) var zoomFactor: CGFloat = 1.0
+    private let maxZoom: CGFloat = 5.0
 
     private let output = AVCapturePhotoOutput()
     private let sessionQueue = DispatchQueue(label: "com.grove.camera.session")
@@ -103,7 +106,10 @@ final class CameraModel: NSObject, ObservableObject {
             if let input = self.makeInput(position: newPosition) {
                 self.session.addInput(input)
                 self.currentInput = input
-                DispatchQueue.main.async { self.position = newPosition }
+                DispatchQueue.main.async {
+                    self.position = newPosition
+                    self.zoomFactor = 1.0 // the new camera starts un-zoomed
+                }
             } else {
                 // Couldn't switch — put the original camera back.
                 if self.session.canAddInput(current) { self.session.addInput(current) }
@@ -130,6 +136,25 @@ final class CameraModel: NSObject, ObservableObject {
                 device.unlockForConfiguration()
             } catch {
                 // Focus is a nicety; never surface a failure to the player.
+            }
+        }
+    }
+
+    /// Pinch-to-zoom. Clamped to [1×, 5×] (and whatever the device allows) so
+    /// people can reach shy wildlife without getting close — pairs with the
+    /// "keep your distance" reminder.
+    func zoom(to factor: CGFloat) {
+        sessionQueue.async { [weak self] in
+            guard let self, let device = self.currentInput?.device else { return }
+            let maxAllowed = min(device.maxAvailableVideoZoomFactor, self.maxZoom)
+            let clamped = min(max(factor, 1.0), maxAllowed)
+            do {
+                try device.lockForConfiguration()
+                device.videoZoomFactor = clamped
+                device.unlockForConfiguration()
+                DispatchQueue.main.async { self.zoomFactor = clamped }
+            } catch {
+                // Zoom is a nicety; ignore failures.
             }
         }
     }

@@ -31,6 +31,7 @@ struct CatchView: View {
     @State private var flashOpacity: Double = 0
     @State private var focusPoint: CGPoint?
     @State private var focusToken = UUID()
+    @State private var baseZoom: CGFloat = 1.0
 
     #if DEBUG
     @State private var libraryItem: PhotosPickerItem?
@@ -45,6 +46,11 @@ struct CatchView: View {
             // Full-bleed viewfinder (or a friendly placeholder off-device).
             viewfinder
                 .ignoresSafeArea()
+                .gesture(
+                    MagnifyGesture()
+                        .onChanged { value in camera.zoom(to: baseZoom * value.magnification) }
+                        .onEnded { _ in baseZoom = camera.zoomFactor }
+                )
 
             // Controls live inside the safe area so nothing hides behind the
             // Dynamic Island or the home indicator.
@@ -162,6 +168,15 @@ struct CatchView: View {
 
     private var bottomControls: some View {
         VStack(spacing: 14) {
+            if camera.zoomFactor > 1.05 {
+                Text(String(format: "%.1f×", camera.zoomFactor))
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 5)
+                    .background(Capsule().fill(.black.opacity(0.45)))
+                    .transition(.scale.combined(with: .opacity))
+            }
             safetyLine
             HStack {
                 // Fixed-size side slots keep the shutter centered even before the
