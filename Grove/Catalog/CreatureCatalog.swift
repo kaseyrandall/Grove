@@ -380,14 +380,31 @@ enum CreatureCatalog {
     /// The whole guide sorted by name — the browse order for pickers.
     static let alphabetical: [Species] = all.sorted { $0.name < $1.name }
 
+    /// Whether a `matchKeywords` entry appears in Vision's labels on a *word
+    /// boundary*. Vision labels are lowercased single tokens or short phrases
+    /// ("small bird", "sea lion"), so a plain substring test is dangerous: the
+    /// keyword "ant" hides inside "plant" (in nearly every outdoor photo) and
+    /// "ape" inside "landscape", which used to summon a confident Ant or
+    /// Gorilla from the background. Matching whole words kills those false hits.
+    /// Multi-word keywords stay a bounded substring test — distinctive enough.
+    private static func keyword(_ keyword: String, matches labels: [String]) -> Bool {
+        if keyword.contains(" ") {
+            return labels.contains { $0.contains(keyword) }
+        }
+        let target = Substring(keyword)
+        return labels.contains { label in
+            label.split(whereSeparator: { !$0.isLetter }).contains(target)
+        }
+    }
+
     /// Exact-keyword shortlist: every species whose `matchKeywords` overlap the
     /// labels, ranked by number of hits then rarity. This is the same signal
     /// `match` uses, so it only fires when Vision named something we know.
     static func keywordMatches(labels: [String], limit: Int = 6) -> [Species] {
         guard !labels.isEmpty else { return [] }
         let scored: [(species: Species, hits: Int)] = all.compactMap { species in
-            let hits = species.matchKeywords.reduce(0) { count, keyword in
-                count + (labels.contains { $0.contains(keyword) } ? 1 : 0)
+            let hits = species.matchKeywords.reduce(0) { count, kw in
+                count + (keyword(kw, matches: labels) ? 1 : 0)
             }
             return hits > 0 ? (species, hits) : nil
         }
@@ -454,22 +471,12 @@ enum CreatureCatalog {
     ]
 
     /// Given Vision's top labels (already lowercased), pick the best friend.
-    /// Prefers rarer matches so a lucky "fox" beats a background "dog".
-    /// Falls back to the Mystery Friend so every snap yields something.
+    /// Uses the same word-boundary scoring as the shortlist: most keyword hits
+    /// win, ties broken toward the rarer species so a lucky "fox" beats a
+    /// background "dog". When nothing genuinely matches — an out-of-catalog
+    /// animal, or a photo of no animal at all — we return the Mystery Friend
+    /// rather than a confident wrong guess.
     static func match(labels: [String]) -> Species {
-        var best: Species?
-        for species in all {
-            let hit = species.matchKeywords.contains { keyword in
-                labels.contains { $0.contains(keyword) }
-            }
-            if hit {
-                if let current = best {
-                    if species.rarity > current.rarity { best = species }
-                } else {
-                    best = species
-                }
-            }
-        }
-        return best ?? .mystery
+        keywordMatches(labels: labels, limit: 1).first ?? .mystery
     }
 }
