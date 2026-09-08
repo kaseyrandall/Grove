@@ -3,6 +3,9 @@ import SwiftData
 
 @main
 struct GroveApp: App {
+    /// UIKit bridge for Home Screen quick actions (long-press the app icon).
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+
     /// Shared SwiftData container. Everything the player collects lives here,
     /// on-device. When we add a social/backend layer later, this is where
     /// sync would hook in.

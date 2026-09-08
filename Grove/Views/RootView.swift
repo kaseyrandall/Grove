@@ -13,6 +13,7 @@ struct RootView: View {
     @AppStorage("hasSeenGoalCoach") private var hasSeenGoalCoach = false
     @AppStorage("notificationsEnabled") private var notificationsEnabled = true
     @Environment(\.scenePhase) private var scenePhase
+    @ObservedObject private var quickActions = QuickActionRouter.shared
     @State private var selection: RootTab = .grove
     @State private var tabBarVisible = true
     @Query private var catches: [Catch]
@@ -83,10 +84,29 @@ struct RootView: View {
         .task { refreshReminders() }
         .onChange(of: catches.count) { _, _ in refreshReminders() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { refreshReminders() }
+            if phase == .active {
+                refreshReminders()
+                handleQuickAction() // a warm-launch shortcut may be waiting
+            }
         }
+        .onChange(of: quickActions.pending) { _, _ in handleQuickAction() }
+        .onAppear { handleQuickAction() } // catch a cold-launch shortcut
         .fullScreenCover(isPresented: onboardingBinding) {
             OnboardingView { hasOnboarded = true }
+        }
+    }
+
+    /// Consume a pending Home Screen quick action. "Snap a friend" jumps to the
+    /// camera — but only once the player is past onboarding; otherwise we clear
+    /// it so it can't fire behind the intro.
+    private func handleQuickAction() {
+        guard let action = quickActions.pending else { return }
+        quickActions.pending = nil
+        guard hasOnboarded else { return }
+        switch action {
+        case .snap:
+            withAnimation(.easeInOut(duration: 0.22)) { selection = .catchTab }
+            hasSeenSnapCoach = true
         }
     }
 
