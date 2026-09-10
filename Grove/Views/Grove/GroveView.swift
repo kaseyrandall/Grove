@@ -82,29 +82,42 @@ struct GroveView: View {
         }
     }
 
-    /// Split the zones into two independently-flowing columns, greedily placing
-    /// each into whichever column is currently shorter. Unlike a `LazyVGrid`,
-    /// this lets a tall, busy zone sit beside a short one without a locked-row
-    /// gap — the cards pack gracefully however full each zone happens to be.
+    /// Split the zones into two independently-flowing columns, kept as close in
+    /// height as possible. We assign the tallest zones first, each into whichever
+    /// column is currently shorter (the "longest-processing-time" rule) — this
+    /// balances far better than walking the zones in order, which tended to pile
+    /// the short cards into one column. Each column is then shown back in natural
+    /// zone order. Unlike a `LazyVGrid`, this packs a tall, busy zone beside a
+    /// short one without a locked-row gap, and stays balanced as zones fill up.
     private var masonry: (left: [(index: Int, zone: Habitat)], right: [(index: Int, zone: Habitat)]) {
+        let zones = Habitat.ordered.enumerated().map { (index: $0.offset, zone: $0.element) }
         var left: [(index: Int, zone: Habitat)] = []
         var right: [(index: Int, zone: Habitat)] = []
         var leftWeight = 0.0, rightWeight = 0.0
-        for (index, zone) in Habitat.ordered.enumerated() {
+        for item in zones.sorted(by: { weight(of: $0.zone) > weight(of: $1.zone) }) {
             if leftWeight <= rightWeight {
-                left.append((index, zone)); leftWeight += weight(of: zone)
+                left.append(item); leftWeight += weight(of: item.zone)
             } else {
-                right.append((index, zone)); rightWeight += weight(of: zone)
+                right.append(item); rightWeight += weight(of: item.zone)
             }
         }
+        left.sort { $0.index < $1.index }
+        right.sort { $0.index < $1.index }
         return (left, right)
     }
 
-    /// A rough estimate of a zone card's height, used only to balance columns.
+    /// Approximate rendered height of a zone card (in points), used only to
+    /// balance the two masonry columns so they stay close in height as zones
+    /// fill up. The old estimate under-counted both empty cards (their "quiet
+    /// spot" line makes them nearly as tall as a small full card) and busy ones
+    /// (a column is only wide enough for ~2 avatars per row, not 3), which left
+    /// the columns ragged. This tracks the real layout much more closely.
     private func weight(of zone: Habitat) -> Double {
         let residents = catches.filter { $0.effectiveZone == zone }.count
-        guard residents > 0 else { return 1 }              // header + "quiet spot" line
-        return 1 + (Double(residents) / 3.0).rounded(.up)  // header + rows of avatars
+        let base = 80.0                                    // header + padding + inter-card gap
+        guard residents > 0 else { return base + 52 }      // + the "quiet spot" line
+        let rows = (Double(residents) / 2.0).rounded(.up)  // ~2 avatars per column-width row
+        return base + rows * 66                             // + each avatar row
     }
 
     private func masonryColumn(_ items: [(index: Int, zone: Habitat)]) -> some View {
