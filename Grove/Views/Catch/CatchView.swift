@@ -182,24 +182,8 @@ struct CatchView: View {
         HStack {
             circleButton("xmark") { onFinished() }
             Spacer()
-            HStack(spacing: 10) {
-                galleryButton
-                circleButton("slider.horizontal.3") { showOptions = true }
-            }
+            circleButton("slider.horizontal.3") { showOptions = true }
         }
-    }
-
-    /// Upload a photo you took today. Uses the system photo picker (no library
-    /// permission needed); a taken-today check keeps Grove about the here-and-now.
-    private var galleryButton: some View {
-        PhotosPicker(selection: $libraryItem, matching: .images, photoLibrary: .shared()) {
-            Image(systemName: "photo.on.rectangle")
-                .font(.system(size: 17, weight: .semibold))
-                .foregroundStyle(.white)
-                .frame(width: 40, height: 40)
-                .background(Circle().fill(.black.opacity(0.42)))
-        }
-        .disabled(isIdentifying)
     }
 
     private var bottomControls: some View {
@@ -229,17 +213,27 @@ struct CatchView: View {
                 shutterButton
                 Spacer()
 
+                // Bottom-right opens the photo library (taken-today only),
+                // following the familiar camera pattern: your last catch shows
+                // as the thumbnail, or a photos glyph before your first.
                 sideSlot(alignment: .trailing) {
-                    if let last = lastCatch, let data = last.photoData, let ui = UIImage(data: data) {
-                        Button { onFinished() } label: {
-                            Image(uiImage: ui)
-                                .resizable().scaledToFill()
-                                .frame(width: 46, height: 46)
-                                .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
-                                .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(.white, lineWidth: 2))
+                    PhotosPicker(selection: $libraryItem, matching: .images, photoLibrary: .shared()) {
+                        Group {
+                            if let last = lastCatch, let data = last.photoData, let ui = UIImage(data: data) {
+                                Image(uiImage: ui).resizable().scaledToFill()
+                            } else {
+                                Image(systemName: "photo.on.rectangle.angled")
+                                    .font(.system(size: 19, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    .background(Color.black.opacity(0.42))
+                            }
                         }
-                        .buttonStyle(.plain)
+                        .frame(width: 46, height: 46)
+                        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(.white.opacity(0.9), lineWidth: 2))
                     }
+                    .disabled(isIdentifying)
                 }
             }
             .animation(.easeInOut(duration: 0.25), value: camera.status)
