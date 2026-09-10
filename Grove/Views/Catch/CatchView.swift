@@ -26,7 +26,7 @@ struct CatchView: View {
 
     @State private var isIdentifying = false
     @State private var noAnimalNotice = false
-    @State private var notTodayNotice = false
+    @State private var uploadIssue: UploadIssue?
     @State private var libraryItem: PhotosPickerItem?
     @State private var result: CatchResult?
     @State private var showOptions = false
@@ -75,15 +75,6 @@ struct CatchView: View {
                     .padding(.horizontal, 24)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
-
-            // Gentle nudge when an uploaded photo wasn't taken today.
-            if notTodayNotice {
-                notTodayBanner
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    .padding(.top, 68)
-                    .padding(.horizontal, 24)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
         }
         .groveTabBarHidden()
         .onChange(of: libraryItem) { _, newItem in
@@ -112,6 +103,14 @@ struct CatchView: View {
                 gridOn: $gridOn,
                 locationTagging: $locationTaggingEnabled
             )
+        }
+        .alert(uploadIssue?.title ?? "", isPresented: Binding(
+            get: { uploadIssue != nil },
+            set: { if !$0 { uploadIssue = nil } }
+        ), presenting: uploadIssue) { _ in
+            Button("Got it", role: .cancel) {}
+        } message: { issue in
+            Text(issue.message)
         }
     }
 
@@ -330,42 +329,10 @@ struct CatchView: View {
         }
     }
 
-    /// Shown when an uploaded photo wasn't taken today — keeps Grove real-time.
-    private var notTodayBanner: some View {
-        HStack(spacing: 12) {
-            Text("📅")
-                .font(.system(size: 26))
-            VStack(alignment: .leading, spacing: 2) {
-                Text("From the last day")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                    .foregroundStyle(.white)
-                Text("Grove is about what you're spotting now — snap it live, or upload a photo from the last 24 hours.")
-                    .font(.system(.caption, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.8))
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(.white.opacity(0.15), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.25)) { notTodayNotice = false }
-        }
-    }
-
     private func capture() {
         // Clear any lingering nudges — we're trying again.
-        if noAnimalNotice || notTodayNotice {
-            withAnimation(.easeInOut(duration: 0.25)) {
-                noAnimalNotice = false
-                notTodayNotice = false
-            }
+        if noAnimalNotice {
+            withAnimation(.easeInOut(duration: 0.25)) { noAnimalNotice = false }
         }
         flashOpacity = 0.9
         withAnimation(.easeOut(duration: 0.4)) { flashOpacity = 0 }
@@ -442,6 +409,24 @@ struct CatchView: View {
         )
     }
 
+    /// A clear, blocking reason an uploaded photo couldn't be added — shown as an alert.
+    private enum UploadIssue: Identifiable {
+        case tooOld, loadFailed
+        var id: Int { self == .tooOld ? 0 : 1 }
+        var title: String {
+            switch self {
+            case .tooOld:     return "Only today's finds"
+            case .loadFailed: return "Couldn't open that photo"
+            }
+        }
+        var message: String {
+            switch self {
+            case .tooOld:     return "Grove is about what you're spotting right now. This photo is more than a day old — snap your friend live, or upload one taken in the last 24 hours."
+            case .loadFailed: return "Something went wrong opening that photo. Try another, or snap your friend live."
+            }
+        }
+    }
+
     // MARK: Gallery import (recent photos only)
 
     /// Bring in a photo from the library, keeping Grove's real-time spirit: we
@@ -452,18 +437,19 @@ struct CatchView: View {
     @MainActor
     private func importFromLibrary(_ item: PhotosPickerItem) async {
         defer { libraryItem = nil }
-        guard !isIdentifying,
-              let data = try? await item.loadTransferable(type: Data.self),
-              let image = UIImage(data: data) else { return }
+        guard !isIdentifying else { return }
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else {
+            if hapticsEnabled { UINotificationFeedbackGenerator().notificationOccurred(.warning) }
+            uploadIssue = .loadFailed
+            return
+        }
 
         let dayOld: TimeInterval = 24 * 60 * 60
         let tooOld = captureDate(from: data).map { Date().timeIntervalSince($0) > dayOld } ?? false
         if tooOld {
             if hapticsEnabled { UINotificationFeedbackGenerator().notificationOccurred(.warning) }
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-                noAnimalNotice = false
-                notTodayNotice = true
-            }
+            uploadIssue = .tooOld
         } else {
             await identify(image)
         }
