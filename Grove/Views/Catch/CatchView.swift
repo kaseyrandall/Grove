@@ -35,10 +35,6 @@ struct CatchView: View {
     @State private var focusToken = UUID()
     @State private var baseZoom: CGFloat = 1.0
 
-    #if DEBUG
-    @State private var debugLibraryItem: PhotosPickerItem?
-    #endif
-
     private var lastCatch: Catch? {
         allCatches.filter { $0.photoData != nil }.max { $0.caughtAt < $1.caughtAt }
     }
@@ -247,10 +243,6 @@ struct CatchView: View {
                 }
             }
             .animation(.easeInOut(duration: 0.25), value: camera.status)
-
-            #if DEBUG
-            debugLibraryPicker
-            #endif
         }
     }
 
@@ -502,29 +494,6 @@ struct CatchView: View {
         }
         return nil
     }
-
-    // MARK: Debug-only library import (compiled out of release builds)
-
-    #if DEBUG
-    private var debugLibraryPicker: some View {
-        PhotosPicker(selection: $debugLibraryItem, matching: .images) {
-            Label("DEBUG: Pick from Library (skips today check)", systemImage: "ladybug")
-                .font(.system(.caption, design: .rounded, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.7))
-        }
-        .disabled(isIdentifying)
-        .onChange(of: debugLibraryItem) { _, newItem in
-            guard let newItem else { return }
-            Task {
-                defer { debugLibraryItem = nil }
-                if let data = try? await newItem.loadTransferable(type: Data.self),
-                   let image = UIImage(data: data) {
-                    await identify(image)
-                }
-            }
-        }
-    }
-    #endif
 }
 
 /// Value passed to the celebration sheet.
