@@ -86,16 +86,19 @@ struct EditFriendView: View {
     }
 
     private var preview: some View {
-        ZStack {
-            zone.gradient
-            if let data = friend.photoData, let ui = UIImage(data: data) {
-                Image(uiImage: ui).resizable().scaledToFill()
-            } else {
-                Text(species.emoji).font(.system(size: 64))
+        Color.clear
+            .aspectRatio(Theme.photoAspectRatio, contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .overlay {
+                ZStack {
+                    zone.gradient
+                    if let data = friend.photoData, let ui = UIImage(data: data) {
+                        Image(uiImage: ui).resizable().scaledToFill()
+                    } else {
+                        Text(species.emoji).font(.system(size: 64))
+                    }
+                }
             }
-        }
-        .frame(height: 130)
-        .frame(maxWidth: .infinity)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(alignment: .bottomTrailing) {
             if !isMystery {

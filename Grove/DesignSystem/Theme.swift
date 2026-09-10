@@ -18,6 +18,11 @@ enum Theme {
     /// Bottom padding scrollable pages add so content clears the floating tab bar.
     static let tabBarClearance: CGFloat = 104
 
+    /// The single aspect ratio (width : height) every friend-photo card uses —
+    /// detail hero, edit preview, celebration — so a photo looks the same shape
+    /// everywhere it appears. Matches the camera's native 4:3 capture.
+    static let photoAspectRatio: CGFloat = 4.0 / 3.0
+
     /// The app's default background — a soft vertical wash.
     static var background: LinearGradient {
         LinearGradient(

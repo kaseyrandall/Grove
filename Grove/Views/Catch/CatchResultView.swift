@@ -21,6 +21,7 @@ struct CatchResultView: View {
     @State private var zone: Habitat
     @State private var wasMystery: Bool
     @State private var popped = false
+    @State private var showPhoto = false
     /// Drives the push to the full, searchable catalog.
     @State private var showPicker = false
 
@@ -84,6 +85,7 @@ struct CatchResultView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
+            .photoLightbox(isPresented: $showPhoto, image: result.image)
             .navigationDestination(isPresented: $showPicker) {
                 SpeciesPickerView(selectedID: species.id) { picked in
                     correct(to: picked)
@@ -136,7 +138,7 @@ struct CatchResultView: View {
         Image(uiImage: result.image)
             .resizable()
             .scaledToFill()
-            .frame(width: 200, height: 200)
+            .frame(width: 260, height: 260 / Theme.photoAspectRatio) // shared 4:3 shape
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
@@ -152,6 +154,7 @@ struct CatchResultView: View {
             .shadow(color: Theme.ink.opacity(0.15), radius: 16, y: 8)
             .scaleEffect(popped ? 1 : 0.6)
             .rotationEffect(.degrees(popped ? 0 : -8))
+            .onTapGesture { showPhoto = true }
     }
 
     // MARK: Sparks
