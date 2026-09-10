@@ -59,6 +59,18 @@ struct GroveView: View {
                     .padding(.bottom, Theme.tabBarClearance)
                 }
             }
+            // Overlaid (not a real toolbar item) so it can transition in and
+            // out gracefully instead of popping. Attached to the root content —
+            // not the whole NavigationStack — so it shows ONLY on the Grove and
+            // never bleeds onto pushed detail screens over their Edit button.
+            .overlay(alignment: .topTrailing) {
+                if challengeDismissed {
+                    reopenChallengeButton
+                        .padding(.trailing, 18)
+                        .padding(.top, 4)
+                        .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .topTrailing)))
+                }
+            }
             .navigationTitle("Your Grove")
             .onAppear {
                 challengeDismissed = (challengeDismissedDay == todayKey)
@@ -66,16 +78,6 @@ struct GroveView: View {
                 revealed = true
                 // Persist once the cascade has finished so it never replays.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { seenIntro = true }
-            }
-        }
-        // Overlaid (not a real toolbar item) so it can transition in and out
-        // gracefully instead of popping. Sits in the top-right, over the header.
-        .overlay(alignment: .topTrailing) {
-            if challengeDismissed {
-                reopenChallengeButton
-                    .padding(.trailing, 18)
-                    .padding(.top, 4)
-                    .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .topTrailing)))
             }
         }
     }
