@@ -37,8 +37,8 @@ public enum BattleType: String, CaseIterable, Sendable {
         let i = all.firstIndex(of: self)!
         let j = all.firstIndex(of: foe)!
         let diff = (j - i + n) % n
-        if diff == 1 || diff == 2 { return 1.5 }
-        if diff == n - 1 || diff == n - 2 { return 0.67 }
+        if diff == 1 || diff == 2 { return 1.15 }
+        if diff == n - 1 || diff == n - 2 { return 0.9 }
         return 1.0
     }
 }
@@ -128,16 +128,18 @@ public struct BattleCard: Sendable {
         case .wall, .bruiser:
             utility = Move(name: "Brace", type: t, power: 0, stamina: 3, accuracy: 1.0, effect: .guardUp(0.5), isSpecial: false)
         case .trickster:
-            utility = Move(name: "Bewilder", type: t, power: 6, stamina: 5, accuracy: 0.9, effect: .drain(12), isSpecial: false)
+            utility = Move(name: "Hex", type: t, power: 8, stamina: 8, accuracy: 0.95, effect: .stun, isSpecial: false)
         case .allrounder:
-            utility = Move(name: "Second Wind", type: t, power: 0, stamina: 4, accuracy: 1.0, effect: .rally(0.12), isSpecial: false)
+            utility = Move(name: "Guard", type: t, power: 0, stamina: 3, accuracy: 1.0, effect: .guardUp(0.4), isSpecial: false)
         }
         let special: Move
         switch a {
         case .trickster:
-            special = Move(name: "Mesmerize", type: t, power: 20, stamina: 12, accuracy: 0.9, effect: .stun, isSpecial: true)
+            special = Move(name: "Mesmerize", type: t, power: 28, stamina: 12, accuracy: 0.9, effect: .stun, isSpecial: true)
         case .wall:
             special = Move(name: "Bulwark", type: t, power: 30, stamina: 11, accuracy: 0.95, effect: .guardUp(0.6), isSpecial: true)
+        case .allrounder:
+            special = Move(name: "Flourish", type: t, power: 32, stamina: 12, accuracy: 0.92, effect: nil, isSpecial: true)
         default:
             special = Move(name: "Onslaught", type: t, power: 34, stamina: 12, accuracy: 0.9, effect: .rally(0.15), isSpecial: true)
         }
@@ -154,6 +156,7 @@ public enum Condition: Sendable {
     case foeIsArchetype(Archetype)
     case specialReady
     case feintOpportunity   // I'm exposed and the foe hits hard — time to feint
+    case foeControllable    // the foe can be stunned right now (not already stunned/immune)
     case always
 }
 
@@ -196,8 +199,9 @@ public struct BattlePlan: Sendable {
         case .trickster:
             return BattlePlan(rules: [
                 Rule(.specialReady, .useSpecial),
-                Rule(.myStaminaBelow(7), .catchBreath),
-                Rule(.always, .utility),
+                Rule(.myStaminaBelow(8), .catchBreath),
+                Rule(.foeControllable, .utility),
+                Rule(.always, .strike),
             ])
         case .allrounder:
             return BattlePlan(rules: [

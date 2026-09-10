@@ -18,10 +18,10 @@ final class BattleTests: XCTestCase {
 
     // The eight-type wheel: beats the next two clockwise, weak to the two behind.
     func testTypeWheel() {
-        XCTAssertEqual(BattleType.bloom.multiplier(against: .tide),   1.5, accuracy: 0.001)
-        XCTAssertEqual(BattleType.bloom.multiplier(against: .shore),  1.5, accuracy: 0.001)
-        XCTAssertEqual(BattleType.bloom.multiplier(against: .hearth), 0.67, accuracy: 0.001)
-        XCTAssertEqual(BattleType.bloom.multiplier(against: .feral),  0.67, accuracy: 0.001)
+        XCTAssertEqual(BattleType.bloom.multiplier(against: .tide),   1.15, accuracy: 0.001)
+        XCTAssertEqual(BattleType.bloom.multiplier(against: .shore),  1.15, accuracy: 0.001)
+        XCTAssertEqual(BattleType.bloom.multiplier(against: .hearth), 0.9, accuracy: 0.001)
+        XCTAssertEqual(BattleType.bloom.multiplier(against: .feral),  0.9, accuracy: 0.001)
         XCTAssertEqual(BattleType.bloom.multiplier(against: .meadow), 1.0, accuracy: 0.001)
         XCTAssertEqual(BattleType.bloom.multiplier(against: .bloom),  1.0, accuracy: 0.001)
     }
@@ -99,5 +99,46 @@ final class BattleTests: XCTestCase {
         case .win(let n): print(">>> \(n) wins in \(r.turns) rounds")
         case .draw:       print(">>> draw after \(r.turns) rounds")
         }
+    }
+    // Row archetype's win-rate vs each column (neutral types). Prints the whole meta.
+    func testFullMatrix() {
+        func rate(_ x: Archetype, _ y: Archetype, seeds: Int = 300) -> Double {
+            if x == y { return 0.5 }
+            var xw = 0, dec = 0
+            for s in 0..<seeds {
+                let a = BattleCard(name: "X", type: .bloom, archetype: x, level: 20)
+                let b = BattleCard(name: "Y", type: .bloom, archetype: y, level: 20)
+                let r = simulate(a, .defaultPlan(for: x), vs: b, .defaultPlan(for: y), seed: UInt64(s * 2 + 1))
+                if case .win(let n) = r.outcome { dec += 1; if n == "X" { xw += 1 } }
+            }
+            return dec == 0 ? 0.5 : Double(xw) / Double(dec)
+        }
+        let all = Archetype.allCases
+        func pad(_ str: String, _ w: Int) -> String {
+            let t = String(str.prefix(w))
+            return String(repeating: " ", count: max(0, w - t.count)) + t
+        }
+        var header = pad("", 11)
+        for y in all { header += pad(String(y.rawValue.prefix(4)), 6) }
+        print("\n" + header)
+        for x in all {
+            var row = pad(x.rawValue, 11)
+            for y in all { row += pad(String(Int((rate(x, y) * 100).rounded())), 6) }
+            print(row)
+        }
+    }
+
+    // Type advantage should clearly favour the attacker, all else equal.
+    func testTypeAdvantageMatters() {
+        var advWins = 0, decided = 0
+        for s in 0..<400 {
+            let a = BattleCard(name: "Adv", type: .bloom, archetype: .allrounder, level: 20) // bloom beats tide
+            let b = BattleCard(name: "Dis", type: .tide,  archetype: .allrounder, level: 20)
+            let r = simulate(a, .defaultPlan(for: .allrounder), vs: b, .defaultPlan(for: .allrounder), seed: UInt64(s * 3 + 1))
+            if case .win(let n) = r.outcome { decided += 1; if n == "Adv" { advWins += 1 } }
+        }
+        let rate = Double(advWins) / Double(decided)
+        print(String(format: "\nType advantage (Bloom vs Tide, mirror archetype): %.1f%%", rate * 100))
+        XCTAssertGreaterThan(rate, 0.6, "type advantage should clearly favour the attacker")
     }
 }

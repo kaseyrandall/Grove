@@ -31,8 +31,17 @@ the much-faster combatant earns scaling **extra turns**, so speed investment pay
 off — while the Wall's high DEF keeps a fast attacker from ever cracking it, so
 Bulk › Speed stays safe.
 
-### Next
-- Fold in the off-triangle specialists (Trickster, All-rounder) and the type
-  multiplier as second-layer matchup tests.
-- A `describe()` on `BattleResult` already prints a readable play-by-play
-  (`testPrintSampleReplay`) — the seed for a real replay UI.
+### Specialists & type layer — explored, decisions open
+A full 6×6 win-rate matrix (`testFullMatrix`) and a type-advantage test now run.
+Findings that are **design calls**, not bugs — worth deciding deliberately:
+
+- **Trickster** got a repeatable stun with diminishing-returns (can't be
+  re-stunned instantly). Its *emergent* identity is "control beats most, loses to
+  raw Power (Bruiser)" — the reverse of the doc's "beats slow, loses to Speed."
+  Decide which identity we actually want.
+- **All-rounder** is now genuinely middling (real wins and losses), not dominant.
+- **Type advantage** is decisive (~90% in a mirror). Decide how swingy type
+  should be — Pokémon-swingy, or a gentler nudge — by setting the 1.15 / 0.9
+  multipliers in `BattleType.multiplier`.
+
+The core triangle stays asserted as a regression guard regardless.
