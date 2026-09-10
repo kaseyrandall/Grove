@@ -336,10 +336,10 @@ struct CatchView: View {
             Text("📅")
                 .font(.system(size: 26))
             VStack(alignment: .leading, spacing: 2) {
-                Text("Today's finds only")
+                Text("From the last day")
                     .font(.system(.subheadline, design: .rounded, weight: .semibold))
                     .foregroundStyle(.white)
-                Text("Grove is about what you spot today — snap it live, or pick a photo from today.")
+                Text("Grove is about what you're spotting now — snap it live, or upload a photo from the last 24 hours.")
                     .font(.system(.caption, design: .rounded))
                     .foregroundStyle(.white.opacity(0.8))
             }
@@ -442,11 +442,13 @@ struct CatchView: View {
         )
     }
 
-    // MARK: Gallery import (taken-today only)
+    // MARK: Gallery import (recent photos only)
 
-    /// Bring in a photo from the library — but only if it was taken today, so
-    /// uploads keep Grove's real-time spirit. A photo with no capture date
-    /// (screenshots, stripped metadata) can't be verified, so it's turned away.
+    /// Bring in a photo from the library, keeping Grove's real-time spirit: we
+    /// only turn a photo away when its capture date positively shows it's more
+    /// than a day old. A photo whose date we can't read (screenshots, stripped
+    /// metadata) is let through — better to welcome a genuine recent find than
+    /// to block it on missing EXIF.
     @MainActor
     private func importFromLibrary(_ item: PhotosPickerItem) async {
         defer { libraryItem = nil }
@@ -454,14 +456,16 @@ struct CatchView: View {
               let data = try? await item.loadTransferable(type: Data.self),
               let image = UIImage(data: data) else { return }
 
-        if let taken = captureDate(from: data), Calendar.current.isDateInToday(taken) {
-            await identify(image)
-        } else {
+        let dayOld: TimeInterval = 24 * 60 * 60
+        let tooOld = captureDate(from: data).map { Date().timeIntervalSince($0) > dayOld } ?? false
+        if tooOld {
             if hapticsEnabled { UINotificationFeedbackGenerator().notificationOccurred(.warning) }
             withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
                 noAnimalNotice = false
                 notTodayNotice = true
             }
+        } else {
+            await identify(image)
         }
     }
 
