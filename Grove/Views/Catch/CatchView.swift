@@ -1,9 +1,8 @@
 import SwiftUI
 import SwiftData
 import AVFoundation
-#if DEBUG
 import PhotosUI
-#endif
+import ImageIO
 
 /// The main "go find friends" screen: a full-bleed, immersive camera. A catch
 /// can only come from a photo taken *right now* — no uploading saved or
@@ -27,6 +26,8 @@ struct CatchView: View {
 
     @State private var isIdentifying = false
     @State private var noAnimalNotice = false
+    @State private var notTodayNotice = false
+    @State private var libraryItem: PhotosPickerItem?
     @State private var result: CatchResult?
     @State private var showOptions = false
     @State private var flashOpacity: Double = 0
@@ -35,7 +36,7 @@ struct CatchView: View {
     @State private var baseZoom: CGFloat = 1.0
 
     #if DEBUG
-    @State private var libraryItem: PhotosPickerItem?
+    @State private var debugLibraryItem: PhotosPickerItem?
     #endif
 
     private var lastCatch: Catch? {
@@ -78,8 +79,21 @@ struct CatchView: View {
                     .padding(.horizontal, 24)
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
+
+            // Gentle nudge when an uploaded photo wasn't taken today.
+            if notTodayNotice {
+                notTodayBanner
+                    .frame(maxHeight: .infinity, alignment: .top)
+                    .padding(.top, 68)
+                    .padding(.horizontal, 24)
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
         }
         .groveTabBarHidden()
+        .onChange(of: libraryItem) { _, newItem in
+            guard let newItem else { return }
+            Task { await importFromLibrary(newItem) }
+        }
         .onAppear {
             camera.start()
             if locationTaggingEnabled { location.requestIfNeeded() }
@@ -172,8 +186,24 @@ struct CatchView: View {
         HStack {
             circleButton("xmark") { onFinished() }
             Spacer()
-            circleButton("slider.horizontal.3") { showOptions = true }
+            HStack(spacing: 10) {
+                galleryButton
+                circleButton("slider.horizontal.3") { showOptions = true }
+            }
         }
+    }
+
+    /// Upload a photo you took today. Uses the system photo picker (no library
+    /// permission needed); a taken-today check keeps Grove about the here-and-now.
+    private var galleryButton: some View {
+        PhotosPicker(selection: $libraryItem, matching: .images, photoLibrary: .shared()) {
+            Image(systemName: "photo.on.rectangle")
+                .font(.system(size: 17, weight: .semibold))
+                .foregroundStyle(.white)
+                .frame(width: 40, height: 40)
+                .background(Circle().fill(.black.opacity(0.42)))
+        }
+        .disabled(isIdentifying)
     }
 
     private var bottomControls: some View {
@@ -314,10 +344,42 @@ struct CatchView: View {
         }
     }
 
+    /// Shown when an uploaded photo wasn't taken today — keeps Grove real-time.
+    private var notTodayBanner: some View {
+        HStack(spacing: 12) {
+            Text("📅")
+                .font(.system(size: 26))
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Today's finds only")
+                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .foregroundStyle(.white)
+                Text("Grove is about what you spot today — snap it live, or pick a photo from today.")
+                    .font(.system(.caption, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.8))
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 16)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(.white.opacity(0.15), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
+        .contentShape(Rectangle())
+        .onTapGesture {
+            withAnimation(.easeInOut(duration: 0.25)) { notTodayNotice = false }
+        }
+    }
+
     private func capture() {
-        // Clear any lingering "no animal" nudge — we're trying again.
-        if noAnimalNotice {
-            withAnimation(.easeInOut(duration: 0.25)) { noAnimalNotice = false }
+        // Clear any lingering nudges — we're trying again.
+        if noAnimalNotice || notTodayNotice {
+            withAnimation(.easeInOut(duration: 0.25)) {
+                noAnimalNotice = false
+                notTodayNotice = false
+            }
         }
         flashOpacity = 0.9
         withAnimation(.easeOut(duration: 0.4)) { flashOpacity = 0 }
@@ -394,20 +456,67 @@ struct CatchView: View {
         )
     }
 
+    // MARK: Gallery import (taken-today only)
+
+    /// Bring in a photo from the library — but only if it was taken today, so
+    /// uploads keep Grove's real-time spirit. A photo with no capture date
+    /// (screenshots, stripped metadata) can't be verified, so it's turned away.
+    @MainActor
+    private func importFromLibrary(_ item: PhotosPickerItem) async {
+        defer { libraryItem = nil }
+        guard !isIdentifying,
+              let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else { return }
+
+        if let taken = captureDate(from: data), Calendar.current.isDateInToday(taken) {
+            await identify(image)
+        } else {
+            if hapticsEnabled { UINotificationFeedbackGenerator().notificationOccurred(.warning) }
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                noAnimalNotice = false
+                notTodayNotice = true
+            }
+        }
+    }
+
+    /// The photo's original capture date from its EXIF/TIFF metadata, if present.
+    private func captureDate(from data: Data) -> Date? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
+        else { return nil }
+
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyy:MM:dd HH:mm:ss"
+
+        if let exif = props[kCGImagePropertyExifDictionary] as? [CFString: Any],
+           let string = (exif[kCGImagePropertyExifDateTimeOriginal]
+                         ?? exif[kCGImagePropertyExifDateTimeDigitized]) as? String,
+           let date = formatter.date(from: string) {
+            return date
+        }
+        if let tiff = props[kCGImagePropertyTIFFDictionary] as? [CFString: Any],
+           let string = tiff[kCGImagePropertyTIFFDateTime] as? String,
+           let date = formatter.date(from: string) {
+            return date
+        }
+        return nil
+    }
+
     // MARK: Debug-only library import (compiled out of release builds)
 
     #if DEBUG
     private var debugLibraryPicker: some View {
-        PhotosPicker(selection: $libraryItem, matching: .images) {
-            Label("DEBUG: Pick from Library", systemImage: "ladybug")
+        PhotosPicker(selection: $debugLibraryItem, matching: .images) {
+            Label("DEBUG: Pick from Library (skips today check)", systemImage: "ladybug")
                 .font(.system(.caption, design: .rounded, weight: .semibold))
                 .foregroundStyle(.white.opacity(0.7))
         }
         .disabled(isIdentifying)
-        .onChange(of: libraryItem) { _, newItem in
+        .onChange(of: debugLibraryItem) { _, newItem in
             guard let newItem else { return }
             Task {
-                defer { libraryItem = nil }
+                defer { debugLibraryItem = nil }
                 if let data = try? await newItem.loadTransferable(type: Data.self),
                    let image = UIImage(data: data) {
                     await identify(image)
