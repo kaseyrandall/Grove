@@ -72,14 +72,13 @@ struct EditFriendView: View {
                         .fontWeight(.bold)
                 }
             }
-            .confirmationDialog("Release \(species.name)?", isPresented: $showReleaseConfirm, titleVisibility: .visible) {
-                Button("Release back to the wild", role: .destructive) {
+            .sheet(isPresented: $showReleaseConfirm) {
+                ReleaseSheet(speciesName: species.name) {
                     onRelease()
                     dismiss()
                 }
-                Button("Keep them", role: .cancel) {}
-            } message: {
-                Text("They'll leave your Grove for good. You can always meet a new friend out in the wild.")
+                .presentationDetents([.height(340)])
+                .presentationDragIndicator(.visible)
             }
             .task { await loadSuggestions() }
         }
@@ -287,6 +286,62 @@ struct EditFriendView: View {
 
         try? context.save()
         dismiss()
+    }
+}
+
+// MARK: - Release confirmation
+
+/// A cozy slide-up sheet confirming a friend's release, in place of the stock
+/// system action sheet.
+private struct ReleaseSheet: View {
+    let speciesName: String
+    /// Called when the player confirms the release.
+    let onRelease: () -> Void
+
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        ZStack {
+            Theme.background.ignoresSafeArea()
+
+            VStack(spacing: 14) {
+                Text("🍃").font(.system(size: 46))
+
+                Text("Release \(speciesName)?")
+                    .font(.system(.title2, design: .rounded, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                    .multilineTextAlignment(.center)
+
+                Text("They'll leave your Grove for good. You can always meet a new friend out in the wild.")
+                    .font(.system(.subheadline, design: .rounded))
+                    .foregroundStyle(Theme.ink.opacity(0.6))
+                    .multilineTextAlignment(.center)
+
+                Spacer(minLength: 4)
+
+                VStack(spacing: 10) {
+                    Button(action: onRelease) {
+                        Text("Release back to the wild")
+                            .font(.system(.body, design: .rounded, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(Capsule().fill(Color(hex: 0xE86A6A)))
+                    }
+                    Button { dismiss() } label: {
+                        Text("Keep them")
+                            .font(.system(.body, design: .rounded, weight: .semibold))
+                            .foregroundStyle(Theme.ink)
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 15)
+                            .background(Capsule().fill(.white))
+                            .overlay(Capsule().stroke(Theme.ink.opacity(0.1), lineWidth: 1))
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .padding(24)
+        }
     }
 }
 
