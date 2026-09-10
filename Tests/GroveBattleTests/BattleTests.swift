@@ -62,9 +62,8 @@ final class BattleTests: XCTestCase {
         }
     }
 
-    // The balance picture: run the three core matchups over many seeds and REPORT
-    // win rates. Neutral types isolate archetype shape. Tuning these toward a real
-    // triangle is the next slice — for now we just want the numbers in front of us.
+    // The triangle, as a regression guard: over many seeds (neutral types isolate
+    // archetype shape) each favoured side must win > 50%. Also prints the rates.
     func testCoreMatchupWinRates() {
         func winRate(_ x: Archetype, _ y: Archetype, seeds: Int = 500) -> (Double, Int) {
             var xWins = 0, decided = 0
@@ -84,6 +83,21 @@ final class BattleTests: XCTestCase {
             + "  Bruiser    › Wall    : %5.1f%%  (%d decided)\n"
             + "  Wall       › Skirmisher: %5.1f%%  (%d decided)\n",
             sb.0 * 100, sb.1, bw.0 * 100, bw.1, ws.0 * 100, ws.1))
-        XCTAssertGreaterThan(sb.1 + bw.1 + ws.1, 0)
+        XCTAssertGreaterThan(sb.0, 0.5, "Speed should beat Power")
+        XCTAssertGreaterThan(bw.0, 0.5, "Power should beat Bulk")
+        XCTAssertGreaterThan(ws.0, 0.5, "Bulk should beat Speed")
+    }
+    // A readable play-by-play of one match — a diagnostic while we tune balance.
+    func testPrintSampleReplay() {
+        let a = BattleCard(name: "Fox",  type: .bloom, archetype: .skirmisher, level: 20)
+        let b = BattleCard(name: "Bear", type: .bloom, archetype: .bruiser,    level: 20)
+        print("\n--- Fox (Skirmisher \(a.stats.hp*3)HP spd\(a.stats.spd) atk\(a.stats.atk) def\(a.stats.def)) "
+            + "vs Bear (Bruiser \(b.stats.hp*3)HP spd\(b.stats.spd) atk\(b.stats.atk) def\(b.stats.def)) ---")
+        let r = simulate(a, .defaultPlan(for: .skirmisher), vs: b, .defaultPlan(for: .bruiser), seed: 7)
+        for (i, line) in r.log.enumerated() { print(String(format: "%3d  %@", i + 1, line)) }
+        switch r.outcome {
+        case .win(let n): print(">>> \(n) wins in \(r.turns) rounds")
+        case .draw:       print(">>> draw after \(r.turns) rounds")
+        }
     }
 }

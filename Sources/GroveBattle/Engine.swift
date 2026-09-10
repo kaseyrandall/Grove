@@ -78,9 +78,9 @@ public func simulate(_ aCard: BattleCard, _ aPlan: BattlePlan,
         // Speed's real edge: the much faster occasionally act again.
         let fast = c[0].card.stats.spd >= c[1].card.stats.spd ? 0 : 1
         let slow = 1 - fast
-        if c[fast].hp > 0 && c[slow].hp > 0
-            && Double(c[fast].card.stats.spd) >= Double(c[slow].card.stats.spd) * 1.5
-            && rng.chance(0.35) {
+        let spdRatio = Double(c[fast].card.stats.spd) / Double(max(1, c[slow].card.stats.spd))
+        let extraChance = min(0.85, max(0.0, (spdRatio - 1.2) * 0.95))
+        if c[fast].hp > 0 && c[slow].hp > 0 && rng.chance(extraChance) {
             var me = c[fast], foe = c[slow]
             apply(choose(me: me, foe: foe), me: &me, foe: &foe, rng: &rng, log: &log)
             c[fast] = me; c[slow] = foe

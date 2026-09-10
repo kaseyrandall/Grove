@@ -15,16 +15,24 @@ concept. No app dependencies; runnable with `swift test`.
   identical replay log + result, every time. This is what lets a match be
   refereed server-side (anti-cheat) and replayed on both devices.
 
-## Status: engine ✅ · balance ⛏️ in progress
-`swift test` runs a **win-rate harness** over the three core matchups. Current:
+## Status: engine ✅ · core triangle ✅
+
+`swift test` runs a win-rate harness (500 seeds/matchup, neutral types) that now
+*asserts* the archetype triangle holds:
 
 | Matchup | favoured win-rate |
 |---|---|
-| Power › Bulk (Bruiser › Wall) | ~87% ✅ |
-| Bulk › Speed (Wall › Skirmisher) | ~100% ✅ |
-| Speed › Power (Skirmisher › Bruiser) | ~14% ❌ |
+| Speed › Power (Skirmisher › Bruiser) | ~54% ✅ |
+| Power › Bulk (Bruiser › Wall) | ~97% ✅ |
+| Bulk › Speed (Wall › Skirmisher) | ~95% ✅ |
 
-Two legs of the triangle hold; **Speed › Power does not** — the Bruiser
-archetype is over-efficient in a 1v1. The engine + harness make this measurable;
-closing it is the next slice, and belongs in the **archetype weights** (raise the
-value of SPD / temper the ATK+HP concentration), not in engine constants.
+The leg that broke first (Speed › Power) was closed by pricing SPD correctly:
+the much-faster combatant earns scaling **extra turns**, so speed investment pays
+off — while the Wall's high DEF keeps a fast attacker from ever cracking it, so
+Bulk › Speed stays safe.
+
+### Next
+- Fold in the off-triangle specialists (Trickster, All-rounder) and the type
+  multiplier as second-layer matchup tests.
+- A `describe()` on `BattleResult` already prints a readable play-by-play
+  (`testPrintSampleReplay`) — the seed for a real replay UI.
