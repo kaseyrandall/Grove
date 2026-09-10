@@ -18,10 +18,10 @@ final class BattleTests: XCTestCase {
 
     // The eight-type wheel: beats the next two clockwise, weak to the two behind.
     func testTypeWheel() {
-        XCTAssertEqual(BattleType.bloom.multiplier(against: .tide),   1.15, accuracy: 0.001)
-        XCTAssertEqual(BattleType.bloom.multiplier(against: .shore),  1.15, accuracy: 0.001)
-        XCTAssertEqual(BattleType.bloom.multiplier(against: .hearth), 0.9, accuracy: 0.001)
-        XCTAssertEqual(BattleType.bloom.multiplier(against: .feral),  0.9, accuracy: 0.001)
+        XCTAssertEqual(BattleType.bloom.multiplier(against: .tide),   1.04, accuracy: 0.001)
+        XCTAssertEqual(BattleType.bloom.multiplier(against: .shore),  1.04, accuracy: 0.001)
+        XCTAssertEqual(BattleType.bloom.multiplier(against: .hearth), 0.97, accuracy: 0.001)
+        XCTAssertEqual(BattleType.bloom.multiplier(against: .feral),  0.97, accuracy: 0.001)
         XCTAssertEqual(BattleType.bloom.multiplier(against: .meadow), 1.0, accuracy: 0.001)
         XCTAssertEqual(BattleType.bloom.multiplier(against: .bloom),  1.0, accuracy: 0.001)
     }

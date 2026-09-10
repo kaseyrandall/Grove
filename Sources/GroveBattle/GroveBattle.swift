@@ -37,8 +37,8 @@ public enum BattleType: String, CaseIterable, Sendable {
         let i = all.firstIndex(of: self)!
         let j = all.firstIndex(of: foe)!
         let diff = (j - i + n) % n
-        if diff == 1 || diff == 2 { return 1.15 }
-        if diff == n - 1 || diff == n - 2 { return 0.9 }
+        if diff == 1 || diff == 2 { return 1.04 }
+        if diff == n - 1 || diff == n - 2 { return 0.97 }
         return 1.0
     }
 }
@@ -128,7 +128,7 @@ public struct BattleCard: Sendable {
         case .wall, .bruiser:
             utility = Move(name: "Brace", type: t, power: 0, stamina: 3, accuracy: 1.0, effect: .guardUp(0.5), isSpecial: false)
         case .trickster:
-            utility = Move(name: "Hex", type: t, power: 8, stamina: 8, accuracy: 0.95, effect: .stun, isSpecial: false)
+            utility = Move(name: "Hex", type: t, power: 8, stamina: 12, accuracy: 0.9, effect: .stun, isSpecial: false)
         case .allrounder:
             utility = Move(name: "Guard", type: t, power: 0, stamina: 3, accuracy: 1.0, effect: .guardUp(0.4), isSpecial: false)
         }

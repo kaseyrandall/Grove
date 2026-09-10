@@ -40,8 +40,7 @@ Findings that are **design calls**, not bugs — worth deciding deliberately:
   raw Power (Bruiser)" — the reverse of the doc's "beats slow, loses to Speed."
   Decide which identity we actually want.
 - **All-rounder** is now genuinely middling (real wins and losses), not dominant.
-- **Type advantage** is decisive (~90% in a mirror). Decide how swingy type
-  should be — Pokémon-swingy, or a gentler nudge — by setting the 1.15 / 0.9
-  multipliers in `BattleType.multiplier`.
+- **Type advantage** softened to a meaningful nudge (~74% in a mirror, not an
+  auto-win) via the 1.04 / 0.97 multipliers in `BattleType.multiplier`.
 
 The core triangle stays asserted as a regression guard regardless.
