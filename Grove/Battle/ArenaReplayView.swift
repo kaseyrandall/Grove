@@ -30,32 +30,6 @@ private enum Arena {
     }
 }
 
-private extension BattleType {
-    var color: Color {
-        switch self {
-        case .hearth: return Color(hex: 0xE8743B)
-        case .bloom:  return Color(hex: 0xEC7FB0)
-        case .tide:   return Color(hex: 0x3F82CF)
-        case .shore:  return Color(hex: 0x63C2C9)
-        case .meadow: return Color(hex: 0x6FB84A)
-        case .timber: return Color(hex: 0xA9834F)
-        case .gale:   return Color(hex: 0x8FB6D6)
-        case .feral:  return Color(hex: 0xA96FD0)
-        }
-    }
-}
-
-private extension Color {
-    /// Darken toward black by `amount` (0…1) — for the token's shaded underside.
-    func darkened(_ amount: Double = 0.4) -> Color {
-        let ui = UIColor(self)
-        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
-        ui.getRed(&r, green: &g, blue: &b, alpha: &a)
-        let f = 1 - amount
-        return Color(.sRGB, red: r * f, green: g * f, blue: b * f, opacity: a)
-    }
-}
-
 // MARK: - Transient overlays
 
 private struct Floater: Identifiable {
@@ -73,6 +47,7 @@ private struct BadgePop: Identifiable {
 /// the engine produced. Deterministic in, cinematic out.
 struct ArenaReplayView: View {
     let result: BattleResult
+    private let portraits: [UIImage?]
 
     // playback
     @State private var idx = 0
@@ -100,8 +75,11 @@ struct ArenaReplayView: View {
     private let speeds: [Double] = [1, 2, 3.25]
     private var speed: Double { speeds[speedIndex] }
 
-    init(result: BattleResult) {
+    init(result: BattleResult, portraits: [Data?] = [nil, nil]) {
         self.result = result
+        self.portraits = (0..<2).map { i in
+            portraits.indices.contains(i) ? portraits[i].flatMap(UIImage.init(data:)) : nil
+        }
         _hp = State(initialValue: [result.fighters[0].maxHP, result.fighters[1].maxHP])
         _sta = State(initialValue: [result.fighters[0].maxStamina, result.fighters[1].maxStamina])
     }
@@ -182,6 +160,8 @@ struct ArenaReplayView: View {
                 Text(f.name)
                     .font(.system(size: 16, weight: .semibold, design: .rounded))
                     .foregroundStyle(Arena.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.7)
                 Text("Lv\(f.level)")
                     .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(Arena.muted)
@@ -249,7 +229,7 @@ struct ArenaReplayView: View {
         let big = side == 0
         let size: CGFloat = big ? 104 : 78
         return VStack(spacing: 6) {
-            TokenView(letter: String(f.name.prefix(1)), color: f.type.color, size: size)
+            TokenView(letter: String(f.name.prefix(1)), color: f.type.color, size: size, image: portraits[side])
                 .shadow(color: activeSide == side ? Arena.gold.opacity(0.9) : .clear,
                         radius: activeSide == side ? 16 : 0)
                 .offset(lungeOffset[side])
@@ -547,6 +527,7 @@ private struct TokenView: View {
     let letter: String
     let color: Color
     let size: CGFloat
+    var image: UIImage? = nil
     @State private var bob = false
 
     var body: some View {
@@ -554,15 +535,24 @@ private struct TokenView: View {
             // ears
             ear.offset(x: -size * 0.28, y: -size * 0.42)
             ear.offset(x: size * 0.28, y: -size * 0.42)
-            Circle()
-                .fill(RadialGradient(colors: [color, color.darkened(0.45)],
-                                     center: .init(x: 0.35, y: 0.3),
-                                     startRadius: 2, endRadius: size))
-                .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 1))
-                .shadow(color: .black.opacity(0.5), radius: 12, y: 8)
-            Text(letter)
-                .font(.system(size: size * 0.4, weight: .semibold, design: .rounded))
-                .foregroundStyle(Color(hex: 0x0C130F).opacity(0.85))
+            if let image {
+                Image(uiImage: image)
+                    .resizable().scaledToFill()
+                    .frame(width: size, height: size)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(color, lineWidth: 3))
+                    .shadow(color: .black.opacity(0.5), radius: 12, y: 8)
+            } else {
+                Circle()
+                    .fill(RadialGradient(colors: [color, color.darkened(0.45)],
+                                         center: .init(x: 0.35, y: 0.3),
+                                         startRadius: 2, endRadius: size))
+                    .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 1))
+                    .shadow(color: .black.opacity(0.5), radius: 12, y: 8)
+                Text(letter)
+                    .font(.system(size: size * 0.4, weight: .semibold, design: .rounded))
+                    .foregroundStyle(Color(hex: 0x0C130F).opacity(0.85))
+            }
         }
         .frame(width: size, height: size)
         .offset(y: bob ? -5 : 0)
