@@ -26,6 +26,29 @@ struct SettingsView: View {
                 VStack(spacing: 20) {
                     preferencesCard
                     introCard
+#if DEBUG
+                    NavigationLink {
+                        ArenaDemoView()
+                    } label: {
+                        HStack(spacing: 14) {
+                            Image(systemName: "bolt.shield.fill")
+                                .font(.system(size: 18))
+                                .foregroundStyle(Theme.accent)
+                                .frame(width: 26)
+                            Text("Battlegrounds Arena (dev)")
+                                .font(.system(.body, design: .rounded, weight: .semibold))
+                                .foregroundStyle(Theme.ink)
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.system(size: 13, weight: .semibold))
+                                .foregroundStyle(Theme.ink.opacity(0.3))
+                        }
+                        .padding()
+                        .contentShape(Rectangle())
+                        .softCard()
+                    }
+                    .buttonStyle(.plain)
+#endif
                     dangerZone
                 }
                 .padding()
