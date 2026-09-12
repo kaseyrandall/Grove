@@ -6,7 +6,9 @@ public struct BattleResult: Sendable, Equatable {
     public enum Outcome: Sendable, Equatable { case win(String), draw }
     public var outcome: Outcome
     public var turns: Int
-    public var log: [String]
+    public var fighters: [Fighter]     // [side0, side1] — self-describing, for the UI
+    public var events: [ReplayEvent]   // the ordered, structured play-by-play
+    public var log: [String]           // convenience: events.map(\.text)
 }
 
 // MARK: - Combatant (mutable battle state)
@@ -32,7 +34,16 @@ private struct Combatant {
         self.hp = maxHP
         self.stamina = maxStamina
     }
+
+    var fighter: Fighter {
+        Fighter(name: card.name, type: card.type, archetype: card.archetype,
+                level: card.level, maxHP: maxHP, maxStamina: maxStamina)
+    }
 }
+
+/// A beat produced inside an action, before `simulate` stamps it with the round
+/// number and the HP/stamina snapshot.
+private struct RawEvent { var kind: ReplayEvent.Kind; var text: String }
 
 // MARK: - Engine
 
@@ -47,7 +58,16 @@ public func simulate(_ aCard: BattleCard, _ aPlan: BattlePlan,
                      seed: UInt64) -> BattleResult {
     var rng = SeededRNG(seed: seed)
     var c = [Combatant(aCard, aPlan), Combatant(bCard, bPlan)]
-    var log: [String] = []
+    var events: [ReplayEvent] = []
+
+    // Stamp a batch of raw beats by one actor with the round and the state they left.
+    func record(_ raw: [RawEvent], actor: Int, round: Int) {
+        for r in raw {
+            events.append(ReplayEvent(round: round, actor: actor, kind: r.kind, text: r.text,
+                                      hpAfter: [c[0].hp, c[1].hp],
+                                      staminaAfter: [c[0].stamina, c[1].stamina]))
+        }
+    }
 
     func order() -> [Int] {
         if c[0].card.stats.spd != c[1].card.stats.spd {
@@ -68,14 +88,17 @@ public func simulate(_ aCard: BattleCard, _ aPlan: BattlePlan,
             if c[side].stunned {
                 c[side].stunned = false
                 c[side].stunImmuneTurns = 2  // shake it off — immune to stun for a couple turns
-                log.append("\(c[side].card.name) is dazed and skips a turn.")
+                record([RawEvent(kind: .dazedSkip, text: "\(c[side].card.name) is dazed and skips a turn.")],
+                       actor: side, round: turn)
                 continue
             }
             var me = c[side], foe = c[foeSide]
             if me.stunImmuneTurns > 0 { me.stunImmuneTurns -= 1 }
             let action = choose(me: me, foe: foe)
-            apply(action, me: &me, foe: &foe, rng: &rng, log: &log)
+            var raw: [RawEvent] = []
+            apply(action, me: &me, foe: &foe, rng: &rng, raw: &raw)
             c[side] = me; c[foeSide] = foe
+            record(raw, actor: side, round: turn)
             if c[foeSide].hp <= 0 { break outer }
         }
         // Speed's real edge: the much faster occasionally act again.
@@ -86,9 +109,10 @@ public func simulate(_ aCard: BattleCard, _ aPlan: BattlePlan,
         if c[fast].hp > 0 && c[slow].hp > 0 && rng.chance(extraChance) {
             var me = c[fast], foe = c[slow]
             if me.stunImmuneTurns > 0 { me.stunImmuneTurns -= 1 }
-            apply(choose(me: me, foe: foe), me: &me, foe: &foe, rng: &rng, log: &log)
+            var raw: [RawEvent] = [RawEvent(kind: .extraMove, text: "\(me.card.name) is a blur — an extra move!")]
+            apply(choose(me: me, foe: foe), me: &me, foe: &foe, rng: &rng, raw: &raw)
             c[fast] = me; c[slow] = foe
-            log.append("\(c[fast].card.name) is a blur — an extra move!")
+            record(raw, actor: fast, round: turn)
         }
         if c[0].hp <= 0 || c[1].hp <= 0 { break }
     }
@@ -103,7 +127,9 @@ public func simulate(_ aCard: BattleCard, _ aPlan: BattlePlan,
         let p1 = Double(c[1].hp) / Double(c[1].maxHP)
         outcome = abs(p0 - p1) < 0.02 ? .draw : .win(p0 > p1 ? c[0].card.name : c[1].card.name)
     }
-    return BattleResult(outcome: outcome, turns: turn, log: log)
+    return BattleResult(outcome: outcome, turns: turn,
+                        fighters: [c[0].fighter, c[1].fighter],
+                        events: events, log: events.map(\.text))
 }
 
 // MARK: - Decision (walk the gambit list, first true rule fires)
@@ -131,33 +157,33 @@ private func matches(_ cond: Condition, me: Combatant, foe: Combatant) -> Bool {
 // MARK: - Execution
 
 private func apply(_ action: PlanAction, me: inout Combatant, foe: inout Combatant,
-                   rng: inout SeededRNG, log: inout [String]) {
+                   rng: inout SeededRNG, raw: inout [RawEvent]) {
     switch action {
     case .catchBreath:
         me.stamina = min(me.maxStamina, me.stamina + breatherRegen)
-        log.append("\(me.card.name) catches its breath.")
+        raw.append(RawEvent(kind: .catchBreath, text: "\(me.card.name) catches its breath."))
     case .useSpecial:
         if me.specialUsed || me.stamina < me.card.special.stamina {
-            resolve(me.card.strike, me: &me, foe: &foe, rng: &rng, log: &log, breatherIfBroke: true)
+            resolve(me.card.strike, me: &me, foe: &foe, rng: &rng, raw: &raw, breatherIfBroke: true)
         } else {
             me.specialUsed = true
-            resolve(me.card.special, me: &me, foe: &foe, rng: &rng, log: &log, breatherIfBroke: false)
+            resolve(me.card.special, me: &me, foe: &foe, rng: &rng, raw: &raw, breatherIfBroke: false)
         }
     case .utility:
-        resolve(me.card.utility, me: &me, foe: &foe, rng: &rng, log: &log, breatherIfBroke: true)
+        resolve(me.card.utility, me: &me, foe: &foe, rng: &rng, raw: &raw, breatherIfBroke: true)
     case .strike:
-        resolve(me.card.strike, me: &me, foe: &foe, rng: &rng, log: &log, breatherIfBroke: true)
+        resolve(me.card.strike, me: &me, foe: &foe, rng: &rng, raw: &raw, breatherIfBroke: true)
     }
 }
 
 /// Carry out one move: spend stamina, apply self-buffs, roll to hit, deal damage
 /// (type × ATK/DEF, softened by an exponent so nothing one-shots), apply foe effects.
 private func resolve(_ move: Move, me: inout Combatant, foe: inout Combatant,
-                     rng: inout SeededRNG, log: inout [String], breatherIfBroke: Bool) {
+                     rng: inout SeededRNG, raw: inout [RawEvent], breatherIfBroke: Bool) {
     if me.stamina < move.stamina {
         if breatherIfBroke {
             me.stamina = min(me.maxStamina, me.stamina + breatherRegen)
-            log.append("\(me.card.name) is winded and catches its breath.")
+            raw.append(RawEvent(kind: .winded, text: "\(me.card.name) is winded and catches its breath."))
         }
         return
     }
@@ -170,7 +196,8 @@ private func resolve(_ move: Move, me: inout Combatant, foe: inout Combatant,
         case .rally(let v):
             let heal = Int(Double(me.maxHP) * v)
             me.hp = min(me.maxHP, me.hp + heal)
-            log.append("\(me.card.name) uses \(move.name) and recovers \(heal) HP.")
+            raw.append(RawEvent(kind: .heal(move: move.name, amount: heal),
+                                text: "\(me.card.name) uses \(move.name) and recovers \(heal) HP."))
         default: break
         }
     }
@@ -179,7 +206,7 @@ private func resolve(_ move: Move, me: inout Combatant, foe: inout Combatant,
         let dodge = foe.evasionCharges > 0 ? 0.5 : 0.0
         if foe.evasionCharges > 0 { foe.evasionCharges -= 1 }
         if !rng.chance(move.accuracy * (1.0 - dodge)) {
-            log.append("\(me.card.name)'s \(move.name) misses!")
+            raw.append(RawEvent(kind: .miss(move: move.name), text: "\(me.card.name)'s \(move.name) misses!"))
             return
         }
         let mult = me.card.type.multiplier(against: foe.card.type)
@@ -191,23 +218,28 @@ private func resolve(_ move: Move, me: inout Combatant, foe: inout Combatant,
         }
         dmg = max(1, dmg)
         foe.hp -= dmg
+        let eff: Effectiveness = mult > 1.0 ? .advantaged : (mult < 1.0 ? .resisted : .neutral)
         var line = "\(me.card.name) uses \(move.name) for \(dmg)."
-        if mult > 1.1 { line += " Super effective!" } else if mult < 0.9 { line += " Not very effective…" }
-        log.append(line)
+        if eff == .advantaged { line += " Type edge!" } else if eff == .resisted { line += " Resisted." }
+        raw.append(RawEvent(kind: .strike(move: move.name, damage: dmg, effectiveness: eff), text: line))
 
         if let e = move.effect {
             switch e {
             case .stun:
-                if foe.stunImmuneTurns > 0 { log.append("\(foe.card.name) shrugs off the hex.") }
-                else { foe.stunned = true; log.append("\(foe.card.name) is dazed!") }
+                if foe.stunImmuneTurns > 0 {
+                    raw.append(RawEvent(kind: .shrugOff, text: "\(foe.card.name) shrugs off the hex."))
+                } else {
+                    foe.stunned = true
+                    raw.append(RawEvent(kind: .stunApplied, text: "\(foe.card.name) is dazed!"))
+                }
             case .drain(let s): foe.stamina = max(0, foe.stamina - s)
             default: break
             }
         }
     } else if let e = move.effect {
         switch e {
-        case .evade:   log.append("\(me.card.name) uses \(move.name) — harder to hit now.")
-        case .guardUp: log.append("\(me.card.name) braces for the next blow.")
+        case .evade:   raw.append(RawEvent(kind: .feint(move: move.name), text: "\(me.card.name) uses \(move.name) — harder to hit now."))
+        case .guardUp: raw.append(RawEvent(kind: .brace(move: move.name), text: "\(me.card.name) braces for the next blow."))
         default: break
         }
     }

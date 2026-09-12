@@ -96,6 +96,56 @@ public struct Move: Sendable, Equatable {
     public var isSpecial: Bool
 }
 
+// MARK: - Replay (structured, so a UI can render — not just print — a match)
+
+/// How the attacker's type fared against the defender's, for a badge in the UI.
+public enum Effectiveness: Sendable, Equatable { case advantaged, neutral, resisted }
+
+/// One thing that happened, in order, with the state it left behind. `hpAfter` /
+/// `staminaAfter` are the full [side0, side1] snapshot *after* this beat, so a UI
+/// can drive HP bars straight off the stream without re-simulating.
+public struct ReplayEvent: Sendable, Equatable {
+    public enum Kind: Sendable, Equatable {
+        case strike(move: String, damage: Int, effectiveness: Effectiveness)
+        case miss(move: String)
+        case heal(move: String, amount: Int)
+        case brace(move: String)       // guard raised
+        case feint(move: String)       // evasion raised
+        case stunApplied               // the foe was dazed
+        case shrugOff                  // the foe shrugged off a stun (immune)
+        case dazedSkip                 // this side lost the turn to a daze
+        case catchBreath
+        case winded                    // tried to move but was out of stamina
+        case extraMove                 // the fast side blurred in a bonus action
+    }
+    public var round: Int
+    public var actor: Int              // 0 or 1 — the side taking the action
+    public var kind: Kind
+    public var text: String            // human-readable prose (also collected into `log`)
+    public var hpAfter: [Int]          // [side0, side1] after this beat
+    public var staminaAfter: [Int]
+
+    public init(round: Int, actor: Int, kind: Kind, text: String, hpAfter: [Int], staminaAfter: [Int]) {
+        self.round = round; self.actor = actor; self.kind = kind
+        self.text = text; self.hpAfter = hpAfter; self.staminaAfter = staminaAfter
+    }
+}
+
+/// A self-describing snapshot of a combatant, so a replay carries everything the
+/// UI needs (names, bar maxima, identity) without touching the catalog.
+public struct Fighter: Sendable, Equatable {
+    public var name: String
+    public var type: BattleType
+    public var archetype: Archetype
+    public var level: Int
+    public var maxHP: Int
+    public var maxStamina: Int
+    public init(name: String, type: BattleType, archetype: Archetype, level: Int, maxHP: Int, maxStamina: Int) {
+        self.name = name; self.type = type; self.archetype = archetype
+        self.level = level; self.maxHP = maxHP; self.maxStamina = maxStamina
+    }
+}
+
 // MARK: - Battle card (derived, not rolled)
 
 public struct BattleCard: Sendable {

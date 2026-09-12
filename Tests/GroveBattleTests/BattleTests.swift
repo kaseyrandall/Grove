@@ -87,17 +87,35 @@ final class BattleTests: XCTestCase {
         XCTAssertGreaterThan(bw.0, 0.5, "Power should beat Bulk")
         XCTAssertGreaterThan(ws.0, 0.5, "Bulk should beat Speed")
     }
-    // A readable play-by-play of one match — a diagnostic while we tune balance.
+    // A readable play-by-play of one match — a diagnostic while we tune balance,
+    // and a preview of exactly what the Arena UI renders from the same events.
     func testPrintSampleReplay() {
         let a = BattleCard(name: "Fox",  type: .bloom, archetype: .skirmisher, level: 20)
-        let b = BattleCard(name: "Bear", type: .bloom, archetype: .bruiser,    level: 20)
-        print("\n--- Fox (Skirmisher \(a.stats.hp*3)HP spd\(a.stats.spd) atk\(a.stats.atk) def\(a.stats.def)) "
-            + "vs Bear (Bruiser \(b.stats.hp*3)HP spd\(b.stats.spd) atk\(b.stats.atk) def\(b.stats.def)) ---")
+        let b = BattleCard(name: "Bear", type: .timber, archetype: .bruiser,   level: 20)
         let r = simulate(a, .defaultPlan(for: .skirmisher), vs: b, .defaultPlan(for: .bruiser), seed: 7)
-        for (i, line) in r.log.enumerated() { print(String(format: "%3d  %@", i + 1, line)) }
-        switch r.outcome {
-        case .win(let n): print(">>> \(n) wins in \(r.turns) rounds")
-        case .draw:       print(">>> draw after \(r.turns) rounds")
+        print("\n" + renderReplay(r))
+    }
+
+    // The structured stream a UI consumes must stay faithful to the flat log and
+    // to the outcome: same order, tracked HP, and a loser actually at 0 HP.
+    func testReplayEventsAreConsistent() {
+        let a = BattleCard(name: "Fox",  type: .bloom, archetype: .skirmisher, level: 20)
+        let b = BattleCard(name: "Bear", type: .timber, archetype: .bruiser,   level: 20)
+        let r = simulate(a, .defaultPlan(for: .skirmisher), vs: b, .defaultPlan(for: .bruiser), seed: 7)
+
+        XCTAssertFalse(r.events.isEmpty)
+        XCTAssertEqual(r.log, r.events.map(\.text), "log must mirror the event stream")
+        XCTAssertEqual(r.fighters.count, 2)
+        for e in r.events {
+            XCTAssertEqual(e.hpAfter.count, 2)
+            XCTAssertEqual(e.staminaAfter.count, 2)
+            XCTAssertTrue(e.actor == 0 || e.actor == 1)
+            XCTAssertLessThanOrEqual(e.round, r.turns)
+        }
+        // On a decisive win, the final snapshot must show the loser dropped to 0.
+        if case .win(let winner) = r.outcome, let last = r.events.last {
+            let loserSide = winner == r.fighters[0].name ? 1 : 0
+            XCTAssertLessThanOrEqual(last.hpAfter[loserSide], 0, "the loser should be at 0 HP in the last event")
         }
     }
     // Row archetype's win-rate vs each column (neutral types). Prints the whole meta.
