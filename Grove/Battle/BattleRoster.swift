@@ -6,8 +6,8 @@ import Observation
 /// Arena" ritual.
 ///
 /// Two things live here, on purpose:
-///  • **progress** — a friend's earned level & XP, kept *per friend forever*
-///    (until they're released). Benching a friend never wipes what they earned.
+///  • **progress** — a friend's earned level & XP (and current rest timer), kept
+///    *per friend forever* (until they're released). Benching never wipes it.
 ///  • **team** — the up-to-three friends who are *active* right now.
 ///
 /// Keyed by a stable value derived from each catch's immutable fields (when it
@@ -22,6 +22,8 @@ final class BattleRoster {
         var level: Int
         var xp: Int
         var promotedAt: Date
+        /// When set and in the future, this friend is napping and can't be sent.
+        var restingUntil: Date? = nil
     }
 
     /// Active-team size. Starts at three; grows later with trainer level.
@@ -58,6 +60,29 @@ final class BattleRoster {
             guard let friend = byKey[k], let p = progress[k] else { return nil }
             return (friend, p)
         }
+    }
+
+    // MARK: - Rest (the mandatory post-match nap)
+
+    func isResting(_ c: Catch) -> Bool {
+        guard let u = progress(for: c)?.restingUntil else { return false }
+        return u > Date()
+    }
+    /// Seconds left on the nap, or 0 if ready.
+    func restRemaining(_ c: Catch) -> TimeInterval {
+        guard let u = progress(for: c)?.restingUntil else { return 0 }
+        return max(0, u.timeIntervalSinceNow)
+    }
+    /// Put a friend down for a nap after a match — longer the more worn out they
+    /// are. (Dev-scaled to seconds; the real game paces this at ~20–40 minutes.)
+    func beginRest(_ c: Catch, hpFraction: Double) {
+        let k = key(for: c)
+        guard var p = progress[k] else { return }
+        let worn = 1 - max(0, min(1, hpFraction))
+        let seconds = 30.0 + worn * 90.0
+        p.restingUntil = Date().addingTimeInterval(seconds)
+        progress[k] = p
+        save()
     }
 
     // MARK: - Mutations

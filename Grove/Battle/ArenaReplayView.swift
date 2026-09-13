@@ -103,6 +103,7 @@ struct ArenaReplayView: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .groveTabBarHidden()
         .onAppear { typewrite("Tap play to watch the match.") }
         .onDisappear { driver?.cancel(); typingTask?.cancel() }
     }

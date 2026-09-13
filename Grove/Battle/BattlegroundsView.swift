@@ -1,11 +1,11 @@
 import SwiftUI
 import SwiftData
 
-// MARK: - Battlegrounds home: your team of three
+// MARK: - Battlegrounds home: Find a Match + your team
 
-/// The Arena's home once a player is in: their small, persisted team. Friends
-/// are promoted into slots from their own page (the ritual) or the ＋ here; each
-/// slot leads into a match, and battling earns the fighter XP.
+/// The Arena's home once a player is in. The primary action is **Find a Match**
+/// (you don't battle a specific friend from here); below it, the team shows who's
+/// ready and who's still napping.
 struct BattlegroundsView: View {
     @Query(sort: \Catch.caughtAt, order: .reverse) private var catches: [Catch]
     @State private var showPromote = false
@@ -14,59 +14,104 @@ struct BattlegroundsView: View {
     private var team: [(friend: Catch, progress: BattleRoster.Progress)] {
         roster.teamCatches(from: catches)
     }
-    private var promotable: [Catch] {
-        catches.filter { !roster.teamContains($0) }
-    }
+    private var promotable: [Catch] { catches.filter { !roster.teamContains($0) } }
+    private func readyFighters() -> [Catch] { team.map(\.friend).filter { !roster.isResting($0) } }
 
     var body: some View {
         ZStack {
             BattleTheme.background.ignoresSafeArea()
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
-                    header
-                    ForEach(0..<roster.maxSlots, id: \.self) { i in
-                        if i < team.count {
-                            NavigationLink {
-                                MatchupView(fighter: team[i].friend)
-                            } label: {
-                                TeamSlotCard(friend: team[i].friend, progress: team[i].progress)
-                            }
-                            .buttonStyle(.plain)
-                        } else {
-                            EmptySlotCard(slot: i, locked: i >= roster.maxSlots) {
-                                showPromote = true
-                            }
-                        }
+                // A 1s tick so rest countdowns move and "Find a Match" re-enables
+                // the moment a friend wakes up.
+                TimelineView(.periodic(from: .now, by: 1)) { _ in
+                    VStack(alignment: .leading, spacing: 16) {
+                        header
+                        findMatchButton
+                        teamLabel
+                        ForEach(0..<roster.maxSlots, id: \.self) { i in slot(i) }
+                        footnote
                     }
-                    footnote
+                    .padding()
                 }
-                .padding()
             }
         }
         .navigationTitle("Battlegrounds")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .groveTabBarHidden()
         .onAppear { roster.prune(against: catches) }
-        .sheet(isPresented: $showPromote) {
-            PromotePickerSheet(candidates: promotable)
-        }
+        .sheet(isPresented: $showPromote) { PromotePickerSheet(candidates: promotable) }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Your team")
+            Text("The Arena")
                 .font(.system(size: 22, weight: .bold, design: .rounded))
                 .foregroundStyle(BattleTheme.ink)
-            Text("Up to three friends, raised fight by fight. Tap one to battle; send more in from a friend's page.")
+            Text("Find a match, send in a ready friend, and raise them fight by fight.")
                 .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundStyle(BattleTheme.muted)
         }
-        .padding(.bottom, 2)
+    }
+
+    @ViewBuilder private var findMatchButton: some View {
+        let ready = readyFighters()
+        if ready.isEmpty {
+            VStack(spacing: 4) {
+                Text("Find a Match")
+                    .font(.system(size: 18, weight: .heavy, design: .rounded))
+                    .foregroundStyle(BattleTheme.muted)
+                Text(team.isEmpty ? "Send a friend to the Arena first" : "Everyone's resting — check back soon")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(BattleTheme.muted.opacity(0.7))
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.white.opacity(0.03))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
+            )
+        } else {
+            NavigationLink {
+                MatchmakingView(fighters: ready)
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "bolt.fill")
+                    Text("Find a Match")
+                }
+                .font(.system(size: 18, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color(hex: 0x07130B))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 17)
+                .background(Capsule().fill(LinearGradient(colors: [BattleTheme.leaf, BattleTheme.leafDeep], startPoint: .top, endPoint: .bottom)))
+                .shadow(color: BattleTheme.leaf.opacity(0.3), radius: 12, y: 6)
+            }
+            .buttonStyle(.plain)
+        }
+    }
+
+    private var teamLabel: some View {
+        Text("YOUR TEAM")
+            .font(.system(size: 11, weight: .heavy, design: .rounded))
+            .tracking(1)
+            .foregroundStyle(BattleTheme.muted)
+            .padding(.top, 4)
+    }
+
+    @ViewBuilder private func slot(_ i: Int) -> some View {
+        if i < team.count {
+            TeamStatusCard(friend: team[i].friend, progress: team[i].progress,
+                           resting: roster.isResting(team[i].friend),
+                           remaining: roster.restRemaining(team[i].friend))
+        } else {
+            EmptySlotCard { showPromote = true }
+        }
     }
 
     private var footnote: some View {
-        Text("A benched friend keeps every level they earned. Swap freely.")
+        Text("Each match, one ready friend fights — then naps to recover. A benched friend keeps every level they earned.")
             .font(.system(size: 12, weight: .medium, design: .rounded))
             .foregroundStyle(BattleTheme.muted.opacity(0.8))
             .frame(maxWidth: .infinity, alignment: .center)
@@ -74,24 +119,26 @@ struct BattlegroundsView: View {
     }
 }
 
-// MARK: - Team slot (filled)
+// MARK: - Team status card (ready / resting)
 
-private struct TeamSlotCard: View {
+private struct TeamStatusCard: View {
     let friend: Catch
     let progress: BattleRoster.Progress
+    let resting: Bool
+    let remaining: TimeInterval
     private var type: BattleType { BattleType(habitat: friend.effectiveZone) }
     private var archetype: Archetype { .derived(fromSpeciesID: friend.speciesID) }
 
     var body: some View {
         HStack(spacing: 14) {
             PortraitCircle(photoData: friend.photoData, type: type,
-                           monogram: String(friend.displayName.prefix(1)), size: 60)
+                           monogram: String(friend.displayName.prefix(1)), size: 56)
+                .opacity(resting ? 0.6 : 1)
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 8) {
                     Text(friend.displayName)
-                        .font(.system(size: 17, weight: .bold, design: .rounded))
-                        .foregroundStyle(BattleTheme.ink)
-                        .lineLimit(1)
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(BattleTheme.ink).lineLimit(1)
                     TypeChip(type: type)
                 }
                 Text("\(archetype.rawValue.capitalized) · Lv \(progress.level)")
@@ -100,9 +147,7 @@ private struct TeamSlotCard: View {
                 xpBar
             }
             Spacer(minLength: 6)
-            Image(systemName: "chevron.right")
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(BattleTheme.muted.opacity(0.6))
+            statusPill
         }
         .padding(14)
         .background(
@@ -110,6 +155,16 @@ private struct TeamSlotCard: View {
                 .fill(BattleTheme.panelFill)
                 .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
         )
+    }
+
+    private var statusPill: some View {
+        HStack(spacing: 5) {
+            Circle().fill(resting ? BattleTheme.gold : BattleTheme.leaf).frame(width: 7, height: 7)
+            Text(resting ? "Resting \(mmss(remaining))" : "Ready")
+                .font(.system(size: 11, weight: .heavy, design: .rounded))
+                .monospacedDigit()
+                .foregroundStyle(resting ? BattleTheme.gold : BattleTheme.leaf)
+        }
     }
 
     private var xpBar: some View {
@@ -127,31 +182,22 @@ private struct TeamSlotCard: View {
     }
 }
 
-// MARK: - Team slot (empty)
+// MARK: - Empty slot
 
 private struct EmptySlotCard: View {
-    let slot: Int
-    let locked: Bool
     let action: () -> Void
-
     var body: some View {
         Button(action: action) {
             HStack(spacing: 14) {
                 ZStack {
                     Circle().fill(Color(hex: 0x1C2C23))
                         .overlay(Circle().strokeBorder(BattleTheme.panelLine, style: StrokeStyle(lineWidth: 1.5, dash: [4, 4])))
-                    Image(systemName: "plus")
-                        .font(.system(size: 20, weight: .bold))
-                        .foregroundStyle(BattleTheme.muted)
+                    Image(systemName: "plus").font(.system(size: 20, weight: .bold)).foregroundStyle(BattleTheme.muted)
                 }
-                .frame(width: 60, height: 60)
+                .frame(width: 56, height: 56)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Open slot")
-                        .font(.system(size: 16, weight: .bold, design: .rounded))
-                        .foregroundStyle(BattleTheme.ink)
-                    Text("Send a friend to the Arena")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(BattleTheme.muted)
+                    Text("Open slot").font(.system(size: 16, weight: .bold, design: .rounded)).foregroundStyle(BattleTheme.ink)
+                    Text("Send a friend to the Arena").font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(BattleTheme.muted)
                 }
                 Spacer()
             }
@@ -164,6 +210,171 @@ private struct EmptySlotCard: View {
             )
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Matchmaking: choose a ready fighter vs a hidden rival
+
+struct MatchmakingView: View {
+    let fighters: [Catch]
+
+    @State private var selected: Catch
+    @State private var seed: UInt64
+    @State private var opponent: Contender
+    @State private var go = false
+    @State private var result: BattleResult?
+    @State private var levelMsg: String?
+
+    private var roster: BattleRoster { .shared }
+    private var level: Int { roster.progress(for: selected)?.level ?? 1 }
+    private var fighterContender: Contender { .from(selected) }
+
+    init(fighters: [Catch]) {
+        self.fighters = fighters
+        _selected = State(initialValue: fighters[0])
+        let s = UInt64.random(in: 0 ..< UInt64.max)
+        _seed = State(initialValue: s)
+        _opponent = State(initialValue: .wildRival(seed: s))   // drawn, but kept hidden
+    }
+
+    var body: some View {
+        ZStack {
+            BattleTheme.background.ignoresSafeArea()
+            ScrollView {
+                VStack(spacing: 18) {
+                    if fighters.count > 1 { fighterPicker }
+
+                    labeled("YOUR FIGHTER") {
+                        BattleCardView(card: fighterContender.card(level: level), photoData: selected.photoData)
+                    }
+                    if let levelMsg {
+                        Text(levelMsg)
+                            .font(.system(size: 13, weight: .heavy, design: .rounded))
+                            .foregroundStyle(Color(hex: 0x07130B))
+                            .padding(.horizontal, 14).padding(.vertical, 8)
+                            .background(Capsule().fill(BattleTheme.gold))
+                    }
+
+                    Text("VS").font(.system(size: 15, weight: .heavy, design: .rounded)).foregroundStyle(BattleTheme.gold)
+
+                    labeled("YOUR OPPONENT") { HiddenOpponentCard() }
+
+                    fightButton
+                }
+                .padding()
+            }
+        }
+        .navigationTitle("Find a Match")
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .toolbarBackground(.hidden, for: .navigationBar)
+        .groveTabBarHidden()
+        .navigationDestination(isPresented: $go) {
+            if let result {
+                ArenaReplayView(result: result, portraits: [selected.photoData, opponent.photoData])
+            }
+        }
+    }
+
+    private var fighterPicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("CHOOSE WHO FIGHTS")
+                .font(.system(size: 11, weight: .heavy, design: .rounded)).tracking(1)
+                .foregroundStyle(BattleTheme.muted)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 12) {
+                    ForEach(fighters, id: \.persistentModelID) { f in
+                        let isSel = f.persistentModelID == selected.persistentModelID
+                        Button { withAnimation(.easeInOut(duration: 0.15)) { selected = f } } label: {
+                            VStack(spacing: 5) {
+                                PortraitCircle(photoData: f.photoData,
+                                               type: BattleType(habitat: f.effectiveZone),
+                                               monogram: String(f.displayName.prefix(1)), size: 56)
+                                    .overlay(Circle().stroke(BattleTheme.gold, lineWidth: isSel ? 3 : 0))
+                                Text(f.displayName)
+                                    .font(.system(size: 11, weight: .bold, design: .rounded))
+                                    .foregroundStyle(isSel ? BattleTheme.ink : BattleTheme.muted)
+                                    .lineLimit(1)
+                            }
+                            .frame(width: 68)
+                            .opacity(isSel ? 1 : 0.7)
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(.horizontal, 2)
+            }
+        }
+    }
+
+    private func labeled<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(title).font(.system(size: 11, weight: .heavy, design: .rounded)).tracking(1).foregroundStyle(BattleTheme.muted)
+            content()
+        }
+    }
+
+    private var fightButton: some View {
+        Button {
+            let r = simulate(fighterContender.card(level: level), .defaultPlan(for: fighterContender.archetype),
+                             vs: opponent.card(level: level), .defaultPlan(for: opponent.archetype),
+                             seed: seed)
+            let won: Bool = { if case .win(let n) = r.outcome { return n == selected.displayName } else { return false } }()
+            let gained = roster.award(to: selected, won: won)
+            // Rest is based on how worn out the fighter finished.
+            let maxHP = Double(max(1, r.fighters[0].maxHP))
+            let endHP = Double(max(0, r.events.last?.hpAfter.first ?? r.fighters[0].maxHP))
+            roster.beginRest(selected, hpFraction: endHP / maxHP)
+            levelMsg = gained > 0 ? "Leveled up! Now Lv \(level)" : nil
+            result = r
+            go = true
+        } label: {
+            Text("Fight!")
+                .font(.system(size: 18, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color(hex: 0x07130B))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 15)
+                .background(Capsule().fill(LinearGradient(colors: [BattleTheme.leaf, BattleTheme.leafDeep], startPoint: .top, endPoint: .bottom)))
+        }
+        .buttonStyle(.plain)
+        .padding(.top, 4)
+    }
+}
+
+// MARK: - Hidden opponent (revealed only when the battle begins)
+
+private struct HiddenOpponentCard: View {
+    @State private var pulse = false
+    var body: some View {
+        HStack(spacing: 14) {
+            ZStack {
+                Circle().fill(Color(hex: 0x1C2C23))
+                    .overlay(Circle().stroke(BattleTheme.panelLine, lineWidth: 1))
+                Text("?")
+                    .font(.system(size: 34, weight: .heavy, design: .rounded))
+                    .foregroundStyle(BattleTheme.muted)
+                    .opacity(pulse ? 0.5 : 1)
+            }
+            .frame(width: 76, height: 76)
+            VStack(alignment: .leading, spacing: 4) {
+                Text("A wild challenger")
+                    .font(.system(size: 18, weight: .bold, design: .rounded))
+                    .foregroundStyle(BattleTheme.ink)
+                Text("Revealed the moment the match begins.")
+                    .font(.system(size: 12, weight: .semibold, design: .rounded))
+                    .foregroundStyle(BattleTheme.muted)
+            }
+            Spacer()
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity)
+        .background(
+            RoundedRectangle(cornerRadius: 20, style: .continuous)
+                .fill(BattleTheme.panelFill)
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
+                    .strokeBorder(BattleTheme.panelLine, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])))
+        )
+        .onAppear { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true } }
     }
 }
 
@@ -239,9 +450,7 @@ private struct PromoteRow: View {
                 }
             }
             Spacer()
-            Image(systemName: "plus.circle.fill")
-                .font(.system(size: 22))
-                .foregroundStyle(BattleTheme.leaf)
+            Image(systemName: "plus.circle.fill").font(.system(size: 22)).foregroundStyle(BattleTheme.leaf)
         }
         .padding(12)
         .background(
@@ -249,116 +458,6 @@ private struct PromoteRow: View {
                 .fill(BattleTheme.panelFill)
                 .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
         )
-    }
-}
-
-// MARK: - Matchup: your fighter (at its earned level) vs a wild rival
-
-struct MatchupView: View {
-    let fighter: Catch
-
-    @State private var opponent: Contender
-    @State private var seed: UInt64
-    @State private var go = false
-    @State private var result: BattleResult?
-    @State private var levelMsg: String?
-
-    private var roster: BattleRoster { .shared }
-    /// Live level, so it reflects XP earned this session.
-    private var level: Int { roster.progress(for: fighter)?.level ?? 1 }
-    private var fighterContender: Contender { .from(fighter) }
-
-    init(fighter: Catch) {
-        self.fighter = fighter
-        let s = UInt64.random(in: 0 ..< UInt64.max)
-        _seed = State(initialValue: s)
-        _opponent = State(initialValue: .wildRival(seed: s))
-    }
-
-    var body: some View {
-        ZStack {
-            BattleTheme.background.ignoresSafeArea()
-            ScrollView {
-                VStack(spacing: 18) {
-                    labeled("YOUR FIGHTER") {
-                        BattleCardView(card: fighterContender.card(level: level), photoData: fighter.photoData)
-                    }
-                    if let levelMsg {
-                        Text(levelMsg)
-                            .font(.system(size: 13, weight: .heavy, design: .rounded))
-                            .foregroundStyle(Color(hex: 0x07130B))
-                            .padding(.horizontal, 14).padding(.vertical, 8)
-                            .background(Capsule().fill(BattleTheme.gold))
-                    }
-                    Text("VS")
-                        .font(.system(size: 15, weight: .heavy, design: .rounded))
-                        .foregroundStyle(BattleTheme.gold)
-                    labeled("A WILD RIVAL", trailing: shuffleButton) {
-                        BattleCardView(card: opponent.card(level: level), photoData: nil, compact: true)
-                    }
-                    battleButton
-                }
-                .padding()
-            }
-        }
-        .navigationTitle(fighter.displayName)
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .navigationDestination(isPresented: $go) {
-            if let result {
-                ArenaReplayView(result: result, portraits: [fighter.photoData, opponent.photoData])
-            }
-        }
-    }
-
-    private func labeled<Content: View>(_ title: String, trailing: (some View)? = Optional<EmptyView>.none, @ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(title)
-                    .font(.system(size: 11, weight: .heavy, design: .rounded))
-                    .tracking(1)
-                    .foregroundStyle(BattleTheme.muted)
-                Spacer()
-                trailing
-            }
-            content()
-        }
-    }
-
-    private var shuffleButton: some View {
-        Button {
-            let s = UInt64.random(in: 0 ..< UInt64.max)
-            seed = s
-            withAnimation(.easeInOut(duration: 0.2)) { opponent = .wildRival(seed: s) }
-        } label: {
-            HStack(spacing: 5) { Image(systemName: "shuffle"); Text("New rival") }
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundStyle(BattleTheme.leaf)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var battleButton: some View {
-        Button {
-            let r = simulate(fighterContender.card(level: level), .defaultPlan(for: fighterContender.archetype),
-                             vs: opponent.card(level: level), .defaultPlan(for: opponent.archetype),
-                             seed: seed)
-            let won: Bool = { if case .win(let n) = r.outcome { return n == fighter.displayName } else { return false } }()
-            let gained = roster.award(to: fighter, won: won)
-            levelMsg = gained > 0 ? "Leveled up! Now Lv \(level)" : nil
-            result = r
-            go = true
-        } label: {
-            Text("Battle!")
-                .font(.system(size: 18, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color(hex: 0x07130B))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 15)
-                .background(Capsule().fill(LinearGradient(colors: [BattleTheme.leaf, BattleTheme.leafDeep], startPoint: .top, endPoint: .bottom)))
-        }
-        .buttonStyle(.plain)
-        .padding(.top, 4)
     }
 }
 
@@ -502,6 +601,12 @@ struct PortraitCircle: View {
         }
         .shadow(color: .black.opacity(0.45), radius: 8, y: 4)
     }
+}
+
+/// m:ss for a rest countdown.
+func mmss(_ t: TimeInterval) -> String {
+    let s = max(0, Int(t.rounded(.up)))
+    return String(format: "%d:%02d", s / 60, s % 60)
 }
 
 #Preview {
