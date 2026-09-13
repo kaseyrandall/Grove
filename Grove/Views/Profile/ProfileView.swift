@@ -25,6 +25,7 @@ struct ProfileView: View {
                         achievementsCard
                         menuCard
                         #if DEBUG
+                        arenaCard
                         developerCard
                         #endif
                         Text("Grove \(appVersion)")
@@ -173,6 +174,16 @@ struct ProfileView: View {
                 else { SeedData.clear(context: context) }
             }
         )
+    }
+
+    private var arenaCard: some View {
+        NavigationLink {
+            BattlegroundsView()
+        } label: {
+            row(icon: "bolt.shield.fill", title: "Battlegrounds")
+                .softCard()
+        }
+        .buttonStyle(.plain)
     }
 
     private var developerCard: some View {
