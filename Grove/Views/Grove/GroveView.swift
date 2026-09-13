@@ -51,6 +51,12 @@ struct GroveView: View {
                             .transition(.move(edge: .top).combined(with: .opacity))
                     }
 
+                    #if DEBUG
+                    arenaSignpost
+                        .padding(.horizontal)
+                        .padding(.top, 12)
+                    #endif
+
                     HStack(alignment: .top, spacing: 12) {
                         masonryColumn(masonry.left)
                         masonryColumn(masonry.right)
@@ -135,6 +141,47 @@ struct GroveView: View {
         }
         .frame(maxWidth: .infinity, alignment: .top)
     }
+
+    #if DEBUG
+    /// A gated "arena at night" signpost that sits among the pastel habitats —
+    /// the in-Grove door into Battlegrounds (dev-only).
+    private var arenaSignpost: some View {
+        NavigationLink {
+            BattlegroundsView()
+        } label: {
+            HStack(spacing: 14) {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 15, style: .continuous)
+                        .fill(LinearGradient(colors: [Color(hex: 0x16261D), Color(hex: 0x0E1A14)], startPoint: .top, endPoint: .bottom))
+                    Image(systemName: "bolt.shield.fill")
+                        .font(.system(size: 22))
+                        .foregroundStyle(Color(hex: 0xF3D17A))
+                }
+                .frame(width: 52, height: 52)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Battlegrounds")
+                        .font(.system(.headline, design: .rounded, weight: .bold))
+                        .foregroundStyle(.white)
+                    Text("Send a friend to the Arena")
+                        .font(.system(.caption, design: .rounded, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.6))
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.white.opacity(0.4))
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 22, style: .continuous)
+                    .fill(LinearGradient(colors: [Color(hex: 0x1D2A22), Color(hex: 0x121C16)], startPoint: .top, endPoint: .bottom))
+                    .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color(hex: 0xF3D17A).opacity(0.25), lineWidth: 1))
+            )
+            .shadow(color: .black.opacity(0.28), radius: 12, y: 6)
+        }
+        .buttonStyle(.plain)
+    }
+    #endif
 
     private var header: some View {
         HStack(spacing: 12) {
