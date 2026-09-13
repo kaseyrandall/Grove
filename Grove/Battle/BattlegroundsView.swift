@@ -235,6 +235,7 @@ struct MatchmakingView: View {
     @State private var levelMsg: String?
     @State private var searching = false
     @State private var didProceed = false
+    @State private var showPlan = false
 
     private var roster: BattleRoster { .shared }
     private var level: Int { roster.progress(for: selected)?.level ?? 1 }
@@ -258,6 +259,7 @@ struct MatchmakingView: View {
                     labeled("YOUR FIGHTER") {
                         BattleCardView(card: fighterContender.card(level: level), photoData: selected.photoData)
                     }
+                    planButton
                     if let levelMsg {
                         Text(levelMsg)
                             .font(.system(size: 13, weight: .heavy, design: .rounded))
@@ -286,6 +288,42 @@ struct MatchmakingView: View {
                 ArenaReplayView(result: result, portraits: [selected.photoData, opponent.photoData])
             }
         }
+        .sheet(isPresented: $showPlan) {
+            BattlePlanEditorView(fighter: selected, archetype: fighterContender.archetype)
+        }
+    }
+
+    private var planCount: Int {
+        roster.storedPlan(for: selected, archetype: fighterContender.archetype).rules.count
+    }
+
+    private var planButton: some View {
+        Button { showPlan = true } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "slider.horizontal.3")
+                    .font(.system(size: 16, weight: .semibold))
+                    .foregroundStyle(BattleTheme.gold)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Battle Plan")
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(BattleTheme.ink)
+                    Text("\(planCount) rule\(planCount == 1 ? "" : "s") · tap to coach")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(BattleTheme.muted)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(BattleTheme.muted.opacity(0.6))
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(BattleTheme.panelFill)
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private var fighterPicker: some View {
@@ -335,7 +373,8 @@ struct MatchmakingView: View {
 
     private var fightButton: some View {
         Button {
-            let r = simulate(fighterContender.card(level: level), .defaultPlan(for: fighterContender.archetype),
+            let r = simulate(fighterContender.card(level: level),
+                             roster.battlePlan(for: selected, archetype: fighterContender.archetype),
                              vs: opponent.card(level: level), .defaultPlan(for: opponent.archetype),
                              seed: seed)
             let won: Bool = { if case .win(let n) = r.outcome { return n == selected.displayName } else { return false } }()

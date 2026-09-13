@@ -31,6 +31,7 @@ final class BattleRoster {
 
     private(set) var progress: [String: Progress] = [:]
     private(set) var team: [String] = []   // ordered active slots, holds friend keys
+    private(set) var plans: [String: StoredPlan] = [:]
 
     private let storeKey = "bg.roster.v1"
     private init() { load() }
@@ -142,6 +143,21 @@ final class BattleRoster {
         return gained
     }
 
+    // MARK: - Battle plans
+
+    /// The fighter's saved plan, or its archetype default if it has none yet.
+    func storedPlan(for c: Catch, archetype: Archetype) -> StoredPlan {
+        plans[key(for: c)] ?? StoredPlan(.defaultPlan(for: archetype))
+    }
+    func hasCustomPlan(_ c: Catch) -> Bool { plans[key(for: c)] != nil }
+    func setPlan(_ plan: StoredPlan, for c: Catch) {
+        plans[key(for: c)] = plan
+        save()
+    }
+    func battlePlan(for c: Catch, archetype: Archetype) -> BattlePlan {
+        storedPlan(for: c, archetype: archetype).battlePlan
+    }
+
     // MARK: - Housekeeping
 
     /// Drop team slots & progress for friends that no longer exist (released).
@@ -150,6 +166,7 @@ final class BattleRoster {
         let before = (team.count, progress.count)
         team.removeAll { !live.contains($0) }
         progress = progress.filter { live.contains($0.key) }
+        plans = plans.filter { live.contains($0.key) }
         if (team.count, progress.count) != before { save() }
     }
 
@@ -158,6 +175,7 @@ final class BattleRoster {
     private struct Blob: Codable {
         var team: [String]
         var progress: [String: Progress]
+        var plans: [String: StoredPlan]?
     }
 
     private func load() {
@@ -165,10 +183,11 @@ final class BattleRoster {
               let blob = try? JSONDecoder().decode(Blob.self, from: data) else { return }
         team = blob.team
         progress = blob.progress
+        plans = blob.plans ?? [:]
     }
 
     private func save() {
-        let blob = Blob(team: team, progress: progress)
+        let blob = Blob(team: team, progress: progress, plans: plans)
         if let data = try? JSONEncoder().encode(blob) {
             UserDefaults.standard.set(data, forKey: storeKey)
         }
