@@ -26,7 +26,6 @@ struct BattlegroundsView: View {
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
                     VStack(alignment: .leading, spacing: 16) {
                         header
-                        findMatchButton
                         teamLabel
                         ForEach(0..<roster.maxSlots, id: \.self) { i in slot(i) }
                         footnote
@@ -35,6 +34,7 @@ struct BattlegroundsView: View {
                 }
             }
         }
+        .safeAreaInset(edge: .bottom) { findMatchBar }
         .navigationTitle("Battlegrounds")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
@@ -55,40 +55,49 @@ struct BattlegroundsView: View {
         }
     }
 
-    @ViewBuilder private var findMatchButton: some View {
-        let ready = readyFighters()
-        if ready.isEmpty {
-            VStack(spacing: 4) {
-                Text("Find a Match")
-                    .font(.system(size: 18, weight: .heavy, design: .rounded))
-                    .foregroundStyle(BattleTheme.muted)
-                Text(team.isEmpty ? "Send a friend to the Arena first" : "Everyone's resting — check back soon")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(BattleTheme.muted.opacity(0.7))
-            }
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(Color.white.opacity(0.03))
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
-            )
-        } else {
-            NavigationLink {
-                MatchmakingView(fighters: ready)
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "bolt.fill")
-                    Text("Find a Match")
+    /// The primary battle CTA — docked in its own container at the bottom.
+    @ViewBuilder private var findMatchBar: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            let ready = readyFighters()
+            VStack(spacing: 0) {
+                if ready.isEmpty {
+                    VStack(spacing: 3) {
+                        Text("Find a Match")
+                            .font(.system(size: 17, weight: .heavy, design: .rounded))
+                            .foregroundStyle(BattleTheme.muted)
+                        Text(team.isEmpty ? "Send a friend to the Arena first" : "Everyone's resting — check back soon")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(BattleTheme.muted.opacity(0.7))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(Capsule().fill(Color.white.opacity(0.04)))
+                } else {
+                    NavigationLink {
+                        MatchmakingView(fighters: ready)
+                    } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: "bolt.fill")
+                            Text("Find a Match")
+                        }
+                        .font(.system(size: 18, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Color(hex: 0x07130B))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 17)
+                        .background(Capsule().fill(LinearGradient(colors: [BattleTheme.leaf, BattleTheme.leafDeep], startPoint: .top, endPoint: .bottom)))
+                        .shadow(color: BattleTheme.leaf.opacity(0.35), radius: 14, y: 6)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .font(.system(size: 18, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color(hex: 0x07130B))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 17)
-                .background(Capsule().fill(LinearGradient(colors: [BattleTheme.leaf, BattleTheme.leafDeep], startPoint: .top, endPoint: .bottom)))
-                .shadow(color: BattleTheme.leaf.opacity(0.3), radius: 12, y: 6)
             }
-            .buttonStyle(.plain)
+            .padding(.horizontal, 16)
+            .padding(.top, 14)
+            .padding(.bottom, 10)
+            .background(
+                BattleTheme.panel
+                    .overlay(alignment: .top) { Rectangle().fill(BattleTheme.panelLine).frame(height: 1) }
+                    .ignoresSafeArea(edges: .bottom)
+            )
         }
     }
 
@@ -224,6 +233,7 @@ struct MatchmakingView: View {
     @State private var go = false
     @State private var result: BattleResult?
     @State private var levelMsg: String?
+    @State private var searching = false
 
     private var roster: BattleRoster { .shared }
     private var level: Int { roster.progress(for: selected)?.level ?? 1 }
@@ -264,6 +274,7 @@ struct MatchmakingView: View {
                 .padding()
             }
         }
+        .overlay { if searching { SearchingOverlay(fighter: selected) } }
         .navigationTitle("Find a Match")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
@@ -327,7 +338,12 @@ struct MatchmakingView: View {
             roster.beginRest(selected, hpFraction: endHP / maxHP)
             levelMsg = gained > 0 ? "Leveled up! Now Lv \(level)" : nil
             result = r
-            go = true
+            withAnimation(.easeInOut(duration: 0.25)) { searching = true }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(1900))
+                searching = false
+                go = true
+            }
         } label: {
             Text("Fight!")
                 .font(.system(size: 18, weight: .heavy, design: .rounded))
@@ -607,6 +623,41 @@ struct PortraitCircle: View {
 func mmss(_ t: TimeInterval) -> String {
     let s = max(0, Int(t.rounded(.up)))
     return String(format: "%d:%02d", s / 60, s % 60)
+}
+
+// MARK: - "Finding a match" waiting state
+
+private struct SearchingOverlay: View {
+    let fighter: Catch
+    @State private var pulse = false
+    @State private var ringed = false
+
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.62).ignoresSafeArea()
+            VStack(spacing: 18) {
+                ZStack {
+                    Circle().stroke(BattleTheme.gold.opacity(0.5), lineWidth: 2)
+                        .frame(width: 118, height: 118)
+                        .scaleEffect(ringed ? 1.18 : 0.85)
+                        .opacity(ringed ? 0 : 0.9)
+                    PortraitCircle(photoData: fighter.photoData,
+                                   type: BattleType(habitat: fighter.effectiveZone),
+                                   monogram: String(fighter.displayName.prefix(1)), size: 88)
+                        .scaleEffect(pulse ? 1.04 : 0.98)
+                }
+                Text("Finding a match…")
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .foregroundStyle(BattleTheme.ink)
+                ProgressView().tint(BattleTheme.gold)
+            }
+        }
+        .transition(.opacity)
+        .onAppear {
+            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { pulse = true }
+            withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) { ringed = true }
+        }
+    }
 }
 
 #Preview {

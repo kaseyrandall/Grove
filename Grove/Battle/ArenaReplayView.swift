@@ -533,9 +533,6 @@ private struct TokenView: View {
 
     var body: some View {
         ZStack {
-            // ears
-            ear.offset(x: -size * 0.28, y: -size * 0.42)
-            ear.offset(x: size * 0.28, y: -size * 0.42)
             if let image {
                 Image(uiImage: image)
                     .resizable().scaledToFill()
@@ -562,11 +559,6 @@ private struct TokenView: View {
         }
     }
 
-    private var ear: some View {
-        Circle()
-            .fill(color.darkened(0.35))
-            .frame(width: size * 0.32, height: size * 0.32)
-    }
 }
 
 // MARK: - Floating number
