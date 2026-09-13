@@ -352,20 +352,21 @@ struct ArenaReplayView: View {
                            : "\(result.turns) rounds, dead even")
         return ZStack {
             Color.black.opacity(0.6).ignoresSafeArea()
-            VStack(spacing: 4) {
-                Text(emoji).font(.system(size: 44))
+            VStack(spacing: 8) {
+                Text(emoji).font(.system(size: 66))
                 Text(title)
-                    .font(.system(size: 30, weight: .semibold, design: .rounded))
+                    .font(.system(size: 40, weight: .heavy, design: .rounded))
                     .foregroundStyle(youLost ? Arena.hpMid : Arena.ink)
                 Text(sub)
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundStyle(Arena.muted)
                     .multilineTextAlignment(.center)
+                    .padding(.horizontal, 24)
                 Button { restart() } label: {
                     Text("Watch again")
-                        .font(.system(size: 15, weight: .semibold, design: .rounded))
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundStyle(youWon ? Color(hex: 0x0C130F) : Arena.ink)
-                        .padding(.horizontal, 26).padding(.vertical, 11)
+                        .padding(.horizontal, 34).padding(.vertical, 14)
                         .background {
                             if youWon {
                                 Capsule().fill(LinearGradient(colors: [Arena.gold, Color(hex: 0xDCAE4E)], startPoint: .top, endPoint: .bottom))
@@ -375,7 +376,7 @@ struct ArenaReplayView: View {
                         }
                 }
                 .buttonStyle(.plain)
-                .padding(.top, 14)
+                .padding(.top, 20)
             }
         }
     }

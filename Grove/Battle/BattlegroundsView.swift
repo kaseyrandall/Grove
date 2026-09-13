@@ -686,28 +686,28 @@ private struct SearchingOverlay: View {
     var body: some View {
         ZStack {
             Color.black.opacity(0.72).ignoresSafeArea()
-            VStack(spacing: 18) {
+            VStack(spacing: 24) {
                 ZStack {
-                    Circle().stroke(BattleTheme.gold.opacity(0.5), lineWidth: 2)
-                        .frame(width: 118, height: 118)
+                    Circle().stroke(BattleTheme.gold.opacity(0.5), lineWidth: 2.5)
+                        .frame(width: 156, height: 156)
                         .scaleEffect(ringed ? 1.18 : 0.85)
                         .opacity(ringed ? 0 : 0.9)
                     PortraitCircle(photoData: fighter.photoData,
                                    type: BattleType(habitat: fighter.effectiveZone),
-                                   monogram: String(fighter.displayName.prefix(1)), size: 88)
+                                   monogram: String(fighter.displayName.prefix(1)), size: 120)
                         .scaleEffect(pulse ? 1.04 : 0.98)
                 }
                 Text(phases[min(phase, phases.count - 1)])
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
                     .foregroundStyle(BattleTheme.ink)
                     .contentTransition(.opacity)
-                ProgressView().tint(BattleTheme.gold)
+                ProgressView().tint(BattleTheme.gold).controlSize(.large)
                 #if DEBUG
                 Button(action: onSkip) {
-                    HStack(spacing: 6) { Text("Skip"); Image(systemName: "forward.end.fill") }
-                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                    HStack(spacing: 7) { Text("Skip"); Image(systemName: "forward.end.fill") }
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
                         .foregroundStyle(BattleTheme.muted)
-                        .padding(.horizontal, 18).padding(.vertical, 9)
+                        .padding(.horizontal, 22).padding(.vertical, 11)
                         .background(Capsule().stroke(BattleTheme.panelLine, lineWidth: 1))
                 }
                 .buttonStyle(.plain)
