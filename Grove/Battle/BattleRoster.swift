@@ -10,8 +10,10 @@ import Observation
 ///    (until they're released). Benching a friend never wipes what they earned.
 ///  • **team** — the up-to-three friends who are *active* right now.
 ///
-/// Stored in UserDefaults keyed by each friend's `persistentModelID`, so the
-/// SwiftData store (and everyone's shipped Grove) is never touched or migrated.
+/// Keyed by a stable value derived from each catch's immutable fields (when it
+/// was met + where), not by `PersistentIdentifier` — which does not survive a
+/// JSON round-trip across app launches. Stored in UserDefaults, so the SwiftData
+/// store (and everyone's shipped Grove) is never touched or migrated.
 @Observable
 final class BattleRoster {
     static let shared = BattleRoster()
@@ -25,26 +27,35 @@ final class BattleRoster {
     /// Active-team size. Starts at three; grows later with trainer level.
     let maxSlots = 3
 
-    private(set) var progress: [PersistentIdentifier: Progress] = [:]
-    private(set) var team: [PersistentIdentifier] = []   // ordered active slots
+    private(set) var progress: [String: Progress] = [:]
+    private(set) var team: [String] = []   // ordered active slots, holds friend keys
 
-    private let key = "bg.roster.v1"
+    private let storeKey = "bg.roster.v1"
     private init() { load() }
+
+    /// A stable, launch-surviving id for a catch, from fields that never change
+    /// after it's met (re-identifying only touches species/nickname/zone).
+    private func key(for c: Catch) -> String {
+        let t = c.caughtAt.timeIntervalSinceReferenceDate.bitPattern
+        let la = (c.latitude ?? 0).bitPattern
+        let lo = (c.longitude ?? 0).bitPattern
+        return "\(t)-\(la)-\(lo)"
+    }
 
     // MARK: - Queries
 
-    func teamContains(_ c: Catch) -> Bool { team.contains(c.persistentModelID) }
-    func progress(for c: Catch) -> Progress? { progress[c.persistentModelID] }
-    func hasEverPromoted(_ c: Catch) -> Bool { progress[c.persistentModelID] != nil }
+    func teamContains(_ c: Catch) -> Bool { team.contains(key(for: c)) }
+    func progress(for c: Catch) -> Progress? { progress[key(for: c)] }
+    func hasEverPromoted(_ c: Catch) -> Bool { progress[key(for: c)] != nil }
     var hasFreeSlot: Bool { team.count < maxSlots }
     var isFull: Bool { team.count >= maxSlots }
 
     /// The active team, resolved to real friends and in slot order. Silently
     /// drops any whose friend was released.
     func teamCatches(from all: [Catch]) -> [(friend: Catch, progress: Progress)] {
-        team.compactMap { id in
-            guard let friend = all.first(where: { $0.persistentModelID == id }),
-                  let p = progress[id] else { return nil }
+        let byKey = Dictionary(all.map { (key(for: $0), $0) }, uniquingKeysWith: { a, _ in a })
+        return team.compactMap { k in
+            guard let friend = byKey[k], let p = progress[k] else { return nil }
             return (friend, p)
         }
     }
@@ -55,34 +66,32 @@ final class BattleRoster {
     /// otherwise keeping whatever they earned before. No-op if already active or full.
     @discardableResult
     func promote(_ c: Catch) -> Bool {
-        let id = c.persistentModelID
-        guard !team.contains(id), hasFreeSlot else { return false }
-        if progress[id] == nil {
-            progress[id] = Progress(level: 1, xp: 0, promotedAt: .now)
+        let k = key(for: c)
+        guard !team.contains(k), hasFreeSlot else { return false }
+        if progress[k] == nil {
+            progress[k] = Progress(level: 1, xp: 0, promotedAt: .now)
         }
-        team.append(id)
+        team.append(k)
         save()
         return true
     }
 
     /// Take a friend off the active team — their level & XP are kept.
     func bench(_ c: Catch) {
-        team.removeAll { $0 == c.persistentModelID }
+        team.removeAll { $0 == key(for: c) }
         save()
     }
 
     /// Bench `out` and bring `incoming` on in the same move (for a full team).
     func swap(out: Catch, incoming: Catch) {
-        guard let idx = team.firstIndex(of: out.persistentModelID) else {
-            promote(incoming); return
-        }
-        let inID = incoming.persistentModelID
-        if progress[inID] == nil {
-            progress[inID] = Progress(level: 1, xp: 0, promotedAt: .now)
+        let outK = key(for: out), inK = key(for: incoming)
+        guard let idx = team.firstIndex(of: outK) else { promote(incoming); return }
+        if progress[inK] == nil {
+            progress[inK] = Progress(level: 1, xp: 0, promotedAt: .now)
         }
         team.remove(at: idx)
-        team.removeAll { $0 == inID }        // in case it was elsewhere on the team
-        team.insert(inID, at: min(idx, team.count))
+        team.removeAll { $0 == inK }          // in case it was elsewhere on the team
+        team.insert(inK, at: min(idx, team.count))
         save()
     }
 
@@ -94,8 +103,8 @@ final class BattleRoster {
     /// Award XP for a finished match (winners earn more). Returns levels gained.
     @discardableResult
     func award(to c: Catch, won: Bool) -> Int {
-        let id = c.persistentModelID
-        guard var p = progress[id] else { return 0 }
+        let k = key(for: c)
+        guard var p = progress[k] else { return 0 }
         p.xp += won ? 100 : 45
         var gained = 0
         while p.level < 30 && p.xp >= Self.xpNeeded(for: p.level) {
@@ -103,7 +112,7 @@ final class BattleRoster {
             p.level += 1
             gained += 1
         }
-        progress[id] = p
+        progress[k] = p
         save()
         return gained
     }
@@ -112,7 +121,7 @@ final class BattleRoster {
 
     /// Drop team slots & progress for friends that no longer exist (released).
     func prune(against all: [Catch]) {
-        let live = Set(all.map { $0.persistentModelID })
+        let live = Set(all.map { key(for: $0) })
         let before = (team.count, progress.count)
         team.removeAll { !live.contains($0) }
         progress = progress.filter { live.contains($0.key) }
@@ -122,12 +131,12 @@ final class BattleRoster {
     // MARK: - Persistence
 
     private struct Blob: Codable {
-        var team: [PersistentIdentifier]
-        var progress: [PersistentIdentifier: Progress]
+        var team: [String]
+        var progress: [String: Progress]
     }
 
     private func load() {
-        guard let data = UserDefaults.standard.data(forKey: key),
+        guard let data = UserDefaults.standard.data(forKey: storeKey),
               let blob = try? JSONDecoder().decode(Blob.self, from: data) else { return }
         team = blob.team
         progress = blob.progress
@@ -136,7 +145,7 @@ final class BattleRoster {
     private func save() {
         let blob = Blob(team: team, progress: progress)
         if let data = try? JSONEncoder().encode(blob) {
-            UserDefaults.standard.set(data, forKey: key)
+            UserDefaults.standard.set(data, forKey: storeKey)
         }
     }
 }
