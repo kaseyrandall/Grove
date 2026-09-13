@@ -121,11 +121,11 @@ struct ArenaReplayView: View {
 
             roundPips
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-                .padding(.top, 14)
+                .padding(.top, 12)
 
             plate(side: 1)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding([.top, .leading], 14)
+                .padding(.top, 44).padding(.leading, 14)
             plate(side: 0)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 .padding([.bottom, .trailing], 14)
@@ -341,25 +341,38 @@ struct ArenaReplayView: View {
     // MARK: Win banner
 
     private var banner: some View {
-        let winnerName: String? = { if case .win(let n) = result.outcome { return n } else { return nil } }()
-        let winnerFighter = result.fighters.first { $0.name == winnerName }
+        // Side 0 is always the player's friend, so the result reads from their side.
+        let you = result.fighters[0], foe = result.fighters[1]
+        let youWon: Bool = { if case .win(let n) = result.outcome { return n == you.name } else { return false } }()
+        let youLost: Bool = { if case .win(let n) = result.outcome { return n == foe.name } else { return false } }()
+        let emoji = youWon ? "🏆" : (youLost ? "😴" : "🤝")
+        let title = youWon ? "Victory!" : (youLost ? "Tuckered out" : "A draw")
+        let sub = youWon ? "\(you.name) wins in \(result.turns) rounds"
+                : (youLost ? "\(you.name) needs a nap — \(foe.name) took this one"
+                           : "\(result.turns) rounds, dead even")
         return ZStack {
-            Color.black.opacity(0.55).ignoresSafeArea()
+            Color.black.opacity(0.6).ignoresSafeArea()
             VStack(spacing: 4) {
-                Text("🏆").font(.system(size: 44))
-                Text(winnerName.map { "\($0) wins!" } ?? "A draw")
+                Text(emoji).font(.system(size: 44))
+                Text(title)
                     .font(.system(size: 30, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Arena.ink)
-                Text(winnerFighter.map { "\($0.archetype.rawValue.capitalized) · \(result.turns) rounds" }
-                     ?? "\(result.turns) rounds")
+                    .foregroundStyle(youLost ? Arena.hpMid : Arena.ink)
+                Text(sub)
                     .font(.system(size: 13, weight: .bold, design: .rounded))
                     .foregroundStyle(Arena.muted)
+                    .multilineTextAlignment(.center)
                 Button { restart() } label: {
                     Text("Watch again")
                         .font(.system(size: 15, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Color(hex: 0x0C130F))
+                        .foregroundStyle(youWon ? Color(hex: 0x0C130F) : Arena.ink)
                         .padding(.horizontal, 26).padding(.vertical, 11)
-                        .background(Capsule().fill(LinearGradient(colors: [Arena.gold, Color(hex: 0xDCAE4E)], startPoint: .top, endPoint: .bottom)))
+                        .background {
+                            if youWon {
+                                Capsule().fill(LinearGradient(colors: [Arena.gold, Color(hex: 0xDCAE4E)], startPoint: .top, endPoint: .bottom))
+                            } else {
+                                Capsule().fill(Color(hex: 0x1C2C23)).overlay(Capsule().stroke(Arena.panelLine, lineWidth: 1))
+                            }
+                        }
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 14)

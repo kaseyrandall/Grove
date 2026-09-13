@@ -234,6 +234,7 @@ struct MatchmakingView: View {
     @State private var result: BattleResult?
     @State private var levelMsg: String?
     @State private var searching = false
+    @State private var didProceed = false
 
     private var roster: BattleRoster { .shared }
     private var level: Int { roster.progress(for: selected)?.level ?? 1 }
@@ -274,7 +275,7 @@ struct MatchmakingView: View {
                 .padding()
             }
         }
-        .overlay { if searching { SearchingOverlay(fighter: selected) } }
+        .overlay { if searching { SearchingOverlay(fighter: selected, onSkip: proceed) } }
         .navigationTitle("Find a Match")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
@@ -325,6 +326,13 @@ struct MatchmakingView: View {
         }
     }
 
+    private func proceed() {
+        guard !didProceed else { return }
+        didProceed = true
+        searching = false
+        go = true
+    }
+
     private var fightButton: some View {
         Button {
             let r = simulate(fighterContender.card(level: level), .defaultPlan(for: fighterContender.archetype),
@@ -338,11 +346,11 @@ struct MatchmakingView: View {
             roster.beginRest(selected, hpFraction: endHP / maxHP)
             levelMsg = gained > 0 ? "Leveled up! Now Lv \(level)" : nil
             result = r
+            didProceed = false
             withAnimation(.easeInOut(duration: 0.25)) { searching = true }
             Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(1900))
-                searching = false
-                go = true
+                try? await Task.sleep(for: .seconds(6))
+                proceed()
             }
         } label: {
             Text("Fight!")
@@ -629,12 +637,16 @@ func mmss(_ t: TimeInterval) -> String {
 
 private struct SearchingOverlay: View {
     let fighter: Catch
+    var onSkip: () -> Void
     @State private var pulse = false
     @State private var ringed = false
+    @State private var phase = 0
+
+    private let phases = ["Finding a challenger…", "The friends square off…", "Trading blows…"]
 
     var body: some View {
         ZStack {
-            Color.black.opacity(0.62).ignoresSafeArea()
+            Color.black.opacity(0.72).ignoresSafeArea()
             VStack(spacing: 18) {
                 ZStack {
                     Circle().stroke(BattleTheme.gold.opacity(0.5), lineWidth: 2)
@@ -646,16 +658,34 @@ private struct SearchingOverlay: View {
                                    monogram: String(fighter.displayName.prefix(1)), size: 88)
                         .scaleEffect(pulse ? 1.04 : 0.98)
                 }
-                Text("Finding a match…")
+                Text(phases[min(phase, phases.count - 1)])
                     .font(.system(size: 16, weight: .bold, design: .rounded))
                     .foregroundStyle(BattleTheme.ink)
+                    .contentTransition(.opacity)
                 ProgressView().tint(BattleTheme.gold)
+                #if DEBUG
+                Button(action: onSkip) {
+                    HStack(spacing: 6) { Text("Skip"); Image(systemName: "forward.end.fill") }
+                        .font(.system(size: 13, weight: .bold, design: .rounded))
+                        .foregroundStyle(BattleTheme.muted)
+                        .padding(.horizontal, 18).padding(.vertical, 9)
+                        .background(Capsule().stroke(BattleTheme.panelLine, lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 10)
+                #endif
             }
         }
         .transition(.opacity)
         .onAppear {
             withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { pulse = true }
             withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) { ringed = true }
+            Task { @MainActor in
+                for i in 1..<phases.count {
+                    try? await Task.sleep(for: .seconds(2))
+                    withAnimation(.easeInOut) { phase = i }
+                }
+            }
         }
     }
 }
