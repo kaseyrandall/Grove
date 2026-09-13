@@ -1,120 +1,278 @@
 import SwiftUI
 import SwiftData
 
-// MARK: - Battlegrounds entry: pick a friend, see their card, battle
+// MARK: - Battlegrounds home: your team of three
 
-/// The dev flow that turns real friends into fighters: choose one from your
-/// Grove, read the card the engine derives, then send it into the Arena.
+/// The Arena's home once a player is in: their small, persisted team. Friends
+/// are promoted into slots from their own page (the ritual) or the ＋ here; each
+/// slot leads into a match, and battling earns the fighter XP.
 struct BattlegroundsView: View {
     @Query(sort: \Catch.caughtAt, order: .reverse) private var catches: [Catch]
-    private let columns = [GridItem(.adaptive(minimum: 158), spacing: 12)]
+    @State private var showPromote = false
+
+    private var roster: BattleRoster { .shared }
+    private var team: [(friend: Catch, progress: BattleRoster.Progress)] {
+        roster.teamCatches(from: catches)
+    }
+    private var promotable: [Catch] {
+        catches.filter { !roster.teamContains($0) }
+    }
 
     var body: some View {
         ZStack {
             BattleTheme.background.ignoresSafeArea()
-            if catches.isEmpty {
-                emptyState
-            } else {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        header
-                        LazyVGrid(columns: columns, spacing: 12) {
-                            ForEach(catches) { c in
-                                NavigationLink {
-                                    MatchupView(fighterCatch: c, roster: catches)
-                                } label: {
-                                    RosterChip(catch: c)
-                                }
-                                .buttonStyle(.plain)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    header
+                    ForEach(0..<roster.maxSlots, id: \.self) { i in
+                        if i < team.count {
+                            NavigationLink {
+                                MatchupView(fighter: team[i].friend)
+                            } label: {
+                                TeamSlotCard(friend: team[i].friend, progress: team[i].progress)
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            EmptySlotCard(slot: i, locked: i >= roster.maxSlots) {
+                                showPromote = true
                             }
                         }
                     }
-                    .padding()
+                    footnote
                 }
+                .padding()
             }
         }
         .navigationTitle("Battlegrounds")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .onAppear { roster.prune(against: catches) }
+        .sheet(isPresented: $showPromote) {
+            PromotePickerSheet(candidates: promotable)
+        }
     }
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("Choose your fighter")
+            Text("Your team")
                 .font(.system(size: 22, weight: .bold, design: .rounded))
                 .foregroundStyle(BattleTheme.ink)
-            Text("Every friend fights by its kind — zone sets its type, species sets its style.")
+            Text("Up to three friends, raised fight by fight. Tap one to battle; send more in from a friend's page.")
                 .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundStyle(BattleTheme.muted)
         }
+        .padding(.bottom, 2)
     }
 
-    private var emptyState: some View {
-        VStack(spacing: 10) {
-            Text("🌿").font(.system(size: 40))
-            Text("No friends yet")
-                .font(.system(size: 20, weight: .bold, design: .rounded))
-                .foregroundStyle(BattleTheme.ink)
-            Text("Meet a friend or two in your Grove,\nthen come back to send them into the Arena.")
-                .multilineTextAlignment(.center)
-                .font(.system(size: 14, weight: .medium, design: .rounded))
-                .foregroundStyle(BattleTheme.muted)
-        }
-        .padding(40)
+    private var footnote: some View {
+        Text("A benched friend keeps every level they earned. Swap freely.")
+            .font(.system(size: 12, weight: .medium, design: .rounded))
+            .foregroundStyle(BattleTheme.muted.opacity(0.8))
+            .frame(maxWidth: .infinity, alignment: .center)
+            .padding(.top, 6)
     }
 }
 
-// MARK: - Roster chip
+// MARK: - Team slot (filled)
 
-private struct RosterChip: View {
-    let `catch`: Catch
-    private var type: BattleType { BattleType(habitat: `catch`.effectiveZone) }
-    private var archetype: Archetype { .derived(fromSpeciesID: `catch`.speciesID) }
+private struct TeamSlotCard: View {
+    let friend: Catch
+    let progress: BattleRoster.Progress
+    private var type: BattleType { BattleType(habitat: friend.effectiveZone) }
+    private var archetype: Archetype { .derived(fromSpeciesID: friend.speciesID) }
 
     var body: some View {
-        VStack(spacing: 8) {
-            PortraitCircle(photoData: `catch`.photoData, type: type,
-                           monogram: String(`catch`.displayName.prefix(1)), size: 68)
-            Text(`catch`.displayName)
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(BattleTheme.ink)
-                .lineLimit(1)
-            HStack(spacing: 5) {
-                TypeChip(type: type)
-                Text(archetype.rawValue.capitalized)
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+        HStack(spacing: 14) {
+            PortraitCircle(photoData: friend.photoData, type: type,
+                           monogram: String(friend.displayName.prefix(1)), size: 60)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 8) {
+                    Text(friend.displayName)
+                        .font(.system(size: 17, weight: .bold, design: .rounded))
+                        .foregroundStyle(BattleTheme.ink)
+                        .lineLimit(1)
+                    TypeChip(type: type)
+                }
+                Text("\(archetype.rawValue.capitalized) · Lv \(progress.level)")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(BattleTheme.muted)
+                xpBar
             }
+            Spacer(minLength: 6)
+            Image(systemName: "chevron.right")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(BattleTheme.muted.opacity(0.6))
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
+        .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(BattleTheme.panelFill)
                 .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
         )
     }
+
+    private var xpBar: some View {
+        let need = BattleRoster.xpNeeded(for: progress.level)
+        let frac = progress.level >= 30 ? 1 : Double(progress.xp) / Double(max(1, need))
+        return GeometryReader { geo in
+            ZStack(alignment: .leading) {
+                Capsule().fill(.white.opacity(0.08))
+                Capsule().fill(BattleTheme.gold.opacity(0.85))
+                    .frame(width: max(3, geo.size.width * min(1, frac)))
+            }
+        }
+        .frame(height: 5)
+        .padding(.top, 2)
+    }
 }
 
-// MARK: - Matchup: fighter card, level, opponent, battle
+// MARK: - Team slot (empty)
+
+private struct EmptySlotCard: View {
+    let slot: Int
+    let locked: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 14) {
+                ZStack {
+                    Circle().fill(Color(hex: 0x1C2C23))
+                        .overlay(Circle().strokeBorder(BattleTheme.panelLine, style: StrokeStyle(lineWidth: 1.5, dash: [4, 4])))
+                    Image(systemName: "plus")
+                        .font(.system(size: 20, weight: .bold))
+                        .foregroundStyle(BattleTheme.muted)
+                }
+                .frame(width: 60, height: 60)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Open slot")
+                        .font(.system(size: 16, weight: .bold, design: .rounded))
+                        .foregroundStyle(BattleTheme.ink)
+                    Text("Send a friend to the Arena")
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .foregroundStyle(BattleTheme.muted)
+                }
+                Spacer()
+            }
+            .padding(14)
+            .background(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.white.opacity(0.02))
+                    .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        .strokeBorder(BattleTheme.panelLine, style: StrokeStyle(lineWidth: 1.5, dash: [5, 5])))
+            )
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+// MARK: - Promote picker
+
+private struct PromotePickerSheet: View {
+    let candidates: [Catch]
+    @Environment(\.dismiss) private var dismiss
+    private var roster: BattleRoster { .shared }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                BattleTheme.background.ignoresSafeArea()
+                if candidates.isEmpty {
+                    VStack(spacing: 8) {
+                        Text("🌿").font(.system(size: 36))
+                        Text("Every friend is already on your team,\nor you haven't met any yet.")
+                            .multilineTextAlignment(.center)
+                            .font(.system(size: 14, weight: .semibold, design: .rounded))
+                            .foregroundStyle(BattleTheme.muted)
+                    }.padding(40)
+                } else {
+                    ScrollView {
+                        LazyVStack(spacing: 10) {
+                            ForEach(candidates) { c in
+                                Button {
+                                    if roster.promote(c) { dismiss() }
+                                } label: {
+                                    PromoteRow(friend: c, benched: roster.hasEverPromoted(c))
+                                }
+                                .buttonStyle(.plain)
+                                .disabled(!roster.hasFreeSlot)
+                                .opacity(roster.hasFreeSlot ? 1 : 0.5)
+                            }
+                        }
+                        .padding()
+                    }
+                }
+            }
+            .navigationTitle("Send to the Arena")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(.dark, for: .navigationBar)
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } } }
+        }
+    }
+}
+
+private struct PromoteRow: View {
+    let friend: Catch
+    let benched: Bool
+    private var type: BattleType { BattleType(habitat: friend.effectiveZone) }
+    private var archetype: Archetype { .derived(fromSpeciesID: friend.speciesID) }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            PortraitCircle(photoData: friend.photoData, type: type,
+                           monogram: String(friend.displayName.prefix(1)), size: 50)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(friend.displayName)
+                    .font(.system(size: 15, weight: .bold, design: .rounded))
+                    .foregroundStyle(BattleTheme.ink).lineLimit(1)
+                HStack(spacing: 6) {
+                    TypeChip(type: type)
+                    Text(archetype.rawValue.capitalized)
+                        .font(.system(size: 10, weight: .bold, design: .rounded))
+                        .foregroundStyle(BattleTheme.muted)
+                    if benched, let p = BattleRoster.shared.progress(for: friend) {
+                        Text("· Lv \(p.level) benched")
+                            .font(.system(size: 10, weight: .bold, design: .rounded))
+                            .foregroundStyle(BattleTheme.gold.opacity(0.85))
+                    }
+                }
+            }
+            Spacer()
+            Image(systemName: "plus.circle.fill")
+                .font(.system(size: 22))
+                .foregroundStyle(BattleTheme.leaf)
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(BattleTheme.panelFill)
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
+        )
+    }
+}
+
+// MARK: - Matchup: your fighter (at its earned level) vs a wild rival
 
 struct MatchupView: View {
-    let fighter: Contender
-    let roster: [Catch]
+    let fighter: Catch
 
     @State private var opponent: Contender
-    @State private var level: Int
     @State private var seed: UInt64
+    @State private var go = false
+    @State private var result: BattleResult?
+    @State private var levelMsg: String?
 
-    init(fighterCatch: Catch, roster: [Catch]) {
-        self.fighter = .from(fighterCatch)
-        self.roster = roster
+    private var roster: BattleRoster { .shared }
+    /// Live level, so it reflects XP earned this session.
+    private var level: Int { roster.progress(for: fighter)?.level ?? 1 }
+    private var fighterContender: Contender { .from(fighter) }
+
+    init(fighter: Catch) {
+        self.fighter = fighter
         let s = UInt64.random(in: 0 ..< UInt64.max)
         _seed = State(initialValue: s)
-        _level = State(initialValue: 12)
-        let others = roster.filter { $0.persistentModelID != fighterCatch.persistentModelID }
-        _opponent = State(initialValue: others.randomElement().map(Contender.from) ?? .wildRival(seed: s))
+        _opponent = State(initialValue: .wildRival(seed: s))
     }
 
     var body: some View {
@@ -123,28 +281,35 @@ struct MatchupView: View {
             ScrollView {
                 VStack(spacing: 18) {
                     labeled("YOUR FIGHTER") {
-                        BattleCardView(card: fighter.card(level: level), photoData: fighter.photoData)
+                        BattleCardView(card: fighterContender.card(level: level), photoData: fighter.photoData)
                     }
-
-                    levelStepper
-
+                    if let levelMsg {
+                        Text(levelMsg)
+                            .font(.system(size: 13, weight: .heavy, design: .rounded))
+                            .foregroundStyle(Color(hex: 0x07130B))
+                            .padding(.horizontal, 14).padding(.vertical, 8)
+                            .background(Capsule().fill(BattleTheme.gold))
+                    }
                     Text("VS")
                         .font(.system(size: 15, weight: .heavy, design: .rounded))
                         .foregroundStyle(BattleTheme.gold)
-
-                    labeled("OPPONENT", trailing: shuffleButton) {
-                        BattleCardView(card: opponent.card(level: level), photoData: opponent.photoData, compact: true)
+                    labeled("A WILD RIVAL", trailing: shuffleButton) {
+                        BattleCardView(card: opponent.card(level: level), photoData: nil, compact: true)
                     }
-
                     battleButton
                 }
                 .padding()
             }
         }
-        .navigationTitle("Matchup")
+        .navigationTitle(fighter.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
+        .navigationDestination(isPresented: $go) {
+            if let result {
+                ArenaReplayView(result: result, portraits: [fighter.photoData, opponent.photoData])
+            }
+        }
     }
 
     private func labeled<Content: View>(_ title: String, trailing: (some View)? = Optional<EmptyView>.none, @ViewBuilder _ content: () -> Content) -> some View {
@@ -165,60 +330,25 @@ struct MatchupView: View {
         Button {
             let s = UInt64.random(in: 0 ..< UInt64.max)
             seed = s
-            let others = roster.filter { $0.displayName != fighter.name }
-            withAnimation(.easeInOut(duration: 0.2)) {
-                opponent = others.randomElement().map(Contender.from) ?? .wildRival(seed: s)
-            }
+            withAnimation(.easeInOut(duration: 0.2)) { opponent = .wildRival(seed: s) }
         } label: {
-            HStack(spacing: 5) {
-                Image(systemName: "shuffle")
-                Text("Shuffle")
-            }
-            .font(.system(size: 12, weight: .bold, design: .rounded))
-            .foregroundStyle(BattleTheme.leaf)
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var levelStepper: some View {
-        HStack {
-            Text("Level")
-                .font(.system(size: 14, weight: .bold, design: .rounded))
-                .foregroundStyle(BattleTheme.ink)
-            Spacer()
-            HStack(spacing: 16) {
-                stepButton("minus") { if level > 1 { level -= 1 } }
-                Text("\(level)")
-                    .font(.system(size: 18, weight: .heavy, design: .rounded))
-                    .foregroundStyle(BattleTheme.gold)
-                    .frame(minWidth: 32)
-                    .monospacedDigit()
-                stepButton("plus") { if level < 30 { level += 1 } }
-            }
-        }
-        .padding(.horizontal, 16).padding(.vertical, 12)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(BattleTheme.panelFill)
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
-        )
-    }
-
-    private func stepButton(_ system: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: system)
-                .font(.system(size: 14, weight: .bold))
-                .foregroundStyle(BattleTheme.ink)
-                .frame(width: 34, height: 34)
-                .background(Circle().fill(Color(hex: 0x1C2C23)).overlay(Circle().stroke(Color(hex: 0x2C4A3A), lineWidth: 1)))
+            HStack(spacing: 5) { Image(systemName: "shuffle"); Text("New rival") }
+                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .foregroundStyle(BattleTheme.leaf)
         }
         .buttonStyle(.plain)
     }
 
     private var battleButton: some View {
-        NavigationLink {
-            ArenaReplayView(result: makeResult(),
-                            portraits: [fighter.photoData, opponent.photoData])
+        Button {
+            let r = simulate(fighterContender.card(level: level), .defaultPlan(for: fighterContender.archetype),
+                             vs: opponent.card(level: level), .defaultPlan(for: opponent.archetype),
+                             seed: seed)
+            let won: Bool = { if case .win(let n) = r.outcome { return n == fighter.displayName } else { return false } }()
+            let gained = roster.award(to: fighter, won: won)
+            levelMsg = gained > 0 ? "Leveled up! Now Lv \(level)" : nil
+            result = r
+            go = true
         } label: {
             Text("Battle!")
                 .font(.system(size: 18, weight: .heavy, design: .rounded))
@@ -229,12 +359,6 @@ struct MatchupView: View {
         }
         .buttonStyle(.plain)
         .padding(.top, 4)
-    }
-
-    private func makeResult() -> BattleResult {
-        simulate(fighter.card(level: level), .defaultPlan(for: fighter.archetype),
-                 vs: opponent.card(level: level), .defaultPlan(for: opponent.archetype),
-                 seed: seed)
     }
 }
 
@@ -254,18 +378,16 @@ struct BattleCardView: View {
                     HStack(spacing: 8) {
                         Text(card.name)
                             .font(.system(size: compact ? 17 : 20, weight: .bold, design: .rounded))
-                            .foregroundStyle(BattleTheme.ink)
+                            .foregroundStyle(BattleTheme.ink).lineLimit(1)
                         TypeChip(type: card.type)
                     }
-                    Text("\(card.archetype.rawValue.capitalized) · Lv\(card.level)")
+                    Text("\(card.archetype.rawValue.capitalized) · Lv \(card.level)")
                         .font(.system(size: 12, weight: .bold, design: .rounded))
                         .foregroundStyle(BattleTheme.muted)
                 }
                 Spacer()
             }
-
             statGrid
-
             if !compact { movesRow }
         }
         .padding(16)
@@ -353,8 +475,7 @@ struct TypeChip: View {
     }
 }
 
-/// A round portrait — the friend's real photo when present, else a type-tinted
-/// monogram (matching the Arena token).
+/// A round portrait — the friend's real photo when present, else a type-tinted monogram.
 struct PortraitCircle: View {
     let photoData: Data?
     let type: BattleType

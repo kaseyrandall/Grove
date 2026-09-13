@@ -11,6 +11,8 @@ struct GuideEntryView: View {
     @State private var showEdit = false
     @State private var wasReleased = false
     @State private var showPhoto = false
+    @State private var showSwap = false
+    @Query private var allCatches: [Catch]
 
     private var species: Species { friend.species }
     private var zone: Habitat { friend.effectiveZone }
@@ -33,6 +35,9 @@ struct GuideEntryView: View {
                     }
                     metaRow
                     infoCard
+                    #if DEBUG
+                    arenaSection
+                    #endif
                 }
                 .padding()
                 .padding(.bottom, Theme.tabBarClearance)
@@ -59,6 +64,11 @@ struct GuideEntryView: View {
         .sheet(isPresented: $showEdit) {
             EditFriendView(friend: friend, onRelease: { wasReleased = true })
         }
+        #if DEBUG
+        .sheet(isPresented: $showSwap) {
+            ArenaSwapSheet(incoming: friend, team: BattleRoster.shared.teamCatches(from: allCatches).map(\.friend))
+        }
+        #endif
         .onChange(of: showEdit) { _, showing in
             // The edit sheet closed after a release request → remove the friend
             // now (nothing is holding the sheet), then leave the page.
@@ -193,4 +203,125 @@ struct GuideEntryView: View {
         .frame(maxWidth: .infinity)
         .softCard()
     }
+
+    #if DEBUG
+    // MARK: Battlegrounds — the "Send to the Arena" ritual (dev only)
+
+    @ViewBuilder private var arenaSection: some View {
+        let roster = BattleRoster.shared
+        if roster.teamContains(friend), let p = roster.progress(for: friend) {
+            VStack(spacing: 10) {
+                Label("On your Arena team", systemImage: "bolt.shield.fill")
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .foregroundStyle(Theme.accent)
+                Text("Level \(p.level) · \(p.xp)/\(BattleRoster.xpNeeded(for: p.level)) XP")
+                    .font(.system(.caption, design: .rounded, weight: .semibold))
+                    .foregroundStyle(Theme.ink.opacity(0.6))
+                Button(role: .destructive) { roster.bench(friend) } label: {
+                    Text("Remove from team")
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                }
+                .padding(.top, 2)
+            }
+            .frame(maxWidth: .infinity)
+            .padding()
+            .softCard()
+        } else {
+            Button {
+                if roster.hasFreeSlot { roster.promote(friend) } else { showSwap = true }
+            } label: {
+                HStack(spacing: 14) {
+                    Image(systemName: "bolt.shield.fill")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Theme.accent)
+                        .frame(width: 26)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(roster.hasFreeSlot ? "Send to the Arena" : "Arena team full — swap someone")
+                            .font(.system(.body, design: .rounded, weight: .semibold))
+                            .foregroundStyle(Theme.ink)
+                        if let p = roster.progress(for: friend) {
+                            Text("Returns at Lv \(p.level) — keeps what they earned")
+                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                .foregroundStyle(Theme.ink.opacity(0.5))
+                        } else {
+                            Text("Enters fresh at Level 1")
+                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                .foregroundStyle(Theme.ink.opacity(0.5))
+                        }
+                    }
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(Theme.ink.opacity(0.3))
+                }
+                .padding()
+                .contentShape(Rectangle())
+                .softCard()
+            }
+            .buttonStyle(.plain)
+        }
+    }
+    #endif
 }
+
+
+#if DEBUG
+/// Presented when a full team tries to add another friend: pick who to bench
+/// (they keep their level) so the newcomer can take a slot.
+private struct ArenaSwapSheet: View {
+    let incoming: Catch
+    let team: [Catch]
+    @Environment(\.dismiss) private var dismiss
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Theme.background.ignoresSafeArea()
+                ScrollView {
+                    VStack(spacing: 14) {
+                        Text("Your team is full. Bench a friend — they keep every level they earned — and \(incoming.displayName) takes the slot.")
+                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .foregroundStyle(Theme.ink.opacity(0.7))
+                            .multilineTextAlignment(.center)
+                            .padding(.bottom, 2)
+                        ForEach(team, id: \.persistentModelID) { member in
+                            Button {
+                                BattleRoster.shared.swap(out: member, incoming: incoming)
+                                dismiss()
+                            } label: {
+                                HStack(spacing: 12) {
+                                    PortraitCircle(photoData: member.photoData,
+                                                   type: BattleType(habitat: member.effectiveZone),
+                                                   monogram: String(member.displayName.prefix(1)), size: 46)
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(member.displayName)
+                                            .font(.system(.body, design: .rounded, weight: .bold))
+                                            .foregroundStyle(Theme.ink)
+                                        if let p = BattleRoster.shared.progress(for: member) {
+                                            Text("Lv \(p.level)")
+                                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                                .foregroundStyle(Theme.ink.opacity(0.5))
+                                        }
+                                    }
+                                    Spacer()
+                                    Text("Bench")
+                                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                                        .foregroundStyle(Theme.accent)
+                                }
+                                .padding()
+                                .contentShape(Rectangle())
+                                .softCard()
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle("Swap into the Arena")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Cancel") { dismiss() } } }
+        }
+    }
+}
+#endif
