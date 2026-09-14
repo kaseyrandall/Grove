@@ -60,6 +60,7 @@ struct BattlegroundsView: View {
                     VStack(alignment: .leading, spacing: 16) {
                         sectionHeader("The Arena",
                                       "Send a friend off to a match. They're away a bit, then come back with a result — and a nap.")
+                        squadStrip
                         teamLabel
                         ForEach(0..<roster.maxSlots, id: \.self) { i in slot(i) }
                     }
@@ -71,6 +72,59 @@ struct BattlegroundsView: View {
                     .padding(.bottom, 6)
             }
         }
+        .background(alignment: .top) { arenaBackdrop }
+    }
+
+    /// Torch-lit sense of place: a warm top glow with slow-drifting embers,
+    /// behind the whole Arena tab.
+    private var arenaBackdrop: some View {
+        ZStack(alignment: .top) {
+            RadialGradient(colors: [BattleTheme.gold.opacity(0.13), .clear],
+                           center: .top, startRadius: 6, endRadius: 320)
+            EmberField()
+        }
+        .frame(height: 440)
+        .frame(maxWidth: .infinity, alignment: .top)
+        .allowsHitTesting(false)
+    }
+
+    // MARK: Squad strip (power · streak · record)
+
+    private var squadStrip: some View {
+        let rec = roster.record
+        let streak = roster.winStreak
+        return HStack(spacing: 10) {
+            statTile(icon: "bolt.fill", value: "\(squadPower)", label: "Squad power", tint: BattleTheme.leaf)
+            statTile(icon: streak > 0 ? "flame.fill" : "flame",
+                     value: "\(streak)", label: "Win streak",
+                     tint: streak > 0 ? Color(hex: 0xE8743B) : BattleTheme.muted)
+            statTile(icon: "rosette", value: "\(rec.wins)–\(rec.losses)", label: "Record", tint: BattleTheme.gold)
+        }
+    }
+
+    private var squadPower: Int {
+        team.reduce(0) { $0 + totalBudget(atLevel: $1.progress.level) }
+    }
+
+    private func statTile(icon: String, value: String, label: String, tint: Color) -> some View {
+        VStack(spacing: 4) {
+            HStack(spacing: 5) {
+                Image(systemName: icon).font(.system(size: 13, weight: .bold)).foregroundStyle(tint)
+                Text(value)
+                    .font(.system(size: 19, weight: .heavy, design: .rounded))
+                    .foregroundStyle(BattleTheme.ink).monospacedDigit()
+            }
+            Text(label.uppercased())
+                .font(.system(size: 9, weight: .heavy, design: .rounded)).tracking(0.5)
+                .foregroundStyle(BattleTheme.muted)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                .fill(BattleTheme.panelFill)
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
+        )
     }
 
     /// A page-level header shown inside the content of each tab (so the nav bar
@@ -320,6 +374,7 @@ private struct TeamStatusCard: View {
         HStack(spacing: 14) {
             PortraitCircle(photoData: friend.photoData, type: type,
                            monogram: String(friend.displayName.prefix(1)), size: 56)
+                .overlay(alignment: .bottomTrailing) { levelShield }
                 .opacity(dim ? 0.6 : 1)
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 8) {
@@ -328,7 +383,7 @@ private struct TeamStatusCard: View {
                         .foregroundStyle(BattleTheme.ink).lineLimit(1)
                     TypeChip(type: type)
                 }
-                Text("\(archetype.rawValue.capitalized) · Lv \(progress.level)")
+                Text(archetype.rawValue.capitalized)
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(BattleTheme.muted)
                 xpBar
@@ -337,16 +392,53 @@ private struct TeamStatusCard: View {
             statusPill
         }
         .padding(14)
-        .background(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .fill(BattleTheme.panelFill)
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(isResultReady ? BattleTheme.gold.opacity(0.6) : BattleTheme.panelLine, lineWidth: 1))
-        )
+        .background(cardBackground)
+        .shadow(color: glowColor.opacity(dim ? 0 : 0.22), radius: 10, y: 3)
+    }
+
+    private var cardBackground: some View {
+        RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .fill(BattleTheme.panelFill)
+            .overlay { if isResultReady { ShimmerFill().clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous)) } }
+            .overlay(
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(borderStyle, lineWidth: 1.2)
+            )
+    }
+
+    /// A shield insignia on the portrait carrying the fighter's level.
+    private var levelShield: some View {
+        ZStack {
+            Image(systemName: "shield.fill")
+                .font(.system(size: 21))
+                .foregroundStyle(LinearGradient(colors: [type.color, type.color.darkened(0.32)],
+                                                startPoint: .top, endPoint: .bottom))
+                .overlay(Image(systemName: "shield")
+                    .font(.system(size: 21, weight: .light))
+                    .foregroundStyle(.white.opacity(0.35)))
+            Text("\(progress.level)")
+                .font(.system(size: 10, weight: .heavy, design: .rounded))
+                .foregroundStyle(.white)
+                .offset(y: -0.5)
+        }
+        .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
+        .offset(x: 5, y: 5)
     }
 
     private var isResultReady: Bool {
         if case .resultReady = state { return true }; return false
+    }
+
+    /// Colored aura behind the card — gold when a result waits, else the
+    /// fighter's own type color.
+    private var glowColor: Color { isResultReady ? BattleTheme.gold : type.color }
+
+    private var borderStyle: AnyShapeStyle {
+        if isResultReady {
+            return AnyShapeStyle(BattleTheme.gold.opacity(0.65))
+        }
+        return AnyShapeStyle(LinearGradient(colors: [type.color.opacity(0.55), BattleTheme.panelLine],
+                                            startPoint: .topLeading, endPoint: .bottomTrailing))
     }
 
     @ViewBuilder private var statusPill: some View {
@@ -385,7 +477,7 @@ private struct TeamStatusCard: View {
 
     private func pill(text: String, color: Color, dot: Bool) -> some View {
         HStack(spacing: 5) {
-            if dot { Circle().fill(color).frame(width: 7, height: 7) }
+            if dot { PulseDot(color: color) }
             Text(text)
                 .font(.system(size: 11, weight: .heavy, design: .rounded))
                 .monospacedDigit()
@@ -884,6 +976,98 @@ struct PortraitCircle: View {
 func mmss(_ t: TimeInterval) -> String {
     let s = max(0, Int(t.rounded(.up)))
     return String(format: "%d:%02d", s / 60, s % 60)
+}
+
+// MARK: - Arena flare (embers · pulse · shimmer)
+
+/// A "live" status dot: a solid core with a soft radar ping expanding out.
+private struct PulseDot: View {
+    let color: Color
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var animate = false
+
+    var body: some View {
+        ZStack {
+            if !reduceMotion {
+                Circle().stroke(color, lineWidth: 1.5).frame(width: 7, height: 7)
+                    .scaleEffect(animate ? 2.4 : 1)
+                    .opacity(animate ? 0 : 0.7)
+            }
+            Circle().fill(color).frame(width: 7, height: 7)
+        }
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeOut(duration: 1.5).repeatForever(autoreverses: false)) { animate = true }
+        }
+    }
+}
+
+/// A gold sheen sweeping across a card — used to draw the eye to a ready result.
+private struct ShimmerFill: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var t: CGFloat = -0.4
+
+    var body: some View {
+        GeometryReader { geo in
+            let span = geo.size.width + geo.size.height
+            if reduceMotion {
+                Color.clear
+            } else {
+                Rectangle()
+                    .fill(LinearGradient(stops: [
+                        .init(color: .clear, location: 0),
+                        .init(color: BattleTheme.gold.opacity(0.30), location: 0.5),
+                        .init(color: .clear, location: 1)],
+                        startPoint: .top, endPoint: .bottom))
+                    .frame(width: span * 0.32)
+                    .rotationEffect(.degrees(20))
+                    .offset(x: t * span)
+                    .blendMode(.plusLighter)
+                    .onAppear {
+                        withAnimation(.easeInOut(duration: 1.7).repeatForever(autoreverses: false).delay(0.25)) {
+                            t = 1.1
+                        }
+                    }
+            }
+        }
+    }
+}
+
+/// Slow warm embers drifting upward behind the Arena header. Cheap Canvas,
+/// deterministic layout (a GLSL-style hash) so it never jumps on redraw.
+private struct EmberField: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    private let count = 16
+    private static let warm: [Color] = [Color(hex: 0xF3D17A), Color(hex: 0xE8A24B), Color(hex: 0x6FC07A)]
+
+    private func hash(_ i: Int, _ salt: Int) -> Double {
+        let x = sin(Double(i) * 12.9898 + Double(salt) * 78.233) * 43758.5453
+        return x - floor(x)
+    }
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: reduceMotion ? 3600 : 1.0 / 30.0)) { tl in
+            let now = tl.date.timeIntervalSinceReferenceDate
+            Canvas { ctx, size in
+                for i in 0..<count {
+                    let baseX = hash(i, 1)
+                    let speed = 0.03 + hash(i, 2) * 0.05         // slow rise
+                    let phase = hash(i, 3)
+                    let radius = 2 + hash(i, 4) * 3
+                    let swayAmp = 6 + hash(i, 5) * 12
+                    let color = Self.warm[i % Self.warm.count]
+
+                    let t = reduceMotion ? phase : (now * speed + phase).truncatingRemainder(dividingBy: 1)
+                    let y = size.height * (1 - t)
+                    let sway = reduceMotion ? 0 : sin((now * speed + phase) * .pi * 2) * swayAmp
+                    let x = baseX * size.width + sway
+                    let fade = reduceMotion ? 0.22 : sin(t * .pi) * 0.55
+                    let rect = CGRect(x: x, y: y, width: radius, height: radius)
+                    ctx.fill(Path(ellipseIn: rect), with: .color(color.opacity(fade)))
+                }
+            }
+        }
+    }
 }
 
 #Preview {

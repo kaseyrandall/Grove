@@ -226,6 +226,19 @@ final class BattleRoster {
     /// Most-recent-first log of finished matches.
     func matchHistory() -> [MatchRecord] { history }
 
+    /// Consecutive wins counted back from the most recent match.
+    var winStreak: Int {
+        var n = 0
+        for rec in history { if rec.won { n += 1 } else { break } }
+        return n
+    }
+
+    /// Lifetime win/loss record across every recorded match.
+    var record: (wins: Int, losses: Int) {
+        let w = history.lazy.filter(\.won).count
+        return (w, history.count - w)
+    }
+
     /// The fighter's current photo for a record, if the friend still exists.
     func friendPhoto(for record: MatchRecord, in all: [Catch]) -> Data? {
         all.first { key(for: $0) == record.fighterKey }?.photoData
