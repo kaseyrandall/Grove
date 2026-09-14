@@ -157,21 +157,7 @@ struct BattlegroundsView: View {
                 .fill(Color.white.opacity(0.03))
                 .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1)))
         } else {
-            NavigationLink {
-                MatchmakingView(fighters: ready)
-            } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "bolt.fill")
-                    Text("Find a Match")
-                }
-                .font(.system(size: 18, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color(hex: 0x07130B))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 17)
-                .background(Capsule().fill(LinearGradient(colors: [BattleTheme.leaf, BattleTheme.leafDeep], startPoint: .top, endPoint: .bottom)))
-                .shadow(color: BattleTheme.leaf.opacity(0.35), radius: 14, y: 6)
-            }
-            .buttonStyle(.plain)
+            FindMatchCTA { MatchmakingView(fighters: ready) }
         }
     }
 
@@ -315,6 +301,44 @@ struct BattlegroundsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+// MARK: - The living CTA
+
+/// The Arena's primary call — a breathing green capsule with a charging bolt.
+/// Self-contained so its animation is isolated from the tab's per-second ticks.
+private struct FindMatchCTA<Destination: View>: View {
+    @ViewBuilder var destination: () -> Destination
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var glow = false
+    @State private var arrived = false
+
+    var body: some View {
+        NavigationLink {
+            destination()
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "bolt.fill")
+                    .symbolEffect(.pulse, options: reduceMotion ? .nonRepeating : .repeating)
+                Text("Find a Match")
+            }
+            .font(.system(size: 18, weight: .heavy, design: .rounded))
+            .foregroundStyle(Color(hex: 0x07130B))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 17)
+            .background(Capsule().fill(LinearGradient(colors: [BattleTheme.leaf, BattleTheme.leafDeep],
+                                                      startPoint: .top, endPoint: .bottom)))
+            .shadow(color: BattleTheme.leaf.opacity(glow ? 0.55 : 0.28),
+                    radius: glow ? 22 : 12, y: 6)
+        }
+        .buttonStyle(.plain)
+        .simultaneousGesture(TapGesture().onEnded { arrived.toggle() })
+        .sensoryFeedback(.selection, trigger: arrived)
+        .onAppear {
+            guard !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { glow = true }
+        }
     }
 }
 
@@ -593,6 +617,7 @@ struct MatchmakingView: View {
             }
         }
         .overlay { if dispatching { DispatchOverlay(fighter: selected) } }
+        .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: dispatching)
         .navigationTitle("Find a Match")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
@@ -743,27 +768,66 @@ private struct HiddenOpponentCard: View {
 
 private struct DispatchOverlay: View {
     let fighter: Catch
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bob = false
+    @State private var marched = false
+    @State private var bannerIn = false
+
+    private var type: BattleType { BattleType(habitat: fighter.effectiveZone) }
+
     var body: some View {
         ZStack {
-            Color.black.opacity(0.72).ignoresSafeArea()
-            VStack(spacing: 20) {
-                PortraitCircle(photoData: fighter.photoData,
-                               type: BattleType(habitat: fighter.effectiveZone),
+            Color.black.opacity(0.75).ignoresSafeArea()
+            RadialGradient(colors: [BattleTheme.gold.opacity(0.20), .clear],
+                           center: .center, startRadius: 8, endRadius: 260)
+                .ignoresSafeArea()
+            VStack(spacing: 22) {
+                banner
+                    .offset(y: bannerIn ? 0 : -14)
+                    .opacity(bannerIn ? 1 : 0)
+                PortraitCircle(photoData: fighter.photoData, type: type,
                                monogram: String(fighter.displayName.prefix(1)), size: 116)
-                    .offset(y: bob ? -10 : 6)
-                Text("\(fighter.displayName) is off to the Arena!")
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundStyle(BattleTheme.ink)
-                    .multilineTextAlignment(.center)
-                Text("We'll ping you when the match is done.")
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundStyle(BattleTheme.muted)
+                    .rotationEffect(.degrees(marched ? 7 : 0))
+                    .offset(x: marched ? 480 : 0, y: bob ? -10 : 6)
+                    .opacity(marched ? 0 : 1)
+                VStack(spacing: 6) {
+                    Text("\(fighter.displayName) marches off to the Arena!")
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .foregroundStyle(BattleTheme.ink)
+                        .multilineTextAlignment(.center)
+                    Text("We'll ping you when the match is done.")
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(BattleTheme.muted)
+                }
             }
             .padding(.horizontal, 30)
         }
         .transition(.opacity)
-        .onAppear { withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { bob = true } }
+        .onAppear { runSequence() }
+    }
+
+    private var banner: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "bolt.fill").font(.system(size: 13, weight: .black))
+            Text("TO THE ARENA")
+                .font(.system(size: 13, weight: .black, design: .rounded)).tracking(1.5)
+        }
+        .foregroundStyle(Color(hex: 0x1C1503))
+        .padding(.horizontal, 18).padding(.vertical, 9)
+        .background(Capsule().fill(LinearGradient(colors: [BattleTheme.gold, Color(hex: 0xE3B85C)],
+                                                  startPoint: .top, endPoint: .bottom)))
+        .overlay(Capsule().stroke(.white.opacity(0.25), lineWidth: 1))
+        .shadow(color: BattleTheme.gold.opacity(0.4), radius: 10, y: 4)
+    }
+
+    private func runSequence() {
+        guard !reduceMotion else {
+            withAnimation(.easeOut(duration: 0.3)) { bannerIn = true }
+            return
+        }
+        withAnimation(.spring(response: 0.5, dampingFraction: 0.7)) { bannerIn = true }
+        withAnimation(.easeInOut(duration: 0.55).repeatForever(autoreverses: true)) { bob = true }
+        withAnimation(.easeIn(duration: 0.6).delay(0.9)) { marched = true }
     }
 }
 
