@@ -5,15 +5,16 @@ import Observation
 /// The player's Battlegrounds team — the persisted heart of the "Send to the
 /// Arena" ritual.
 ///
-/// Two things live here, on purpose:
-///  • **progress** — a friend's earned level & XP (and current rest timer), kept
-///    *per friend forever* (until they're released). Benching never wipes it.
-///  • **team** — the up-to-three friends who are *active* right now.
+/// Three things live here:
+///  • **progress** — a friend's earned level & XP (and rest timer), kept per
+///    friend forever (until released). Benching never wipes it.
+///  • **team** — the up-to-three friends who are active right now.
+///  • **pending** — a friend currently *away at a match* (dispatched): the
+///    result is computed and held until the away window resolves, then it lands.
 ///
-/// Keyed by a stable value derived from each catch's immutable fields (when it
-/// was met + where), not by `PersistentIdentifier` — which does not survive a
-/// JSON round-trip across app launches. Stored in UserDefaults, so the SwiftData
-/// store (and everyone's shipped Grove) is never touched or migrated.
+/// Keyed by a stable value derived from each catch's immutable fields, not by
+/// `PersistentIdentifier` (which doesn't survive a JSON round-trip). Stored in
+/// UserDefaults, so the SwiftData store is never touched or migrated.
 @Observable
 final class BattleRoster {
     static let shared = BattleRoster()
@@ -26,24 +27,45 @@ final class BattleRoster {
         var restingUntil: Date? = nil
     }
 
+    /// A friend dispatched to a match: the fight is already resolved (deterministic)
+    /// but held until `resolvesAt`, standing in for async pairing. Everything
+    /// needed to reproduce the exact replay is stored, so no live `BattleResult`
+    /// has to be persisted.
+    struct PendingMatch: Codable, Hashable {
+        var seed: UInt64
+        var level: Int
+        var plan: StoredPlan
+        var oppName: String
+        var oppType: BattleType
+        var oppArchetype: Archetype
+        var hpFraction: Double     // fighter's end HP fraction → rest length
+        var won: Bool
+        var resolvesAt: Date
+        var settled: Bool          // XP + rest applied?
+        var watched: Bool          // replay seen?
+    }
+
     /// Active-team size. Starts at three; grows later with trainer level.
     let maxSlots = 3
+    /// How long a friend is "away" before the result is ready. Dev-scaled — a
+    /// short beat standing in for real async pairing.
+    let awaySeconds: TimeInterval = 20
 
     private(set) var progress: [String: Progress] = [:]
-    private(set) var team: [String] = []   // ordered active slots, holds friend keys
+    private(set) var team: [String] = []
     private(set) var plans: [String: StoredPlan] = [:]
+    private(set) var pending: [String: PendingMatch] = [:]
 
     private let storeKey = "bg.roster.v1"
     private init() { load() }
 
-    /// A stable, launch-surviving id for a catch, from fields that never change
-    /// after it's met (re-identifying only touches species/nickname/zone).
     private func key(for c: Catch) -> String {
         let t = c.caughtAt.timeIntervalSinceReferenceDate.bitPattern
         let la = (c.latitude ?? 0).bitPattern
         let lo = (c.longitude ?? 0).bitPattern
         return "\(t)-\(la)-\(lo)"
     }
+    private func notifID(_ k: String) -> String { "grove.bg.\(k)" }
 
     // MARK: - Queries
 
@@ -53,8 +75,6 @@ final class BattleRoster {
     var hasFreeSlot: Bool { team.count < maxSlots }
     var isFull: Bool { team.count >= maxSlots }
 
-    /// The active team, resolved to real friends and in slot order. Silently
-    /// drops any whose friend was released.
     func teamCatches(from all: [Catch]) -> [(friend: Catch, progress: Progress)] {
         let byKey = Dictionary(all.map { (key(for: $0), $0) }, uniquingKeysWith: { a, _ in a })
         return team.compactMap { k in
@@ -63,70 +83,145 @@ final class BattleRoster {
         }
     }
 
-    // MARK: - Rest (the mandatory post-match nap)
+    // MARK: - Rest
 
     func isResting(_ c: Catch) -> Bool {
         guard let u = progress(for: c)?.restingUntil else { return false }
         return u > Date()
     }
-    /// Seconds left on the nap, or 0 if ready.
     func restRemaining(_ c: Catch) -> TimeInterval {
         guard let u = progress(for: c)?.restingUntil else { return 0 }
         return max(0, u.timeIntervalSinceNow)
     }
-    /// Put a friend down for a nap after a match — longer the more worn out they
-    /// are. (Dev-scaled to seconds; the real game paces this at ~20–40 minutes.)
+    /// Put a friend down for a nap — longer the more worn out they finished.
+    /// (Dev-scaled to seconds; the real game paces this at ~20–40 minutes.)
     func beginRest(_ c: Catch, hpFraction: Double) {
         let k = key(for: c)
         guard var p = progress[k] else { return }
         let worn = 1 - max(0, min(1, hpFraction))
-        let seconds = 30.0 + worn * 90.0
-        p.restingUntil = Date().addingTimeInterval(seconds)
+        p.restingUntil = Date().addingTimeInterval(30.0 + worn * 90.0)
         progress[k] = p
         save()
     }
 
+    // MARK: - Away matches (dispatch → resolve)
+
+    /// True while a friend is off at a match (dispatched, not yet resolved).
+    func isAway(_ c: Catch) -> Bool {
+        if let pm = pending[key(for: c)] { return !pm.settled }
+        return false
+    }
+    /// Seconds until the away match resolves.
+    func awayRemaining(_ c: Catch) -> TimeInterval {
+        guard let pm = pending[key(for: c)], !pm.settled else { return 0 }
+        return max(0, pm.resolvesAt.timeIntervalSinceNow)
+    }
+    /// A resolved match whose replay hasn't been watched yet.
+    func hasUnwatchedResult(_ c: Catch) -> Bool {
+        if let pm = pending[key(for: c)] { return pm.settled && !pm.watched }
+        return false
+    }
+    /// The stored outcome (win/loss) of the pending/last match, if any.
+    func pendingWon(_ c: Catch) -> Bool? { pending[key(for: c)]?.won }
+
+    /// Available to send: not already away, and not napping.
+    func canSend(_ c: Catch) -> Bool { !isAway(c) && !isResting(c) }
+
+    /// Dispatch a friend to a match. The fight is resolved now (deterministic)
+    /// but held; XP and rest land when it resolves.
+    func send(_ c: Catch, opponent: Contender, level: Int, plan: StoredPlan,
+              seed: UInt64, result: BattleResult) {
+        let k = key(for: c)
+        let won: Bool = { if case .win(let n) = result.outcome { return n == c.displayName } else { return false } }()
+        let maxHP = Double(max(1, result.fighters[0].maxHP))
+        let endHP = Double(max(0, result.events.last?.hpAfter.first ?? result.fighters[0].maxHP))
+        let resolvesAt = Date().addingTimeInterval(awaySeconds)
+        pending[k] = PendingMatch(seed: seed, level: level, plan: plan,
+                                  oppName: opponent.name, oppType: opponent.type,
+                                  oppArchetype: opponent.archetype,
+                                  hpFraction: endHP / maxHP, won: won,
+                                  resolvesAt: resolvesAt, settled: false, watched: false)
+        save()
+        NotificationManager.scheduleMatchResult(id: notifID(k), friendName: c.displayName, at: resolvesAt)
+    }
+
+    /// Land any away matches whose window has passed: apply XP, start the nap.
+    /// Called lazily whenever the home is on screen (no background process).
+    func settleDueMatches(from all: [Catch]) {
+        let now = Date()
+        var changed = false
+        for c in all {
+            let k = key(for: c)
+            guard var pm = pending[k], !pm.settled, pm.resolvesAt <= now else { continue }
+            _ = award(to: c, won: pm.won)
+            beginRest(c, hpFraction: pm.hpFraction)
+            pm.settled = true
+            pending[k] = pm
+            changed = true
+        }
+        if changed { save() }
+    }
+
+    /// Mark the resolved match's replay as watched (clears the "result ready" badge).
+    func markWatched(_ c: Catch) {
+        let k = key(for: c)
+        guard var pm = pending[k], pm.settled, !pm.watched else { return }
+        pm.watched = true
+        pending[k] = pm
+        save()
+        NotificationManager.cancelMatchResult(id: notifID(k))
+    }
+
+    /// Reproduce the exact replay of a friend's pending/last match.
+    func replayResult(for c: Catch) -> BattleResult? {
+        guard let pm = pending[key(for: c)] else { return nil }
+        let fighter = Contender.from(c).card(level: pm.level)
+        let opp = BattleCard(name: pm.oppName, type: pm.oppType, archetype: pm.oppArchetype, level: pm.level)
+        return simulate(fighter, pm.plan.battlePlan, vs: opp, .defaultPlan(for: pm.oppArchetype), seed: pm.seed)
+    }
+
+    #if DEBUG
+    /// Dev: collapse an away friend's window so it resolves on the next tick.
+    func devResolveNow(_ c: Catch) {
+        let k = key(for: c)
+        guard var pm = pending[k], !pm.settled else { return }
+        pm.resolvesAt = Date()
+        pending[k] = pm
+        save()
+    }
+    #endif
+
     // MARK: - Mutations
 
-    /// Add a friend to an open slot, minting Level 1 progress the first time and
-    /// otherwise keeping whatever they earned before. No-op if already active or full.
     @discardableResult
     func promote(_ c: Catch) -> Bool {
         let k = key(for: c)
         guard !team.contains(k), hasFreeSlot else { return false }
-        if progress[k] == nil {
-            progress[k] = Progress(level: 1, xp: 0, promotedAt: .now)
-        }
+        if progress[k] == nil { progress[k] = Progress(level: 1, xp: 0, promotedAt: .now) }
         team.append(k)
         save()
         return true
     }
 
-    /// Take a friend off the active team — their level & XP are kept.
     func bench(_ c: Catch) {
         team.removeAll { $0 == key(for: c) }
         save()
     }
 
-    /// Bench `out` and bring `incoming` on in the same move (for a full team).
     func swap(out: Catch, incoming: Catch) {
         let outK = key(for: out), inK = key(for: incoming)
         guard let idx = team.firstIndex(of: outK) else { promote(incoming); return }
-        if progress[inK] == nil {
-            progress[inK] = Progress(level: 1, xp: 0, promotedAt: .now)
-        }
+        if progress[inK] == nil { progress[inK] = Progress(level: 1, xp: 0, promotedAt: .now) }
         team.remove(at: idx)
-        team.removeAll { $0 == inK }          // in case it was elsewhere on the team
+        team.removeAll { $0 == inK }
         team.insert(inK, at: min(idx, team.count))
         save()
     }
 
     // MARK: - XP & leveling
 
-    /// XP required to advance *from* `level` to the next. A gentle early curve.
     static func xpNeeded(for level: Int) -> Int { 60 + (level - 1) * 40 }
 
-    /// Award XP for a finished match (winners earn more). Returns levels gained.
     @discardableResult
     func award(to c: Catch, won: Bool) -> Int {
         let k = key(for: c)
@@ -145,7 +240,6 @@ final class BattleRoster {
 
     // MARK: - Battle plans
 
-    /// The fighter's saved plan, or its archetype default if it has none yet.
     func storedPlan(for c: Catch, archetype: Archetype) -> StoredPlan {
         plans[key(for: c)] ?? StoredPlan(.defaultPlan(for: archetype))
     }
@@ -160,14 +254,14 @@ final class BattleRoster {
 
     // MARK: - Housekeeping
 
-    /// Drop team slots & progress for friends that no longer exist (released).
     func prune(against all: [Catch]) {
         let live = Set(all.map { key(for: $0) })
-        let before = (team.count, progress.count)
+        let before = (team.count, progress.count, pending.count)
         team.removeAll { !live.contains($0) }
         progress = progress.filter { live.contains($0.key) }
         plans = plans.filter { live.contains($0.key) }
-        if (team.count, progress.count) != before { save() }
+        pending = pending.filter { live.contains($0.key) }
+        if (team.count, progress.count, pending.count) != before { save() }
     }
 
     // MARK: - Persistence
@@ -176,6 +270,7 @@ final class BattleRoster {
         var team: [String]
         var progress: [String: Progress]
         var plans: [String: StoredPlan]?
+        var pending: [String: PendingMatch]?
     }
 
     private func load() {
@@ -184,10 +279,11 @@ final class BattleRoster {
         team = blob.team
         progress = blob.progress
         plans = blob.plans ?? [:]
+        pending = blob.pending ?? [:]
     }
 
     private func save() {
-        let blob = Blob(team: team, progress: progress, plans: plans)
+        let blob = Blob(team: team, progress: progress, plans: plans, pending: pending)
         if let data = try? JSONEncoder().encode(blob) {
             UserDefaults.standard.set(data, forKey: storeKey)
         }

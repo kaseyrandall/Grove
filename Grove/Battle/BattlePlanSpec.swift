@@ -7,6 +7,17 @@ import Foundation
 // UI-friendly twin the editor edits and the roster persists, converted to the
 // engine's `BattlePlan` at fight time.
 
+extension BattleType: Codable {
+    public init(from decoder: Decoder) throws {
+        let raw = try decoder.singleValueContainer().decode(String.self)
+        self = BattleType(rawValue: raw) ?? .hearth
+    }
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.singleValueContainer()
+        try c.encode(rawValue)
+    }
+}
+
 extension Archetype: Codable {
     public init(from decoder: Decoder) throws {
         let raw = try decoder.singleValueContainer().decode(String.self)

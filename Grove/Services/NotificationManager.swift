@@ -34,6 +34,30 @@ enum NotificationManager {
         }
     }
 
+    /// A one-off "your fighter's match is done" ping, fired when an away match
+    /// resolves. Best-effort: silently no-ops without notification permission.
+    static func scheduleMatchResult(id: String, friendName: String, at date: Date) {
+        let interval = date.timeIntervalSinceNow
+        guard interval > 0.5 else { return }
+        center.getNotificationSettings { settings in
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                let content = UNMutableNotificationContent()
+                content.title = "\(friendName)'s match is done"
+                content.body = "Come see how it went in the Arena."
+                content.sound = .default
+                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
+                center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+            default:
+                break
+            }
+        }
+    }
+
+    static func cancelMatchResult(id: String) {
+        center.removePendingNotificationRequests(withIdentifiers: [id])
+    }
+
     /// Clear everything (e.g. when the player turns reminders off).
     static func cancelAll() {
         center.removePendingNotificationRequests(withIdentifiers: allIDs)

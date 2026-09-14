@@ -1,11 +1,20 @@
 import SwiftUI
 import SwiftData
 
+// MARK: - Per-slot state on the home
+
+private enum SlotState {
+    case ready
+    case away(TimeInterval)
+    case resultReady(won: Bool)
+    case resting(TimeInterval)
+}
+
 // MARK: - Battlegrounds home: Find a Match + your team
 
-/// The Arena's home once a player is in. The primary action is **Find a Match**
-/// (you don't battle a specific friend from here); below it, the team shows who's
-/// ready and who's still napping.
+/// The Arena's home. You **send a friend off** to a match from here; they're
+/// away a short while, then come back with a result and a nap. The team shows
+/// each friend's state: Ready · In a match · Result ready · Resting.
 struct BattlegroundsView: View {
     @Query(sort: \Catch.caughtAt, order: .reverse) private var catches: [Catch]
     @State private var showPromote = false
@@ -15,14 +24,12 @@ struct BattlegroundsView: View {
         roster.teamCatches(from: catches)
     }
     private var promotable: [Catch] { catches.filter { !roster.teamContains($0) } }
-    private func readyFighters() -> [Catch] { team.map(\.friend).filter { !roster.isResting($0) } }
+    private func readyFighters() -> [Catch] { team.map(\.friend).filter { roster.canSend($0) } }
 
     var body: some View {
         ZStack {
             BattleTheme.background.ignoresSafeArea()
             ScrollView {
-                // A 1s tick so rest countdowns move and "Find a Match" re-enables
-                // the moment a friend wakes up.
                 TimelineView(.periodic(from: .now, by: 1)) { _ in
                     VStack(alignment: .leading, spacing: 16) {
                         header
@@ -40,7 +47,15 @@ struct BattlegroundsView: View {
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .groveTabBarHidden()
-        .onAppear { roster.prune(against: catches) }
+        .onAppear {
+            roster.prune(against: catches)
+            roster.settleDueMatches(from: catches)
+        }
+        // Land away matches the moment their window passes, without mutating
+        // state during a view-body render.
+        .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
+            roster.settleDueMatches(from: catches)
+        }
         .sheet(isPresented: $showPromote) { PromotePickerSheet(candidates: promotable) }
     }
 
@@ -49,7 +64,7 @@ struct BattlegroundsView: View {
             Text("The Arena")
                 .font(.system(size: 22, weight: .bold, design: .rounded))
                 .foregroundStyle(BattleTheme.ink)
-            Text("Find a match, send in a ready friend, and raise them fight by fight.")
+            Text("Send a friend off to a match. They're away a bit, then come back with a result — and a nap.")
                 .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundStyle(BattleTheme.muted)
         }
@@ -65,7 +80,7 @@ struct BattlegroundsView: View {
                         Text("Find a Match")
                             .font(.system(size: 17, weight: .heavy, design: .rounded))
                             .foregroundStyle(BattleTheme.muted)
-                        Text(team.isEmpty ? "Send a friend to the Arena first" : "Everyone's resting — check back soon")
+                        Text(team.isEmpty ? "Send a friend to the Arena first" : "Everyone's away or resting — check back soon")
                             .font(.system(size: 12, weight: .semibold, design: .rounded))
                             .foregroundStyle(BattleTheme.muted.opacity(0.7))
                     }
@@ -111,16 +126,37 @@ struct BattlegroundsView: View {
 
     @ViewBuilder private func slot(_ i: Int) -> some View {
         if i < team.count {
-            TeamStatusCard(friend: team[i].friend, progress: team[i].progress,
-                           resting: roster.isResting(team[i].friend),
-                           remaining: roster.restRemaining(team[i].friend))
+            let f = team[i].friend
+            let p = team[i].progress
+            if roster.hasUnwatchedResult(f) {
+                NavigationLink {
+                    resultReplay(for: f)
+                } label: {
+                    TeamStatusCard(friend: f, progress: p, state: .resultReady(won: roster.pendingWon(f) ?? false))
+                }
+                .buttonStyle(.plain)
+            } else if roster.isAway(f) {
+                TeamStatusCard(friend: f, progress: p, state: .away(roster.awayRemaining(f)),
+                               devResolve: { roster.devResolveNow(f) })
+            } else if roster.isResting(f) {
+                TeamStatusCard(friend: f, progress: p, state: .resting(roster.restRemaining(f)))
+            } else {
+                TeamStatusCard(friend: f, progress: p, state: .ready)
+            }
         } else {
             EmptySlotCard { showPromote = true }
         }
     }
 
+    @ViewBuilder private func resultReplay(for c: Catch) -> some View {
+        if let r = roster.replayResult(for: c) {
+            ArenaReplayView(result: r, portraits: [c.photoData, nil])
+                .onAppear { roster.markWatched(c) }
+        }
+    }
+
     private var footnote: some View {
-        Text("Each match, one ready friend fights — then naps to recover. A benched friend keeps every level they earned.")
+        Text("Send friends off one, two, or all three at once. Each comes back with a result, then naps to recover.")
             .font(.system(size: 12, weight: .medium, design: .rounded))
             .foregroundStyle(BattleTheme.muted.opacity(0.8))
             .frame(maxWidth: .infinity, alignment: .center)
@@ -128,21 +164,25 @@ struct BattlegroundsView: View {
     }
 }
 
-// MARK: - Team status card (ready / resting)
+// MARK: - Team status card
 
 private struct TeamStatusCard: View {
     let friend: Catch
     let progress: BattleRoster.Progress
-    let resting: Bool
-    let remaining: TimeInterval
+    let state: SlotState
+    var devResolve: (() -> Void)? = nil
+
     private var type: BattleType { BattleType(habitat: friend.effectiveZone) }
     private var archetype: Archetype { .derived(fromSpeciesID: friend.speciesID) }
+    private var dim: Bool {
+        switch state { case .away, .resting: return true; default: return false }
+    }
 
     var body: some View {
         HStack(spacing: 14) {
             PortraitCircle(photoData: friend.photoData, type: type,
                            monogram: String(friend.displayName.prefix(1)), size: 56)
-                .opacity(resting ? 0.6 : 1)
+                .opacity(dim ? 0.6 : 1)
             VStack(alignment: .leading, spacing: 5) {
                 HStack(spacing: 8) {
                     Text(friend.displayName)
@@ -162,17 +202,56 @@ private struct TeamStatusCard: View {
         .background(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
                 .fill(BattleTheme.panelFill)
-                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .stroke(isResultReady ? BattleTheme.gold.opacity(0.6) : BattleTheme.panelLine, lineWidth: 1))
         )
     }
 
-    private var statusPill: some View {
+    private var isResultReady: Bool {
+        if case .resultReady = state { return true }; return false
+    }
+
+    @ViewBuilder private var statusPill: some View {
+        switch state {
+        case .ready:
+            pill(text: "Ready", color: BattleTheme.leaf, dot: true)
+        case .away(let t):
+            HStack(spacing: 8) {
+                pill(text: "In a match · \(mmss(t))", color: Color(hex: 0x5FC7D6), dot: true)
+                #if DEBUG
+                if let devResolve {
+                    Button(action: devResolve) {
+                        Image(systemName: "forward.end.fill")
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundStyle(BattleTheme.muted)
+                            .padding(6)
+                            .background(Circle().stroke(BattleTheme.panelLine, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                }
+                #endif
+            }
+        case .resultReady:
+            HStack(spacing: 5) {
+                Text("Result ready")
+                    .font(.system(size: 12, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Color(hex: 0x07130B))
+                Image(systemName: "play.fill").font(.system(size: 10, weight: .bold)).foregroundStyle(Color(hex: 0x07130B))
+            }
+            .padding(.horizontal, 11).padding(.vertical, 7)
+            .background(Capsule().fill(BattleTheme.gold))
+        case .resting(let t):
+            pill(text: "Resting \(mmss(t))", color: BattleTheme.gold, dot: true)
+        }
+    }
+
+    private func pill(text: String, color: Color, dot: Bool) -> some View {
         HStack(spacing: 5) {
-            Circle().fill(resting ? BattleTheme.gold : BattleTheme.leaf).frame(width: 7, height: 7)
-            Text(resting ? "Resting \(mmss(remaining))" : "Ready")
+            if dot { Circle().fill(color).frame(width: 7, height: 7) }
+            Text(text)
                 .font(.system(size: 11, weight: .heavy, design: .rounded))
                 .monospacedDigit()
-                .foregroundStyle(resting ? BattleTheme.gold : BattleTheme.leaf)
+                .foregroundStyle(color)
         }
     }
 
@@ -222,20 +301,17 @@ private struct EmptySlotCard: View {
     }
 }
 
-// MARK: - Matchmaking: choose a ready fighter vs a hidden rival
+// MARK: - Matchmaking: choose a ready fighter, send them off vs a hidden rival
 
 struct MatchmakingView: View {
     let fighters: [Catch]
 
+    @Environment(\.dismiss) private var dismiss
     @State private var selected: Catch
     @State private var seed: UInt64
     @State private var opponent: Contender
-    @State private var go = false
-    @State private var result: BattleResult?
-    @State private var levelMsg: String?
-    @State private var searching = false
-    @State private var didProceed = false
     @State private var showPlan = false
+    @State private var dispatching = false
 
     private var roster: BattleRoster { .shared }
     private var level: Int { roster.progress(for: selected)?.level ?? 1 }
@@ -246,7 +322,7 @@ struct MatchmakingView: View {
         _selected = State(initialValue: fighters[0])
         let s = UInt64.random(in: 0 ..< UInt64.max)
         _seed = State(initialValue: s)
-        _opponent = State(initialValue: .wildRival(seed: s))   // drawn, but kept hidden
+        _opponent = State(initialValue: .wildRival(seed: s))
     }
 
     var body: some View {
@@ -255,39 +331,23 @@ struct MatchmakingView: View {
             ScrollView {
                 VStack(spacing: 18) {
                     if fighters.count > 1 { fighterPicker }
-
                     labeled("YOUR FIGHTER") {
                         BattleCardView(card: fighterContender.card(level: level), photoData: selected.photoData)
                     }
                     planButton
-                    if let levelMsg {
-                        Text(levelMsg)
-                            .font(.system(size: 13, weight: .heavy, design: .rounded))
-                            .foregroundStyle(Color(hex: 0x07130B))
-                            .padding(.horizontal, 14).padding(.vertical, 8)
-                            .background(Capsule().fill(BattleTheme.gold))
-                    }
-
                     Text("VS").font(.system(size: 15, weight: .heavy, design: .rounded)).foregroundStyle(BattleTheme.gold)
-
                     labeled("YOUR OPPONENT") { HiddenOpponentCard() }
-
-                    fightButton
+                    sendButton
                 }
                 .padding()
             }
         }
-        .overlay { if searching { SearchingOverlay(fighter: selected, onSkip: proceed) } }
+        .overlay { if dispatching { DispatchOverlay(fighter: selected) } }
         .navigationTitle("Find a Match")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .groveTabBarHidden()
-        .navigationDestination(isPresented: $go) {
-            if let result {
-                ArenaReplayView(result: result, portraits: [selected.photoData, opponent.photoData])
-            }
-        }
         .sheet(isPresented: $showPlan) {
             BattlePlanEditorView(fighter: selected, archetype: fighterContender.archetype)
         }
@@ -364,47 +424,35 @@ struct MatchmakingView: View {
         }
     }
 
-    private func proceed() {
-        guard !didProceed else { return }
-        didProceed = true
-        searching = false
-        go = true
-    }
-
-    private var fightButton: some View {
+    private var sendButton: some View {
         Button {
-            let r = simulate(fighterContender.card(level: level),
-                             roster.battlePlan(for: selected, archetype: fighterContender.archetype),
+            let plan = roster.storedPlan(for: selected, archetype: fighterContender.archetype)
+            let r = simulate(fighterContender.card(level: level), plan.battlePlan,
                              vs: opponent.card(level: level), .defaultPlan(for: opponent.archetype),
                              seed: seed)
-            let won: Bool = { if case .win(let n) = r.outcome { return n == selected.displayName } else { return false } }()
-            let gained = roster.award(to: selected, won: won)
-            // Rest is based on how worn out the fighter finished.
-            let maxHP = Double(max(1, r.fighters[0].maxHP))
-            let endHP = Double(max(0, r.events.last?.hpAfter.first ?? r.fighters[0].maxHP))
-            roster.beginRest(selected, hpFraction: endHP / maxHP)
-            levelMsg = gained > 0 ? "Leveled up! Now Lv \(level)" : nil
-            result = r
-            didProceed = false
-            withAnimation(.easeInOut(duration: 0.25)) { searching = true }
+            roster.send(selected, opponent: opponent, level: level, plan: plan, seed: seed, result: r)
+            withAnimation(.easeInOut(duration: 0.25)) { dispatching = true }
             Task { @MainActor in
-                try? await Task.sleep(for: .seconds(6))
-                proceed()
+                try? await Task.sleep(for: .milliseconds(1500))
+                dismiss()
             }
         } label: {
-            Text("Fight!")
-                .font(.system(size: 18, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color(hex: 0x07130B))
-                .frame(maxWidth: .infinity)
-                .padding(.vertical, 15)
-                .background(Capsule().fill(LinearGradient(colors: [BattleTheme.leaf, BattleTheme.leafDeep], startPoint: .top, endPoint: .bottom)))
+            HStack(spacing: 9) {
+                Image(systemName: "paperplane.fill")
+                Text("Send to battle")
+            }
+            .font(.system(size: 18, weight: .heavy, design: .rounded))
+            .foregroundStyle(Color(hex: 0x07130B))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 15)
+            .background(Capsule().fill(LinearGradient(colors: [BattleTheme.leaf, BattleTheme.leafDeep], startPoint: .top, endPoint: .bottom)))
         }
         .buttonStyle(.plain)
         .padding(.top, 4)
     }
 }
 
-// MARK: - Hidden opponent (revealed only when the battle begins)
+// MARK: - Hidden opponent (revealed only when you watch the result)
 
 private struct HiddenOpponentCard: View {
     @State private var pulse = false
@@ -423,7 +471,7 @@ private struct HiddenOpponentCard: View {
                 Text("A wild challenger")
                     .font(.system(size: 18, weight: .bold, design: .rounded))
                     .foregroundStyle(BattleTheme.ink)
-                Text("Revealed the moment the match begins.")
+                Text("Revealed when the match comes back.")
                     .font(.system(size: 12, weight: .semibold, design: .rounded))
                     .foregroundStyle(BattleTheme.muted)
             }
@@ -438,6 +486,34 @@ private struct HiddenOpponentCard: View {
                     .strokeBorder(BattleTheme.panelLine, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])))
         )
         .onAppear { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true } }
+    }
+}
+
+// MARK: - Dispatch confirmation ("off they go")
+
+private struct DispatchOverlay: View {
+    let fighter: Catch
+    @State private var bob = false
+    var body: some View {
+        ZStack {
+            Color.black.opacity(0.72).ignoresSafeArea()
+            VStack(spacing: 20) {
+                PortraitCircle(photoData: fighter.photoData,
+                               type: BattleType(habitat: fighter.effectiveZone),
+                               monogram: String(fighter.displayName.prefix(1)), size: 116)
+                    .offset(y: bob ? -10 : 6)
+                Text("\(fighter.displayName) is off to the Arena!")
+                    .font(.system(size: 20, weight: .bold, design: .rounded))
+                    .foregroundStyle(BattleTheme.ink)
+                    .multilineTextAlignment(.center)
+                Text("We'll ping you when the match is done.")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(BattleTheme.muted)
+            }
+            .padding(.horizontal, 30)
+        }
+        .transition(.opacity)
+        .onAppear { withAnimation(.easeInOut(duration: 0.7).repeatForever(autoreverses: true)) { bob = true } }
     }
 }
 
@@ -666,67 +742,10 @@ struct PortraitCircle: View {
     }
 }
 
-/// m:ss for a rest countdown.
+/// m:ss for a countdown.
 func mmss(_ t: TimeInterval) -> String {
     let s = max(0, Int(t.rounded(.up)))
     return String(format: "%d:%02d", s / 60, s % 60)
-}
-
-// MARK: - "Finding a match" waiting state
-
-private struct SearchingOverlay: View {
-    let fighter: Catch
-    var onSkip: () -> Void
-    @State private var pulse = false
-    @State private var ringed = false
-    @State private var phase = 0
-
-    private let phases = ["Finding a challenger…", "The friends square off…", "Trading blows…"]
-
-    var body: some View {
-        ZStack {
-            Color.black.opacity(0.72).ignoresSafeArea()
-            VStack(spacing: 24) {
-                ZStack {
-                    Circle().stroke(BattleTheme.gold.opacity(0.5), lineWidth: 2.5)
-                        .frame(width: 156, height: 156)
-                        .scaleEffect(ringed ? 1.18 : 0.85)
-                        .opacity(ringed ? 0 : 0.9)
-                    PortraitCircle(photoData: fighter.photoData,
-                                   type: BattleType(habitat: fighter.effectiveZone),
-                                   monogram: String(fighter.displayName.prefix(1)), size: 120)
-                        .scaleEffect(pulse ? 1.04 : 0.98)
-                }
-                Text(phases[min(phase, phases.count - 1)])
-                    .font(.system(size: 20, weight: .bold, design: .rounded))
-                    .foregroundStyle(BattleTheme.ink)
-                    .contentTransition(.opacity)
-                ProgressView().tint(BattleTheme.gold).controlSize(.large)
-                #if DEBUG
-                Button(action: onSkip) {
-                    HStack(spacing: 7) { Text("Skip"); Image(systemName: "forward.end.fill") }
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundStyle(BattleTheme.muted)
-                        .padding(.horizontal, 22).padding(.vertical, 11)
-                        .background(Capsule().stroke(BattleTheme.panelLine, lineWidth: 1))
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 10)
-                #endif
-            }
-        }
-        .transition(.opacity)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { pulse = true }
-            withAnimation(.easeOut(duration: 1.2).repeatForever(autoreverses: false)) { ringed = true }
-            Task { @MainActor in
-                for i in 1..<phases.count {
-                    try? await Task.sleep(for: .seconds(2))
-                    withAnimation(.easeInOut) { phase = i }
-                }
-            }
-        }
-    }
 }
 
 #Preview {
