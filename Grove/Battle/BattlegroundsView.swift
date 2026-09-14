@@ -17,6 +17,7 @@ private enum SlotState {
 /// each friend's state: Ready · In a match · Result ready · Resting.
 struct BattlegroundsView: View {
     @Query(sort: \Catch.caughtAt, order: .reverse) private var catches: [Catch]
+    @State private var tab = 0
     @State private var showPromote = false
 
     private var roster: BattleRoster { .shared }
@@ -29,37 +30,45 @@ struct BattlegroundsView: View {
     var body: some View {
         ZStack {
             BattleTheme.background.ignoresSafeArea()
-            ScrollView {
-                TimelineView(.periodic(from: .now, by: 1)) { _ in
-                    VStack(alignment: .leading, spacing: 16) {
-                        header
-                        teamLabel
-                        ForEach(0..<roster.maxSlots, id: \.self) { i in slot(i) }
-                        footnote
-                    }
-                    .padding()
+            Group {
+                switch tab {
+                case 1: historyTab
+                case 2: trophiesTab
+                default: arenaTab
                 }
             }
         }
-        .safeAreaInset(edge: .bottom) { findMatchBar }
-        .navigationTitle("Battlegrounds")
+        .safeAreaInset(edge: .bottom) { tabBar }
+        .navigationTitle(tab == 1 ? "History" : (tab == 2 ? "Trophies" : "The Arena"))
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .groveTabBarHidden()
-        .onAppear {
-            roster.prune(against: catches)
-            roster.settleDueMatches(from: catches)
-        }
-        // Land away matches the moment their window passes, without mutating
-        // state during a view-body render.
+        .onAppear { roster.prune(against: catches); roster.settleDueMatches(from: catches) }
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
             roster.settleDueMatches(from: catches)
         }
         .sheet(isPresented: $showPromote) { PromotePickerSheet(candidates: promotable) }
     }
 
-    private var header: some View {
+    // MARK: Arena tab
+
+    private var arenaTab: some View {
+        ScrollView {
+            TimelineView(.periodic(from: .now, by: 1)) { _ in
+                VStack(alignment: .leading, spacing: 16) {
+                    arenaHeader
+                    findMatchButton
+                    teamLabel
+                    ForEach(0..<roster.maxSlots, id: \.self) { i in slot(i) }
+                    footnote
+                }
+                .padding()
+            }
+        }
+    }
+
+    private var arenaHeader: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("The Arena")
                 .font(.system(size: 22, weight: .bold, design: .rounded))
@@ -70,49 +79,36 @@ struct BattlegroundsView: View {
         }
     }
 
-    /// The primary battle CTA — docked in its own container at the bottom.
-    @ViewBuilder private var findMatchBar: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { _ in
-            let ready = readyFighters()
-            VStack(spacing: 0) {
-                if ready.isEmpty {
-                    VStack(spacing: 3) {
-                        Text("Find a Match")
-                            .font(.system(size: 17, weight: .heavy, design: .rounded))
-                            .foregroundStyle(BattleTheme.muted)
-                        Text(team.isEmpty ? "Send a friend to the Arena first" : "Everyone's away or resting — check back soon")
-                            .font(.system(size: 12, weight: .semibold, design: .rounded))
-                            .foregroundStyle(BattleTheme.muted.opacity(0.7))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 15)
-                    .background(Capsule().fill(Color.white.opacity(0.04)))
-                } else {
-                    NavigationLink {
-                        MatchmakingView(fighters: ready)
-                    } label: {
-                        HStack(spacing: 10) {
-                            Image(systemName: "bolt.fill")
-                            Text("Find a Match")
-                        }
-                        .font(.system(size: 18, weight: .heavy, design: .rounded))
-                        .foregroundStyle(Color(hex: 0x07130B))
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 17)
-                        .background(Capsule().fill(LinearGradient(colors: [BattleTheme.leaf, BattleTheme.leafDeep], startPoint: .top, endPoint: .bottom)))
-                        .shadow(color: BattleTheme.leaf.opacity(0.35), radius: 14, y: 6)
-                    }
-                    .buttonStyle(.plain)
-                }
+    @ViewBuilder private var findMatchButton: some View {
+        let ready = readyFighters()
+        if ready.isEmpty {
+            HStack(spacing: 8) {
+                Image(systemName: "bolt.slash.fill").font(.system(size: 14, weight: .bold))
+                Text(team.isEmpty ? "Send a friend to the Arena to begin" : "Everyone's away or resting")
+                    .font(.system(size: 14, weight: .bold, design: .rounded))
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 14)
-            .padding(.bottom, 10)
-            .background(
-                BattleTheme.panel
-                    .overlay(alignment: .top) { Rectangle().fill(BattleTheme.panelLine).frame(height: 1) }
-                    .ignoresSafeArea(edges: .bottom)
-            )
+            .foregroundStyle(BattleTheme.muted)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 16)
+            .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(Color.white.opacity(0.03))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1)))
+        } else {
+            NavigationLink {
+                MatchmakingView(fighters: ready)
+            } label: {
+                HStack(spacing: 10) {
+                    Image(systemName: "bolt.fill")
+                    Text("Find a Match")
+                }
+                .font(.system(size: 18, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color(hex: 0x07130B))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 17)
+                .background(Capsule().fill(LinearGradient(colors: [BattleTheme.leaf, BattleTheme.leafDeep], startPoint: .top, endPoint: .bottom)))
+                .shadow(color: BattleTheme.leaf.opacity(0.35), radius: 14, y: 6)
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -129,9 +125,7 @@ struct BattlegroundsView: View {
             let f = team[i].friend
             let p = team[i].progress
             if roster.hasUnwatchedResult(f) {
-                NavigationLink {
-                    resultReplay(for: f)
-                } label: {
+                NavigationLink { resultReplay(for: f) } label: {
                     TeamStatusCard(friend: f, progress: p, state: .resultReady(won: roster.pendingWon(f) ?? false))
                 }
                 .buttonStyle(.plain)
@@ -161,6 +155,156 @@ struct BattlegroundsView: View {
             .foregroundStyle(BattleTheme.muted.opacity(0.8))
             .frame(maxWidth: .infinity, alignment: .center)
             .padding(.top, 6)
+    }
+
+    // MARK: History tab
+
+    private var historyTab: some View {
+        let records = roster.matchHistory()
+        return ScrollView {
+            if records.isEmpty {
+                VStack(spacing: 8) {
+                    Text("🗒️").font(.system(size: 36))
+                    Text("No matches yet")
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
+                        .foregroundStyle(BattleTheme.ink)
+                    Text("Send a friend off from the Arena —\ntheir matches show up here to rewatch.")
+                        .multilineTextAlignment(.center)
+                        .font(.system(size: 14, weight: .semibold, design: .rounded))
+                        .foregroundStyle(BattleTheme.muted)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.top, 80).padding(.horizontal, 40)
+            } else {
+                LazyVStack(spacing: 10) {
+                    ForEach(records) { rec in
+                        NavigationLink {
+                            ArenaReplayView(result: rec.replay(),
+                                            portraits: [roster.friendPhoto(for: rec, in: catches), nil])
+                        } label: {
+                            HistoryRow(record: rec, photo: roster.friendPhoto(for: rec, in: catches))
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding()
+            }
+        }
+    }
+
+    // MARK: Trophies tab (placeholder until achievements land)
+
+    private var trophiesTab: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Trophies")
+                        .font(.system(size: 22, weight: .bold, design: .rounded))
+                        .foregroundStyle(BattleTheme.ink)
+                    Text("Prestige, never power — earned by playing. Coming soon.")
+                        .font(.system(size: 13, weight: .medium, design: .rounded))
+                        .foregroundStyle(BattleTheme.muted)
+                }
+                .padding(.bottom, 2)
+                lockedTrophy("🥇", "First blood", "Win your first match.")
+                lockedTrophy("🔥", "On a roll", "Win five matches in a row.")
+                lockedTrophy("🎭", "Full deck", "Win with every archetype.")
+                lockedTrophy("🧗", "Giant-slayer", "Beat a higher-level rival.")
+                lockedTrophy("🌳", "Seasoned", "Reach Trainer Lv 10.")
+            }
+            .padding()
+        }
+    }
+
+    private func lockedTrophy(_ emoji: String, _ title: String, _ desc: String) -> some View {
+        HStack(spacing: 14) {
+            ZStack(alignment: .bottomTrailing) {
+                Circle().fill(Color.white.opacity(0.05)).frame(width: 48, height: 48)
+                    .overlay(Text(emoji).font(.system(size: 22)).grayscale(1).opacity(0.55))
+                Image(systemName: "lock.fill").font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(BattleTheme.muted)
+                    .padding(4)
+                    .background(Circle().fill(BattleTheme.panel))
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title).font(.system(size: 15, weight: .bold, design: .rounded)).foregroundStyle(BattleTheme.ink.opacity(0.85))
+                Text(desc).font(.system(size: 12, weight: .semibold, design: .rounded)).foregroundStyle(BattleTheme.muted)
+            }
+            Spacer()
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(BattleTheme.panelFill)
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1)))
+    }
+
+    // MARK: Bottom tab bar
+
+    private var tabBar: some View {
+        HStack(spacing: 0) {
+            tabItem(0, "bolt.shield.fill", "Arena")
+            tabItem(1, "clock.arrow.circlepath", "History")
+            tabItem(2, "trophy.fill", "Trophies")
+        }
+        .padding(.horizontal, 8).padding(.top, 10).padding(.bottom, 8)
+        .background(
+            BattleTheme.panel
+                .overlay(alignment: .top) { Rectangle().fill(BattleTheme.panelLine).frame(height: 1) }
+                .ignoresSafeArea(edges: .bottom)
+        )
+    }
+
+    private func tabItem(_ i: Int, _ icon: String, _ label: String) -> some View {
+        Button { withAnimation(.easeInOut(duration: 0.15)) { tab = i } } label: {
+            VStack(spacing: 4) {
+                Image(systemName: icon).font(.system(size: 18, weight: .semibold))
+                Text(label).font(.system(size: 10, weight: .bold, design: .rounded))
+            }
+            .foregroundStyle(tab == i ? BattleTheme.leaf : BattleTheme.muted)
+            .frame(maxWidth: .infinity)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct HistoryRow: View {
+    let record: BattleRoster.MatchRecord
+    let photo: Data?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            PortraitCircle(photoData: photo, type: record.fighterType,
+                           monogram: String(record.fighterName.prefix(1)), size: 46)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 6) {
+                    Text(record.fighterName)
+                        .font(.system(size: 15, weight: .bold, design: .rounded))
+                        .foregroundStyle(BattleTheme.ink).lineLimit(1)
+                    Text("vs \(record.oppName)")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(BattleTheme.muted).lineLimit(1)
+                }
+                HStack(spacing: 6) {
+                    Text(record.won ? "WON" : "LOST")
+                        .font(.system(size: 10, weight: .heavy, design: .rounded))
+                        .foregroundStyle(record.won ? BattleTheme.leaf : Color(hex: 0xE8654F))
+                    Text("· \(record.date, format: .relative(presentation: .named))")
+                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .foregroundStyle(BattleTheme.muted)
+                }
+            }
+            Spacer()
+            HStack(spacing: 5) {
+                Image(systemName: "play.fill").font(.system(size: 11, weight: .bold))
+                Text("Replay").font(.system(size: 12, weight: .bold, design: .rounded))
+            }
+            .foregroundStyle(BattleTheme.gold)
+        }
+        .padding(14)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
+            .fill(BattleTheme.panelFill)
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1)))
     }
 }
 

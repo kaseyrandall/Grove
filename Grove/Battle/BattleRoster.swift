@@ -45,6 +45,30 @@ final class BattleRoster {
         var watched: Bool          // replay seen?
     }
 
+    /// A finished match, kept for the History tab. Stores everything needed to
+    /// reproduce the exact replay from the seed — no live BattleResult persisted.
+    struct MatchRecord: Codable, Hashable, Identifiable {
+        var id: UUID
+        var date: Date
+        var fighterKey: String
+        var fighterName: String
+        var fighterType: BattleType
+        var fighterArchetype: Archetype
+        var level: Int
+        var plan: StoredPlan
+        var oppName: String
+        var oppType: BattleType
+        var oppArchetype: Archetype
+        var seed: UInt64
+        var won: Bool
+
+        func replay() -> BattleResult {
+            let f = BattleCard(name: fighterName, type: fighterType, archetype: fighterArchetype, level: level)
+            let o = BattleCard(name: oppName, type: oppType, archetype: oppArchetype, level: level)
+            return simulate(f, plan.battlePlan, vs: o, .defaultPlan(for: oppArchetype), seed: seed)
+        }
+    }
+
     /// Active-team size. Starts at three; grows later with trainer level.
     let maxSlots = 3
     /// How long a friend is "away" before the result is ready. Dev-scaled — a
@@ -55,6 +79,7 @@ final class BattleRoster {
     private(set) var team: [String] = []
     private(set) var plans: [String: StoredPlan] = [:]
     private(set) var pending: [String: PendingMatch] = [:]
+    private(set) var history: [MatchRecord] = []
 
     private let storeKey = "bg.roster.v1"
     private init() { load() }
@@ -157,6 +182,13 @@ final class BattleRoster {
             beginRest(c, hpFraction: pm.hpFraction)
             pm.settled = true
             pending[k] = pm
+            let cont = Contender.from(c)
+            history.insert(MatchRecord(id: UUID(), date: Date(), fighterKey: k,
+                                       fighterName: c.displayName, fighterType: cont.type,
+                                       fighterArchetype: cont.archetype, level: pm.level, plan: pm.plan,
+                                       oppName: pm.oppName, oppType: pm.oppType,
+                                       oppArchetype: pm.oppArchetype, seed: pm.seed, won: pm.won), at: 0)
+            if history.count > 40 { history.removeLast(history.count - 40) }
             changed = true
         }
         if changed { save() }
@@ -190,6 +222,14 @@ final class BattleRoster {
         save()
     }
     #endif
+
+    /// Most-recent-first log of finished matches.
+    func matchHistory() -> [MatchRecord] { history }
+
+    /// The fighter's current photo for a record, if the friend still exists.
+    func friendPhoto(for record: MatchRecord, in all: [Catch]) -> Data? {
+        all.first { key(for: $0) == record.fighterKey }?.photoData
+    }
 
     // MARK: - Mutations
 
@@ -271,6 +311,7 @@ final class BattleRoster {
         var progress: [String: Progress]
         var plans: [String: StoredPlan]?
         var pending: [String: PendingMatch]?
+        var history: [MatchRecord]?
     }
 
     private func load() {
@@ -280,10 +321,11 @@ final class BattleRoster {
         progress = blob.progress
         plans = blob.plans ?? [:]
         pending = blob.pending ?? [:]
+        history = blob.history ?? []
     }
 
     private func save() {
-        let blob = Blob(team: team, progress: progress, plans: plans, pending: pending)
+        let blob = Blob(team: team, progress: progress, plans: plans, pending: pending, history: history)
         if let data = try? JSONEncoder().encode(blob) {
             UserDefaults.standard.set(data, forKey: storeKey)
         }
