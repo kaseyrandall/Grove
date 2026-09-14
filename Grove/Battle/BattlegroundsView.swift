@@ -79,11 +79,13 @@ struct BattlegroundsView: View {
     /// behind the whole Arena tab.
     private var arenaBackdrop: some View {
         ZStack(alignment: .top) {
-            RadialGradient(colors: [BattleTheme.gold.opacity(0.13), .clear],
-                           center: .top, startRadius: 6, endRadius: 320)
+            RadialGradient(colors: [BattleTheme.gold.opacity(0.12), .clear],
+                           center: .top, startRadius: 6, endRadius: 300)
             EmberField()
+                .mask(LinearGradient(colors: [.black, .black, .clear],
+                                     startPoint: .top, endPoint: .bottom))
         }
-        .frame(height: 440)
+        .frame(height: 230)
         .frame(maxWidth: .infinity, alignment: .top)
         .allowsHitTesting(false)
     }
@@ -364,6 +366,9 @@ private struct TeamStatusCard: View {
     let state: SlotState
     var devResolve: (() -> Void)? = nil
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var pulse = false
+
     private var type: BattleType { BattleType(habitat: friend.effectiveZone) }
     private var archetype: Archetype { .derived(fromSpeciesID: friend.speciesID) }
     private var dim: Bool {
@@ -393,13 +398,28 @@ private struct TeamStatusCard: View {
         }
         .padding(14)
         .background(cardBackground)
-        .shadow(color: glowColor.opacity(dim ? 0 : 0.22), radius: 10, y: 3)
+        .shadow(color: glowColor.opacity(glowOpacity), radius: glowRadius, y: 3)
+        .onAppear {
+            guard isResultReady, !reduceMotion else { return }
+            withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) { pulse = true }
+        }
+    }
+
+    /// A gentle breathing aura on the result-ready card; a steady, softer one
+    /// otherwise; none while away or resting.
+    private var glowOpacity: Double {
+        if dim { return 0 }
+        if isResultReady { return pulse ? 0.42 : 0.16 }
+        return 0.16
+    }
+    private var glowRadius: CGFloat {
+        if isResultReady { return pulse ? 15 : 9 }
+        return 9
     }
 
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
             .fill(BattleTheme.panelFill)
-            .overlay { if isResultReady { ShimmerFill().clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous)) } }
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .stroke(borderStyle, lineWidth: 1.2)
@@ -1003,42 +1023,13 @@ private struct PulseDot: View {
 }
 
 /// A gold sheen sweeping across a card — used to draw the eye to a ready result.
-private struct ShimmerFill: View {
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var t: CGFloat = -0.4
-
-    var body: some View {
-        GeometryReader { geo in
-            let span = geo.size.width + geo.size.height
-            if reduceMotion {
-                Color.clear
-            } else {
-                Rectangle()
-                    .fill(LinearGradient(stops: [
-                        .init(color: .clear, location: 0),
-                        .init(color: BattleTheme.gold.opacity(0.30), location: 0.5),
-                        .init(color: .clear, location: 1)],
-                        startPoint: .top, endPoint: .bottom))
-                    .frame(width: span * 0.32)
-                    .rotationEffect(.degrees(20))
-                    .offset(x: t * span)
-                    .blendMode(.plusLighter)
-                    .onAppear {
-                        withAnimation(.easeInOut(duration: 1.7).repeatForever(autoreverses: false).delay(0.25)) {
-                            t = 1.1
-                        }
-                    }
-            }
-        }
-    }
-}
-
-/// Slow warm embers drifting upward behind the Arena header. Cheap Canvas,
-/// deterministic layout (a GLSL-style hash) so it never jumps on redraw.
+/// A few soft, warm motes drifting slowly upward behind the Arena header —
+/// firelight, not confetti. Cheap Canvas, deterministic layout (a GLSL-style
+/// hash) so it never jumps on redraw, blurred so the dots read as glow.
 private struct EmberField: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    private let count = 16
-    private static let warm: [Color] = [Color(hex: 0xF3D17A), Color(hex: 0xE8A24B), Color(hex: 0x6FC07A)]
+    private let count = 9
+    private static let warm: [Color] = [Color(hex: 0xF3D17A), Color(hex: 0xE8A24B)]
 
     private func hash(_ i: Int, _ salt: Int) -> Double {
         let x = sin(Double(i) * 12.9898 + Double(salt) * 78.233) * 43758.5453
@@ -1050,22 +1041,23 @@ private struct EmberField: View {
             let now = tl.date.timeIntervalSinceReferenceDate
             Canvas { ctx, size in
                 for i in 0..<count {
-                    let baseX = hash(i, 1)
-                    let speed = 0.03 + hash(i, 2) * 0.05         // slow rise
+                    let baseX = 0.08 + hash(i, 1) * 0.84
+                    let speed = 0.018 + hash(i, 2) * 0.03        // very slow rise
                     let phase = hash(i, 3)
-                    let radius = 2 + hash(i, 4) * 3
-                    let swayAmp = 6 + hash(i, 5) * 12
+                    let radius = 3 + hash(i, 4) * 3
+                    let swayAmp = 4 + hash(i, 5) * 8
                     let color = Self.warm[i % Self.warm.count]
 
                     let t = reduceMotion ? phase : (now * speed + phase).truncatingRemainder(dividingBy: 1)
                     let y = size.height * (1 - t)
                     let sway = reduceMotion ? 0 : sin((now * speed + phase) * .pi * 2) * swayAmp
                     let x = baseX * size.width + sway
-                    let fade = reduceMotion ? 0.22 : sin(t * .pi) * 0.55
+                    let fade = reduceMotion ? 0.14 : sin(t * .pi) * 0.30
                     let rect = CGRect(x: x, y: y, width: radius, height: radius)
                     ctx.fill(Path(ellipseIn: rect), with: .color(color.opacity(fade)))
                 }
             }
+            .blur(radius: 2.5)
         }
     }
 }
