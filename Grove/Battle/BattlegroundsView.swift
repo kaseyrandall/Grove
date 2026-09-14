@@ -39,7 +39,7 @@ struct BattlegroundsView: View {
             }
         }
         .safeAreaInset(edge: .bottom) { tabBar }
-        .navigationTitle(tab == 1 ? "History" : (tab == 2 ? "Trophies" : "The Arena"))
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
@@ -54,26 +54,33 @@ struct BattlegroundsView: View {
     // MARK: Arena tab
 
     private var arenaTab: some View {
-        ScrollView {
-            TimelineView(.periodic(from: .now, by: 1)) { _ in
-                VStack(alignment: .leading, spacing: 16) {
-                    arenaHeader
-                    findMatchButton
-                    teamLabel
-                    ForEach(0..<roster.maxSlots, id: \.self) { i in slot(i) }
-                    footnote
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            VStack(spacing: 0) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 16) {
+                        sectionHeader("The Arena",
+                                      "Send a friend off to a match. They're away a bit, then come back with a result — and a nap.")
+                        teamLabel
+                        ForEach(0..<roster.maxSlots, id: \.self) { i in slot(i) }
+                    }
+                    .padding()
                 }
-                .padding()
+                findMatchButton
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                    .padding(.bottom, 6)
             }
         }
     }
 
-    private var arenaHeader: some View {
+    /// A page-level header shown inside the content of each tab (so the nav bar
+    /// doesn't have to repeat the title).
+    private func sectionHeader(_ title: String, _ subtitle: String) -> some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text("The Arena")
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+            Text(title)
+                .font(.system(size: 26, weight: .heavy, design: .rounded))
                 .foregroundStyle(BattleTheme.ink)
-            Text("Send a friend off to a match. They're away a bit, then come back with a result — and a nap.")
+            Text(subtitle)
                 .font(.system(size: 13, weight: .medium, design: .rounded))
                 .foregroundStyle(BattleTheme.muted)
         }
@@ -149,14 +156,6 @@ struct BattlegroundsView: View {
         }
     }
 
-    private var footnote: some View {
-        Text("Send friends off one, two, or all three at once. Each comes back with a result, then naps to recover.")
-            .font(.system(size: 12, weight: .medium, design: .rounded))
-            .foregroundStyle(BattleTheme.muted.opacity(0.8))
-            .frame(maxWidth: .infinity, alignment: .center)
-            .padding(.top, 6)
-    }
-
     // MARK: History tab
 
     private var historyTab: some View {
@@ -176,7 +175,9 @@ struct BattlegroundsView: View {
                 .frame(maxWidth: .infinity)
                 .padding(.top, 80).padding(.horizontal, 40)
             } else {
-                LazyVStack(spacing: 10) {
+                LazyVStack(alignment: .leading, spacing: 10) {
+                    sectionHeader("History", "Every match your team has fought. Tap to rewatch.")
+                        .padding(.bottom, 2)
                     ForEach(records) { rec in
                         NavigationLink {
                             ArenaReplayView(result: rec.replay(),
@@ -197,15 +198,8 @@ struct BattlegroundsView: View {
     private var trophiesTab: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 14) {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Trophies")
-                        .font(.system(size: 22, weight: .bold, design: .rounded))
-                        .foregroundStyle(BattleTheme.ink)
-                    Text("Prestige, never power — earned by playing. Coming soon.")
-                        .font(.system(size: 13, weight: .medium, design: .rounded))
-                        .foregroundStyle(BattleTheme.muted)
-                }
-                .padding(.bottom, 2)
+                sectionHeader("Trophies", "Prestige, never power — earned by playing. Coming soon.")
+                    .padding(.bottom, 2)
                 lockedTrophy("🥇", "First blood", "Win your first match.")
                 lockedTrophy("🔥", "On a roll", "Win five matches in a row.")
                 lockedTrophy("🎭", "Full deck", "Win with every archetype.")
