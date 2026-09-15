@@ -8,8 +8,11 @@
 	<key>NSPrivacyTrackingDomains</key>
 	<array/>
 
-	<!-- Nothing is collected or sent off device: photos, location, and all
-	     progress live only in the app's on-device store. -->
+	<!-- Grove collects nothing and sends no personal data to the developer.
+	     Photos and all progress live only in the app's on-device store;
+	     location stays on device, except that place names come from Apple's
+	     own reverse-geocoding (CLGeocoder), which Grove never receives back
+	     as collected data. -->
 	<key>NSPrivacyCollectedDataTypes</key>
 	<array/>
 
