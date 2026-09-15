@@ -9,6 +9,13 @@ enum Progression {
         return isFirstSighting ? base * 2 : base
     }
 
+    /// A snap is always rewarding: an unidentified Mystery Friend earns this
+    /// small flat token right away, with no first-find bonus. The real
+    /// rarity-based value (and the 2× discovery bonus) lands when the player
+    /// names the friend. Kept at the lowest species value so identifying a
+    /// friend can only ever keep or raise the reward — never lower it.
+    static let snapSparks = Rarity.common.sparks
+
     // MARK: Levels
     //
     // A gentle curve: each level costs a bit more than the last. Level is

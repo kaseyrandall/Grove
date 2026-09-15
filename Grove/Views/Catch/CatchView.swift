@@ -311,9 +311,12 @@ struct CatchView: View {
         // up the moment the record is ready (no separate loading screen).
         isIdentifying = true
 
+        // An unidentified blob isn't a "first sighting" of anything, so it earns
+        // a flat snap token with no first-find bonus. The real value (and the 2×
+        // discovery bonus) lands when the player names the friend.
         let species = Species.mystery
-        let isFirst = !allCatches.contains { $0.speciesID == species.id }
-        let sparks = Progression.sparks(for: species, isFirstSighting: isFirst)
+        let isFirst = false
+        let sparks = Progression.snapSparks
         let coord = locationTaggingEnabled ? location.current : nil
 
         let record = Catch(
