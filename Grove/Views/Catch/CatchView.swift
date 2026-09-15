@@ -25,7 +25,6 @@ struct CatchView: View {
     @AppStorage("cameraGridEnabled") private var gridOn = false
 
     @State private var isIdentifying = false
-    @State private var noAnimalNotice = false
     @State private var uploadIssue: UploadIssue?
     @State private var libraryItem: PhotosPickerItem?
     @State private var result: CatchResult?
@@ -66,15 +65,6 @@ struct CatchView: View {
                 .opacity(flashOpacity)
                 .ignoresSafeArea()
                 .allowsHitTesting(false)
-
-            // Gentle nudge when the photo didn't hold an animal.
-            if noAnimalNotice {
-                noAnimalBanner
-                    .frame(maxHeight: .infinity, alignment: .top)
-                    .padding(.top, 68)
-                    .padding(.horizontal, 24)
-                    .transition(.move(edge: .top).combined(with: .opacity))
-            }
         }
         .groveTabBarHidden()
         .onChange(of: libraryItem) { _, newItem in
@@ -299,72 +289,29 @@ struct CatchView: View {
         }
     }
 
-    /// Shown (briefly) when Vision was confident the photo held no animal.
-    /// Tapping it — or taking another shot — dismisses it.
-    private var noAnimalBanner: some View {
-        HStack(spacing: 12) {
-            Text("🌿")
-                .font(.system(size: 26))
-            VStack(alignment: .leading, spacing: 2) {
-                Text("No critter in frame")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                    .foregroundStyle(.white)
-                Text("Get a little closer and try again.")
-                    .font(.system(.caption, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.8))
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 16)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: 18, style: .continuous)
-                .stroke(.white.opacity(0.15), lineWidth: 1)
-        )
-        .shadow(color: .black.opacity(0.25), radius: 12, y: 6)
-        .contentShape(Rectangle())
-        .onTapGesture {
-            withAnimation(.easeInOut(duration: 0.25)) { noAnimalNotice = false }
-        }
-    }
-
     private func capture() {
-        // Clear any lingering nudges — we're trying again.
-        if noAnimalNotice {
-            withAnimation(.easeInOut(duration: 0.25)) { noAnimalNotice = false }
-        }
         flashOpacity = 0.9
         withAnimation(.easeOut(duration: 0.4)) { flashOpacity = 0 }
         if hapticsEnabled { UIImpactFeedbackGenerator(style: .medium).impactOccurred() }
 
         camera.capturePhoto { image in
             guard let image else { return }
-            Task { await identify(image) }
+            Task { await logCatch(image) }
         }
     }
 
+    /// Record the snap and open the celebration. We no longer guess the animal
+    /// with on-device Vision — recognition wasn't reliable enough to be fun —
+    /// so every catch arrives as an unnamed Mystery Friend and the player picks
+    /// who it is on the celebration screen, where random animal confetti greets
+    /// the new find.
     @MainActor
-    private func identify(_ image: UIImage) async {
+    private func logCatch(_ image: UIImage) async {
         // Blocks a second capture while we work; the celebration sheet slides
-        // up the moment we have a result (no separate loading screen).
+        // up the moment the record is ready (no separate loading screen).
         isIdentifying = true
 
-        let labels = await AnimalClassifier.classify(image)
-        let species = CreatureCatalog.match(labels: labels)
-
-        // Non-animal guard: if Vision gave us labels and none of them look like
-        // an animal, don't mint a friend — nudge a retry instead. We only turn
-        // a photo away when we're sure (looksLikeAnimal == false); a `nil`
-        // ("can't tell", e.g. the Simulator) keeps the friendly Mystery path.
-        if species.id == Species.mystery.id,
-           CreatureCatalog.looksLikeAnimal(labels: labels) == false {
-            if hapticsEnabled { UINotificationFeedbackGenerator().notificationOccurred(.warning) }
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { noAnimalNotice = true }
-            isIdentifying = false
-            return
-        }
-
+        let species = Species.mystery
         let isFirst = !allCatches.contains { $0.speciesID == species.id }
         let sparks = Progression.sparks(for: species, isFirstSighting: isFirst)
         let coord = locationTaggingEnabled ? location.current : nil
@@ -404,8 +351,7 @@ struct CatchView: View {
             sparks: sparks,
             isFirstSighting: isFirst,
             image: image,
-            newAchievements: newAchievements,
-            visionLabels: labels
+            newAchievements: newAchievements
         )
     }
 
@@ -451,7 +397,7 @@ struct CatchView: View {
             if hapticsEnabled { UINotificationFeedbackGenerator().notificationOccurred(.warning) }
             uploadIssue = .tooOld
         } else {
-            await identify(image)
+            await logCatch(image)
         }
     }
 
@@ -489,8 +435,6 @@ struct CatchResult: Identifiable {
     let isFirstSighting: Bool
     let image: UIImage
     let newAchievements: [Achievement]
-    /// Raw Vision labels for this photo — used for the DEBUG identification readout.
-    var visionLabels: [String] = []
 }
 
 // MARK: - Viewfinder chrome

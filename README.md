@@ -4,7 +4,7 @@
 
 A super-cute, playful iOS game: **photograph the animals you find in the wild, and they come home to your Grove** — a cozy little world that fills with life as you explore. Earn sparks, keep a streak, and build your own personal field guide.
 
-Built 100% native — SwiftUI, SwiftData, and Apple's on-device Vision framework. No backend, no accounts, no cost. Your whole Grove lives on your phone.
+Built 100% native — SwiftUI and SwiftData. No backend, no accounts, no cost. Your whole Grove lives on your phone.
 
 ---
 
@@ -15,8 +15,8 @@ Built 100% native — SwiftUI, SwiftData, and Apple's on-device Vision framework
 - **Friends come home.** Every animal you photograph moves into the habitat **zone** it belongs to — the Garden, Pond, Meadow, Woods, or Treetops. No flat grid, no `???` silhouettes; empty zones are just quiet spots waiting for a visitor.
 - **A personal field guide.** Each friend has a guide page with your photos, its **real name**, the **nickname you give it**, a field note, and where/when you first met.
 - **Live camera only.** Catches must be taken *in the moment* — no photo-library upload, so you can't collect screenshots or downloaded images. (A library picker exists in **DEBUG builds only** for Simulator testing; it's compiled out of release builds.)
-- **On-device identification.** Photos are classified locally with Apple's Vision framework — instant, private, offline, free.
-- **Always rewarding.** If Vision can't confidently name what it saw, you still meet a **Mystery Friend**, so a snap never feels wasted.
+- **You name your friends.** Snap first — **random animal confetti** rains down — then pick which animal it is from the searchable catalog. No flaky auto-guessing.
+- **Always rewarding.** Every snap lands as a **Mystery Friend** right away, so it never feels wasted; name it now or later, and its badges unlock when you do.
 - **First-find bonus.** The first time a species visits, sparks are doubled — the collection thrill.
 - **Gentle rarity.** Field-guide language, not loot: Common 💚 → Uncommon 💙 → Seldom seen 💜 → Rarely seen 💗 → Almost mythical 💛.
 - **Daily streaks.** 🔥 Catch something each day to keep your streak alive (current + all-time best).
@@ -50,9 +50,11 @@ The bottom bar has four tabs — **Grove · Map** and **Journal · Profile** —
 
 ## 🧠 How identification works today
 
-The MVP uses Apple's built-in `VNClassifyImageRequest`, which returns fairly **coarse** labels ("bird", "dog", "squirrel"...). The catalog in `CreatureCatalog.swift` maps those labels to real friends (each with a habitat zone), preferring rarer matches. This is deliberately simple and 100% free — it's the fun-first foundation.
+Snapping a friend rains **random animal confetti** and adds it to your Grove as an unnamed **Mystery Friend**. You then **choose what it is yourself** from the searchable catalog in `CreatureCatalog.swift` — right there on the celebration screen, or later from a friend's edit screen. (Species, rarity and zone badges unlock the moment you name a friend.)
 
-**The upgrade path is clean:** swap the guts of `AnimalClassifier.classify` for a trained Core ML species model or a cloud vision service, expand the catalog's `matchKeywords`, and nothing else in the app has to change.
+We tried on-device image recognition first but it wasn't reliable enough to be fun, so identification is fully player-driven. `Species.matchKeywords` stays around only to make the picker's search forgiving (typing "kitten" still finds the Cat).
+
+**The upgrade path is clean:** if a trustworthy trained Core ML species model or a cloud vision service comes along, it can pre-fill the player's pick without changing anything else in the app.
 
 ## 🗂 Project structure
 
@@ -65,14 +67,13 @@ Grove/
 │   ├── Species.swift          # A collectible friend *type* (catalog data)
 │   └── Catch.swift            # A photo you took (nickname + geotag; the persisted model)
 ├── Catalog/
-│   └── CreatureCatalog.swift  # The friends (real names + zones) + label→friend matching
+│   └── CreatureCatalog.swift  # The friends (real names + zones) the player picks from
 ├── Game/
 │   ├── Progression.swift      # Pure scoring & leveling math
 │   ├── StreakEngine.swift     # Consecutive-day streak math
 │   ├── PlayerStats.swift      # One derived snapshot of all player numbers
 │   └── Achievement.swift      # Badge catalog + unlock evaluation
 ├── Services/
-│   ├── AnimalClassifier.swift # Vision on-device classification
 │   ├── CameraModel.swift      # AVFoundation capture
 │   ├── CameraPreview.swift    # SwiftUI camera preview layer
 │   └── LocationProvider.swift # Optional geotagging of catches

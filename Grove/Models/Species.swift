@@ -12,13 +12,14 @@ struct Species: Identifiable, Hashable {
     let zone: Habitat       // which part of the Grove it settles into
     let blurb: String       // a friendly field note
     let habitatNote: String // where you'd find it in the wild
-    /// Vision classification labels that should map to this friend. Matching is
-    /// a lowercased, word-boundary test (see `CreatureCatalog.keyword(_:matches:)`),
-    /// so single words like "ant" won't trip on "plant". Keep these simple.
+    /// Extra search terms that should surface this friend in the picker (e.g.
+    /// "kitten", "feline" for a cat), so a player who types a synonym still
+    /// finds it. Purely a search aid — keep these simple.
     let matchKeywords: [String]
 
-    /// The special fallback used when Vision can't confidently name what it saw,
-    /// so a catch is *always* rewarding.
+    /// The friendly placeholder every catch starts as, until the player picks
+    /// which friend it is — so a snap is *always* rewarding, even before it's
+    /// named.
     static let mystery = Species(
         id: "mystery-critter",
         name: "Mystery Friend",

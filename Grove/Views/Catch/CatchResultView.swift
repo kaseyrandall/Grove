@@ -19,7 +19,9 @@ struct CatchResultView: View {
     @State private var sparks: Int
     @State private var isFirst: Bool
     @State private var zone: Habitat
-    @State private var wasMystery: Bool
+    /// Badges to celebrate. Starts from what the snap unlocked, and grows when
+    /// naming the friend unlocks a species/rarity/zone badge in place.
+    @State private var achievements: [Achievement]
     @State private var popped = false
     @State private var showPhoto = false
     /// Drives the push to the full, searchable catalog.
@@ -32,7 +34,7 @@ struct CatchResultView: View {
         _sparks = State(initialValue: result.sparks)
         _isFirst = State(initialValue: result.isFirstSighting)
         _zone = State(initialValue: result.record.effectiveZone)
-        _wasMystery = State(initialValue: result.species.id == Species.mystery.id)
+        _achievements = State(initialValue: result.newAchievements)
     }
 
     private var isMystery: Bool { species.id == Species.mystery.id }
@@ -59,7 +61,9 @@ struct CatchResultView: View {
                                 Text(species.name)
                                     .font(.system(size: 30, weight: .heavy, design: .rounded))
                                     .foregroundStyle(Theme.ink)
-                                RarityBadge(rarity: species.rarity)
+                                if !isMystery {
+                                    RarityBadge(rarity: species.rarity)
+                                }
                             }
 
                             identifySection
@@ -68,13 +72,9 @@ struct CatchResultView: View {
 
                             sparksCard
 
-                            if !result.newAchievements.isEmpty {
+                            if !achievements.isEmpty {
                                 achievementsUnlocked
                             }
-
-                            #if DEBUG
-                            visionReadout
-                            #endif
                         }
                         .padding()
                     }
@@ -176,37 +176,21 @@ struct CatchResultView: View {
         .softCard()
     }
 
-    // MARK: Mystery identification
+    // MARK: Identify — the player names their new friend
 
-    /// Best guesses drawn from this photo's Vision labels, minus what's already
-    /// chosen — the same signal the editor uses.
-    private var suggestions: [Species] {
-        CreatureCatalog.smartSuggestions(labels: result.visionLabels)
-            .filter { $0.id != species.id }
-    }
-
-    /// Identify a Mystery Friend, or correct a wrong guess — mirrors the editor:
-    /// a few photo-based suggestions up front, the full catalog behind a door.
+    /// Choose which animal this is. There's no auto-guess anymore, so this is
+    /// the heart of the celebration: an unnamed Mystery Friend until the player
+    /// picks, and freely changeable afterwards.
     private var identifySection: some View {
         VStack(spacing: 10) {
-            if wasMystery {
-                Text(isMystery ? "Know who this is?" : "Not quite? Tap the right one:")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                    .foregroundStyle(Theme.ink.opacity(0.7))
-
-                if !suggestions.isEmpty {
-                    LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 10)], spacing: 10) {
-                        ForEach(suggestions) { candidate in
-                            SpeciesTile(species: candidate, isSelected: false) { correct(to: candidate) }
-                        }
-                    }
-                }
-            }
+            Text(isMystery ? "What did you find?" : "Not quite?")
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .foregroundStyle(Theme.ink.opacity(0.7))
 
             Button { showPicker = true } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "square.grid.2x2.fill").foregroundStyle(Theme.accent)
-                    Text(isMystery ? "Browse all animals" : "Not a \(species.name)? Choose another")
+                    Text(isMystery ? "Choose your friend" : "Not a \(species.name)? Choose another")
                         .font(.system(.subheadline, design: .rounded, weight: .semibold))
                         .foregroundStyle(Theme.ink)
                         .lineLimit(1)
@@ -218,7 +202,15 @@ struct CatchResultView: View {
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
-                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(.white))
+                .background(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .fill(.white)
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 16, style: .continuous)
+                        .stroke(isMystery ? Theme.accent : Theme.ink.opacity(0.08),
+                                lineWidth: isMystery ? 2 : 1)
+                )
             }
             .buttonStyle(.plain)
         }
@@ -231,11 +223,20 @@ struct CatchResultView: View {
         let first = !others.contains { $0 !== result.record && $0.speciesID == chosen.id }
         let newSparks = Progression.sparks(for: chosen, isFirstSighting: first)
 
+        // Snapshot achievements before/after naming the friend, so the species,
+        // rarity and zone badges it unlocks are celebrated right here — they
+        // couldn't fire at snap time while the catch was still unidentified.
+        let before = PlayerStats(catches: others)
+
         result.record.speciesID = chosen.id
         result.record.isFirstSighting = first
         result.record.sparksEarned = newSparks
         result.record.zoneOverride = nil // default to the identified kind's zone
         try? context.save()
+
+        let after = PlayerStats(catches: others) // same records, now re-identified
+        let freshlyUnlocked = AchievementCatalog.newlyUnlocked(before: before, after: after)
+            .filter { new in !achievements.contains { $0.id == new.id } }
 
         if hapticsEnabled {
             UINotificationFeedbackGenerator().notificationOccurred(.success)
@@ -245,6 +246,7 @@ struct CatchResultView: View {
             sparks = newSparks
             isFirst = first
             zone = chosen.zone
+            achievements.append(contentsOf: freshlyUnlocked)
         }
     }
 
@@ -285,34 +287,14 @@ struct CatchResultView: View {
         try? context.save()
     }
 
-    // MARK: DEBUG — what Vision actually saw (for the on-device reality check)
-
-    #if DEBUG
-    private var visionReadout: some View {
-        VStack(spacing: 4) {
-            Text("🔎 Vision saw")
-                .font(.system(size: 10, weight: .bold, design: .monospaced))
-                .foregroundStyle(Theme.ink.opacity(0.5))
-            Text(result.visionLabels.isEmpty ? "— nothing —" : result.visionLabels.prefix(8).joined(separator: ", "))
-                .font(.system(size: 11, design: .monospaced))
-                .foregroundStyle(Theme.ink.opacity(0.7))
-                .multilineTextAlignment(.center)
-                .lineLimit(3)
-        }
-        .padding(.vertical, 8)
-        .padding(.horizontal, 16)
-        .background(RoundedRectangle(cornerRadius: 12).fill(.white.opacity(0.6)))
-    }
-    #endif
-
     // MARK: Achievements
 
     private var achievementsUnlocked: some View {
         VStack(spacing: 8) {
-            Text("🎖 Achievement\(result.newAchievements.count > 1 ? "s" : "") unlocked!")
+            Text("🎖 Achievement\(achievements.count > 1 ? "s" : "") unlocked!")
                 .font(.system(.subheadline, design: .rounded, weight: .bold))
                 .foregroundStyle(Theme.accent)
-            ForEach(result.newAchievements) { achievement in
+            ForEach(achievements) { achievement in
                 HStack(spacing: 8) {
                     Text(achievement.emoji).font(.title3)
                     Text(achievement.title)
@@ -327,18 +309,29 @@ struct CatchResultView: View {
     }
 }
 
-/// A cheap, cheerful emoji confetti burst. When given a theme emoji (the caught
-/// friend's), the burst is mostly *that* animal, mixed with a few sparkles.
+/// A cheap, cheerful emoji confetti burst. Before the player names their find,
+/// it rains a fun jumble of *random animal* emoji (with a little sparkle); once
+/// a friend is chosen, the burst is mostly *that* animal instead.
 struct Confetti: View {
     var themeEmoji: String? = nil
     @State private var animate = false
+    /// A fresh shuffle of catalog animals for this burst, so no two catches
+    /// rain the same critters. Held in state so it stays stable across redraws.
+    @State private var randomAnimals: [String] = Confetti.randomAnimalPieces()
 
     private var pieces: [String] {
         guard let e = themeEmoji else {
-            return ["✨", "🎉", "⭐️", "💫", "🌸", "🐾", "🦋", "🐿️", "🐰", "🦊", "🐦"]
+            return randomAnimals
         }
         // Weight the burst toward the animal itself, sprinkle in a little sparkle.
         return [e, e, e, "✨", e, "🎉", e, e, "⭐️", e, "💫", e]
+    }
+
+    /// A shuffled handful of real catalog animal emoji, dotted with sparkles,
+    /// for the "friend found!" moment before it's been identified.
+    private static func randomAnimalPieces() -> [String] {
+        let animals = CreatureCatalog.all.map(\.emoji).shuffled().prefix(9)
+        return Array(animals) + ["✨", "🎉", "⭐️"]
     }
 
     var body: some View {

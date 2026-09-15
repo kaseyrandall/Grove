@@ -45,7 +45,11 @@ struct PlayerStats {
         levelProgress = Progression.levelProgress(forTotalSparks: sparks)
         totalSnaps = catches.count
 
-        let ids = Set(catches.map(\.speciesID))
+        // An unidentified (Mystery) catch counts as a snap — toward streaks,
+        // places and time-of-day badges — but not as a *named* friend, so it
+        // doesn't inflate species, rarity or zone milestones. Those wait until
+        // the player names it.
+        let ids = Set(catches.map(\.speciesID)).subtracting([Species.mystery.id])
         caughtSpeciesIDs = ids
 
         let dates = catches.map(\.caughtAt)

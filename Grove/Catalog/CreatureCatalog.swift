@@ -1,13 +1,11 @@
 import Foundation
 
-/// The master field guide of friends you can meet in Grove, plus the logic
-/// that turns Vision's raw image labels into a matched friend.
+/// The master field guide of friends you can meet in Grove.
 ///
-/// The `matchKeywords` are tuned for Apple's built-in `VNClassifyImageRequest`,
-/// which returns fairly coarse labels ("bird", "dog", "squirrel", ...). As we
-/// move toward true species ID (a trained Core ML model or a cloud service),
-/// this catalog grows and the keywords get more precise — but nothing else in
-/// the app has to change.
+/// Players identify their own catches by picking from this catalog — there's no
+/// automatic image recognition — so the ordering and search here are what the
+/// pickers rely on. Each species keeps `matchKeywords` (e.g. "kitten", "feline"
+/// for a cat) purely to make the picker's search forgiving.
 enum CreatureCatalog {
 
     static let all: [Species] = [
@@ -386,128 +384,4 @@ enum CreatureCatalog {
 
     /// The whole guide sorted by name — the browse order for pickers.
     static let alphabetical: [Species] = all.sorted { $0.name < $1.name }
-
-    /// Whether a `matchKeywords` entry appears in Vision's labels on a *word
-    /// boundary*. Vision labels are lowercased single tokens or short phrases
-    /// ("small bird", "sea lion"), so a plain substring test is dangerous: the
-    /// keyword "ant" hides inside "plant" (in nearly every outdoor photo) and
-    /// "ape" inside "landscape", which used to summon a confident Ant or
-    /// Gorilla from the background. Matching whole words kills those false hits.
-    /// Multi-word keywords stay a bounded substring test — distinctive enough.
-    private static func keyword(_ keyword: String, matches labels: [String]) -> Bool {
-        if keyword.contains(" ") {
-            return labels.contains { $0.contains(keyword) }
-        }
-        let target = Substring(keyword)
-        return labels.contains { label in
-            label.split(whereSeparator: { !$0.isLetter }).contains(target)
-        }
-    }
-
-    /// Vision's coarse animal-family words. Used only to answer "did the photo
-    /// contain *an* animal, even one not in our guide?" — so we can gently turn
-    /// away a picture of lunch instead of minting a Mystery Friend for it.
-    private static let animalIndicators: [String] = [
-        "animal", "wildlife", "pet", "mammal", "bird", "fish", "insect",
-        "reptile", "amphibian", "arachnid", "invertebrate", "crustacean",
-        "mollusk", "rodent", "primate", "feline", "canine", "marsupial",
-        "carnivore", "herbivore", "ungulate", "waterfowl", "songbird",
-        "seabird", "raptor", "livestock", "cattle", "poultry",
-    ]
-
-    /// Whether Vision's labels suggest the photo actually holds an animal.
-    /// `nil` means "can't tell" — no labels came back (the Simulator returns
-    /// none, and a failed request is empty too), so callers must not reject on
-    /// `nil`. A catalog keyword hit is a definite yes; otherwise we look for
-    /// Vision's broad family words. Lets the Catch flow decline a clearly
-    /// non-animal photo rather than inventing a friend for it.
-    static func looksLikeAnimal(labels: [String]) -> Bool? {
-        guard !labels.isEmpty else { return nil }
-        if !keywordMatches(labels: labels, limit: 1).isEmpty { return true }
-        return animalIndicators.contains { keyword($0, matches: labels) }
-    }
-
-    /// Exact-keyword shortlist: every species whose `matchKeywords` overlap the
-    /// labels, ranked by number of hits then rarity. This is the same signal
-    /// `match` uses, so it only fires when Vision named something we know.
-    static func keywordMatches(labels: [String], limit: Int = 6) -> [Species] {
-        guard !labels.isEmpty else { return [] }
-        let scored: [(species: Species, hits: Int)] = all.compactMap { species in
-            let hits = species.matchKeywords.reduce(0) { count, kw in
-                count + (keyword(kw, matches: labels) ? 1 : 0)
-            }
-            return hits > 0 ? (species, hits) : nil
-        }
-        return scored
-            .sorted { $0.hits != $1.hits ? $0.hits > $1.hits : $0.species.rarity > $1.species.rarity }
-            .prefix(limit)
-            .map(\.species)
-    }
-
-    /// Best-guess shortlist for the identify UI. Starts from exact keyword
-    /// matches, then — crucially for a Mystery Friend, which exists *because*
-    /// exact matching failed — falls back to Vision's coarse group labels
-    /// ("bird", "rodent", "insect"…) mapped to likely catalog residents. The
-    /// map below is curated and meant to be tuned against real Vision output.
-    static func smartSuggestions(labels: [String], limit: Int = 6) -> [Species] {
-        guard !labels.isEmpty else { return [] }
-        var picks = keywordMatches(labels: labels, limit: limit)
-        guard picks.count < limit else { return Array(picks.prefix(limit)) }
-
-        var seen = Set(picks.map(\.id))
-        for label in labels {
-            for group in categoryGroups where group.tokens.contains(where: { label.contains($0) }) {
-                for id in group.ids where !seen.contains(id) {
-                    if let species = byID[id] {
-                        picks.append(species)
-                        seen.insert(id)
-                    }
-                    if picks.count >= limit { return Array(picks.prefix(limit)) }
-                }
-            }
-        }
-        return Array(picks.prefix(limit))
-    }
-
-    /// Coarse Vision groups → a handful of likely catalog friends. Ordered
-    /// specific → generic so a precise label ("duck") wins over a broad one
-    /// ("bird") before the catch-all ("animal") ever applies. Matching is a
-    /// substring test against each Vision label, so keep tokens distinctive.
-    private static let categoryGroups: [(tokens: [String], ids: [String])] = [
-        (["duck", "mallard", "waterfowl", "goose"],           ["duck", "swan"]),
-        (["seabird", "gull", "pelican", "albatross"],         ["swan", "duck"]),
-        (["songbird", "finch", "sparrow", "robin", "wren"],   ["bird", "robin"]),
-        (["raptor", "hawk", "eagle", "falcon", "owl"],        ["eagle", "owl"]),
-        (["parrot", "macaw", "cockatoo"],                     ["parrot"]),
-        (["bird", "fowl", "poultry"],                         ["bird", "pigeon", "crow", "robin", "duck", "chicken"]),
-        (["kitten", "feline"],                                ["housecat"]),
-        (["puppy", "canine", "retriever", "terrier"],         ["dog"]),
-        (["squirrel", "chipmunk", "rodent", "mouse"],         ["squirrel", "mouse"]),
-        (["rabbit", "hare", "bunny"],                         ["rabbit"]),
-        (["deer", "fawn", "elk", "moose"],                    ["deer"]),
-        (["butterfly", "moth"],                               ["butterfly"]),
-        (["bee", "wasp", "hornet"],                           ["bee"]),
-        (["beetle", "ladybug", "ladybird"],                   ["ladybug"]),
-        (["insect", "cricket", "grasshopper"],                ["bee", "butterfly", "ladybug", "ant", "grasshopper"]),
-        (["spider", "arachnid", "tarantula"],                 ["spider"]),
-        (["snake", "serpent", "python", "cobra"],             ["snake"]),
-        (["lizard", "gecko", "iguana", "reptile"],            ["lizard"]),
-        (["turtle", "tortoise"],                              ["turtle"]),
-        (["frog", "toad", "amphibian"],                       ["frog"]),
-        (["goldfish", "carp"],                                ["fish"]),
-        (["whale", "orca", "humpback", "narwhal"],            ["whale", "dolphin"]),
-        (["dolphin", "porpoise"],                             ["dolphin", "whale"]),
-        (["crab", "lobster", "crayfish"],                     ["crab"]),
-        (["mammal", "wildlife", "animal"],                    ["squirrel", "rabbit", "fox", "dog", "housecat", "deer"]),
-    ]
-
-    /// Given Vision's top labels (already lowercased), pick the best friend.
-    /// Uses the same word-boundary scoring as the shortlist: most keyword hits
-    /// win, ties broken toward the rarer species so a lucky "fox" beats a
-    /// background "dog". When nothing genuinely matches — an out-of-catalog
-    /// animal, or a photo of no animal at all — we return the Mystery Friend
-    /// rather than a confident wrong guess.
-    static func match(labels: [String]) -> Species {
-        keywordMatches(labels: labels, limit: 1).first ?? .mystery
-    }
 }

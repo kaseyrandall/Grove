@@ -20,8 +20,6 @@ struct EditFriendView: View {
     @State private var zone: Habitat
     @State private var showReleaseConfirm = false
 
-    /// Best guesses re-derived from the friend's photo on appear.
-    @State private var suggestions: [Species] = []
     /// Drives the push to the full, searchable catalog.
     @State private var showPicker = false
 
@@ -34,11 +32,6 @@ struct EditFriendView: View {
     }
 
     private var isMystery: Bool { species.id == Species.mystery.id }
-
-    /// Suggestions minus whatever is already chosen (no point re-offering it).
-    private var offeredSuggestions: [Species] {
-        suggestions.filter { $0.id != species.id }
-    }
 
     var body: some View {
         NavigationStack {
@@ -80,7 +73,6 @@ struct EditFriendView: View {
                 .presentationDetents([.height(340)])
                 .presentationDragIndicator(.visible)
             }
-            .task { await loadSuggestions() }
         }
     }
 
@@ -112,38 +104,12 @@ struct EditFriendView: View {
         .animation(.easeInOut(duration: 0.25), value: zone)
     }
 
-    // MARK: Type of friend — a few guesses inline, full list behind a door
+    // MARK: Type of friend — the full, searchable catalog behind a door
 
     private var typeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
             sectionLabel("TYPE OF FRIEND")
-
-            // Lead with whatever's confident: for an identified friend that's
-            // the current pick; for a Mystery Friend it's the photo guesses.
-            if isMystery {
-                suggestionsBlock
-                browseButton
-            } else {
-                browseButton
-                suggestionsBlock
-            }
-        }
-    }
-
-    /// The photo-derived shortlist — framed as the primary recommendation for a
-    /// Mystery Friend, or as alternatives ("or did you mean…") once identified.
-    @ViewBuilder private var suggestionsBlock: some View {
-        if !offeredSuggestions.isEmpty {
-            Text(isMystery ? "✨ Best guesses from your photo" : "✨ Or did you mean…")
-                .font(.system(.caption2, design: .rounded, weight: .bold))
-                .foregroundStyle(Theme.ink.opacity(0.5))
-                .padding(.leading, 6)
-
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 96), spacing: 10)], spacing: 10) {
-                ForEach(offeredSuggestions) { candidate in
-                    SpeciesTile(species: candidate, isSelected: false) { select(candidate) }
-                }
-            }
+            browseButton
         }
     }
 
@@ -254,20 +220,6 @@ struct EditFriendView: View {
             species = candidate
             zone = candidate.zone
         }
-    }
-
-    /// Re-run on-device Vision over the stored photo to offer a shortlist of
-    /// likely animals. Cheap, no network, and works for any existing catch.
-    private func loadSuggestions() async {
-        guard suggestions.isEmpty,
-              let data = friend.photoData,
-              let ui = UIImage(data: data) else { return }
-        let labels = await AnimalClassifier.classify(ui)
-        let picks = CreatureCatalog.smartSuggestions(labels: labels)
-        #if DEBUG
-        print("🔎 Identify suggestions — Vision: \(labels) → \(picks.map(\.name))")
-        #endif
-        await MainActor.run { suggestions = picks }
     }
 
     private func save() {
