@@ -1,10 +1,10 @@
 import SwiftUI
 import SwiftData
 
-/// The whole world of friends, browsable before you've met them — grouped by
-/// zone, with the ones you've caught in full colour and the rest as gentle
-/// "still out there" teasers. Gives a new player somewhere to explore from day
-/// one, and everyone a sense of how much is left to collect.
+/// The whole world of friends, grouped by zone. The ones you've caught show in
+/// full colour; the rest stay hidden as mystery "?" slots until you find and
+/// unlock them, so each first meeting is a genuine discovery while still giving
+/// everyone a sense of how much is left to collect.
 struct FieldGuideView: View {
     @Query private var catches: [Catch]
     @State private var selected: Species?
@@ -90,9 +90,9 @@ struct FieldGuideView: View {
     }
 }
 
-/// One friend in the guide: full colour once met, a soft grayscale teaser until
-/// then. The name stays visible so the guide reads as an invitation, not a wall
-/// of question marks.
+/// One friend in the guide: full colour once met, a hidden silhouette until
+/// then. Unmet friends keep their identity secret — a "?" stands in for the
+/// emoji and name — so meeting one for the first time stays a discovery.
 private struct GuideTile: View {
     let species: Species
     let count: Int
@@ -103,11 +103,11 @@ private struct GuideTile: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 6) {
-                Text(species.emoji)
+                Text(met ? species.emoji : "❓")
                     .font(.system(size: 34))
                     .grayscale(met ? 0 : 1)
                     .opacity(met ? 1 : 0.4)
-                Text(species.name)
+                Text(met ? species.name : "???")
                     .font(.system(.caption, design: .rounded, weight: .semibold))
                     .foregroundStyle(met ? Theme.ink : Theme.ink.opacity(0.4))
                     .lineLimit(1)
@@ -155,18 +155,20 @@ private struct SpeciesGuideSheet: View {
                     Circle()
                         .fill(met ? species.rarity.tint.opacity(0.5) : Theme.ink.opacity(0.06))
                         .frame(width: 96, height: 96)
-                    Text(species.emoji)
+                    Text(met ? species.emoji : "❓")
                         .font(.system(size: 48))
                         .grayscale(met ? 0 : 1)
                         .opacity(met ? 1 : 0.45)
                 }
                 .padding(.top, 12)
 
-                Text(species.name)
+                Text(met ? species.name : "???")
                     .font(.system(size: 26, weight: .heavy, design: .rounded))
                     .foregroundStyle(Theme.ink)
 
-                RarityBadge(rarity: species.rarity)
+                if met {
+                    RarityBadge(rarity: species.rarity)
+                }
 
                 if met {
                     Text(species.blurb)
@@ -180,11 +182,11 @@ private struct SpeciesGuideSheet: View {
                         .font(.system(.caption, design: .rounded, weight: .semibold))
                         .foregroundStyle(Theme.accent)
                 } else {
-                    Text("You haven't met this friend yet.")
+                    Text("You haven't met this friend yet — find and unlock it to reveal who it is.")
                         .font(.system(.body, design: .rounded))
                         .foregroundStyle(Theme.ink.opacity(0.6))
                         .multilineTextAlignment(.center)
-                    Label("Look in the \(species.zone.shortName) — \(species.habitatNote)",
+                    Label("Keep exploring the \(species.zone.shortName) to discover it.",
                           systemImage: "map.fill")
                         .font(.system(.subheadline, design: .rounded, weight: .semibold))
                         .foregroundStyle(Theme.accent)
