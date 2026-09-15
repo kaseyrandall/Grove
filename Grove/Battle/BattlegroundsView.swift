@@ -181,8 +181,12 @@ struct BattlegroundsView: View {
                 }
                 .buttonStyle(.plain)
             } else if roster.isAway(f) {
+                #if DEBUG
                 TeamStatusCard(friend: f, progress: p, state: .away(roster.awayRemaining(f)),
                                devResolve: { roster.devResolveNow(f) })
+                #else
+                TeamStatusCard(friend: f, progress: p, state: .away(roster.awayRemaining(f)))
+                #endif
             } else if roster.isResting(f) {
                 TeamStatusCard(friend: f, progress: p, state: .resting(roster.restRemaining(f)))
             } else {
