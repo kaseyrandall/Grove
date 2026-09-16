@@ -19,9 +19,18 @@ final class CameraModel: NSObject, ObservableObject {
     @Published private(set) var position: AVCaptureDevice.Position = .back
     /// Flash for the next photo. Ignored by cameras without a flash.
     @Published var flashMode: AVCaptureDevice.FlashMode = .off
-    /// Current pinch-zoom factor (1× = no zoom). Capped for a cozy, usable range.
+    /// Current raw `videoZoomFactor`. On a multi-lens device this spans the
+    /// native optical range (ultra-wide → wide → telephoto), not just digital.
     @Published private(set) var zoomFactor: CGFloat = 1.0
-    private let maxZoom: CGFloat = 5.0
+    /// The raw factor that equals the system camera's native "1×" (the main wide
+    /// lens). On devices with an ultra-wide, raw 1.0 is the ultra-wide (~0.5×),
+    /// so this is the ultra-wide→wide switch-over factor.
+    @Published private(set) var nativeOneX: CGFloat = 1.0
+    /// Zoom as the stock Camera shows it (0.5×, 1×, 5×…), relative to native 1×.
+    var displayZoom: CGFloat { zoomFactor / nativeOneX }
+    /// Ceiling on displayed zoom (native lenses plus a little digital reach),
+    /// so we're not locked to a small digital range but also not absurdly grainy.
+    private let maxDisplayZoom: CGFloat = 15.0
 
     private let output = AVCapturePhotoOutput()
     private let sessionQueue = DispatchQueue(label: "com.grove.camera.session")
@@ -75,6 +84,8 @@ final class CameraModel: NSObject, ObservableObject {
                     self.session.addOutput(self.output)
                 }
                 self.session.commitConfiguration()
+
+                self.applyNativeDefaultZoom(input.device)
             }
 
             if !self.session.isRunning {
@@ -86,11 +97,59 @@ final class CameraModel: NSObject, ObservableObject {
 
     private func makeInput(position: AVCaptureDevice.Position) -> AVCaptureDeviceInput? {
         guard
-            let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position),
+            let device = camera(for: position),
             let input = try? AVCaptureDeviceInput(device: device),
             session.canAddInput(input)
         else { return nil }
         return input
+    }
+
+    /// The best camera for a position. For the back, prefer a multi-lens virtual
+    /// device so zoom uses the device's real lenses (ultra-wide/wide/telephoto)
+    /// and the native zoom range — not a locked digital crop of the wide lens.
+    private func camera(for position: AVCaptureDevice.Position) -> AVCaptureDevice? {
+        if position == .back {
+            let preferred: [AVCaptureDevice.DeviceType] = [
+                .builtInTripleCamera,      // wide + ultra-wide + telephoto
+                .builtInDualWideCamera,    // wide + ultra-wide
+                .builtInDualCamera,        // wide + telephoto
+                .builtInWideAngleCamera,   // single wide (older devices)
+            ]
+            for type in preferred {
+                if let device = AVCaptureDevice.default(type, for: .video, position: .back) {
+                    return device
+                }
+            }
+        }
+        return AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: position)
+    }
+
+    /// The raw `videoZoomFactor` that reads as the native "1×". With an ultra-wide
+    /// present, raw 1.0 is that ultra-wide, so 1× is the first switch-over factor.
+    private func nativeOneXFactor(for device: AVCaptureDevice) -> CGFloat {
+        if device.constituentDevices.contains(where: { $0.deviceType == .builtInUltraWideCamera }),
+           let firstSwitch = device.virtualDeviceSwitchOverVideoZoomFactors.first {
+            return CGFloat(truncating: firstSwitch)
+        }
+        return 1.0
+    }
+
+    /// Open at the device's native default zoom (its main wide lens ≈ 1×).
+    private func applyNativeDefaultZoom(_ device: AVCaptureDevice) {
+        let oneX = nativeOneXFactor(for: device)
+        let target = min(max(oneX, device.minAvailableVideoZoomFactor),
+                         device.maxAvailableVideoZoomFactor)
+        do {
+            try device.lockForConfiguration()
+            device.videoZoomFactor = target
+            device.unlockForConfiguration()
+        } catch {
+            // Zoom is a nicety; ignore failures.
+        }
+        DispatchQueue.main.async {
+            self.nativeOneX = oneX
+            self.zoomFactor = target
+        }
     }
 
     // MARK: Viewfinder controls
@@ -106,10 +165,10 @@ final class CameraModel: NSObject, ObservableObject {
             if let input = self.makeInput(position: newPosition) {
                 self.session.addInput(input)
                 self.currentInput = input
-                DispatchQueue.main.async {
-                    self.position = newPosition
-                    self.zoomFactor = 1.0 // the new camera starts un-zoomed
-                }
+                self.session.commitConfiguration()
+                DispatchQueue.main.async { self.position = newPosition }
+                self.applyNativeDefaultZoom(input.device) // open at native 1×
+                return
             } else {
                 // Couldn't switch — put the original camera back.
                 if self.session.canAddInput(current) { self.session.addInput(current) }
@@ -140,14 +199,15 @@ final class CameraModel: NSObject, ObservableObject {
         }
     }
 
-    /// Pinch-to-zoom. Clamped to [1×, 5×] (and whatever the device allows) so
-    /// people can reach shy wildlife without getting close — pairs with the
-    /// "keep your distance" reminder.
+    /// Pinch-to-zoom across the device's native range — down to its widest lens
+    /// (ultra-wide ≈ 0.5× where present) and up through the telephoto, with a
+    /// little digital reach for shy wildlife (pairs with "keep your distance").
     func zoom(to factor: CGFloat) {
         sessionQueue.async { [weak self] in
             guard let self, let device = self.currentInput?.device else { return }
-            let maxAllowed = min(device.maxAvailableVideoZoomFactor, self.maxZoom)
-            let clamped = min(max(factor, 1.0), maxAllowed)
+            let maxAllowed = min(device.maxAvailableVideoZoomFactor, self.nativeOneX * self.maxDisplayZoom)
+            let minAllowed = device.minAvailableVideoZoomFactor
+            let clamped = min(max(factor, minAllowed), maxAllowed)
             do {
                 try device.lockForConfiguration()
                 device.videoZoomFactor = clamped

@@ -33,6 +33,9 @@ struct CatchView: View {
     @State private var focusPoint: CGPoint?
     @State private var focusToken = UUID()
     @State private var baseZoom: CGFloat = 1.0
+    /// True while a pinch is in progress, so the camera setting its own zoom
+    /// (on open / flip) doesn't clobber the pinch base mid-gesture.
+    @GestureState private var isPinching = false
 
     private var lastCatch: Catch? {
         allCatches.filter { $0.photoData != nil }.max { $0.caughtAt < $1.caughtAt }
@@ -45,9 +48,15 @@ struct CatchView: View {
                 .ignoresSafeArea()
                 .gesture(
                     MagnifyGesture()
+                        .updating($isPinching) { _, state, _ in state = true }
                         .onChanged { value in camera.zoom(to: baseZoom * value.magnification) }
                         .onEnded { _ in baseZoom = camera.zoomFactor }
                 )
+                // Keep the pinch base aligned with the camera's own zoom changes
+                // (initial open at native 1×, or a flip) when not actively pinching.
+                .onChange(of: camera.zoomFactor) { _, newValue in
+                    if !isPinching { baseZoom = newValue }
+                }
 
             // Controls live inside the safe area so nothing hides behind the
             // Dynamic Island or the home indicator.
@@ -177,8 +186,8 @@ struct CatchView: View {
 
     private var bottomControls: some View {
         VStack(spacing: 14) {
-            if camera.zoomFactor > 1.05 {
-                Text(String(format: "%.1f×", camera.zoomFactor))
+            if abs(camera.displayZoom - 1.0) > 0.05 {
+                Text(String(format: "%.1f×", camera.displayZoom))
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
                     .padding(.horizontal, 12)
