@@ -12,6 +12,12 @@ struct GroveView: View {
     @AppStorage("hasSeenGroveIntro") private var seenIntro = false
     @State private var revealed = false
 
+    /// Coach-mark "seen" flag (shared with RootView by key). Set when the player
+    /// dismisses the daily card, so that hint retires on use instead of only
+    /// when its bubble is tapped. (The "meet a friend" flag is set in ZoneCard,
+    /// where that target lives.)
+    @AppStorage("hasSeenGoalCoach") private var hasSeenGoalCoach = false
+
     /// The day (day-number since 1970) the player dismissed today's challenge,
     /// persisted so it stays dismissed across launches until a new day rotates
     /// in. The visible state is driven by `challengeDismissed` (a `@State`) so
@@ -280,6 +286,7 @@ struct GroveView: View {
                 }
                 challengeDismissedDay = todayKey
                 dismissedWhileComplete = complete
+                hasSeenGoalCoach = true // engaging with the card retires its hint
             } label: {
                 Image(systemName: "xmark")
                     .font(.system(size: 10, weight: .bold, design: .rounded))
@@ -297,6 +304,10 @@ struct GroveView: View {
 struct ZoneCard: View {
     let zone: Habitat
     let catches: [Catch]
+
+    /// Shared with RootView by key — set when the player opens a friend, so the
+    /// "meet your friend" coach mark retires on use, not only on bubble-tap.
+    @AppStorage("hasSeenMeetCoach") private var hasSeenMeetCoach = false
 
     /// Individual friends who currently live in this zone (rarer kinds first).
     private var residents: [Catch] {
@@ -343,6 +354,8 @@ struct ZoneCard: View {
                         .buttonStyle(.plain)
                         // Point the "meet your friend" mark at the very first catch.
                         .coachTarget(.meetFriend, active: catches.count == 1)
+                        // Opening a friend is the lesson — retire the hint on tap.
+                        .simultaneousGesture(TapGesture().onEnded { hasSeenMeetCoach = true })
                     }
                 }
                 .padding(.vertical, 6)
@@ -422,3 +435,4 @@ struct ResidentPortrait: View {
         .tint(Theme.accent)
         .fontDesign(.rounded)
 }
+

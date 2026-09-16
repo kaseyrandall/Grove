@@ -66,13 +66,20 @@ struct RootView: View {
         // the bubble is opaque, so the rest of the UI stays fully interactive.
         .overlayPreferenceValue(CoachAnchorKey.self) { anchors in
             GeometryReader { proxy in
-                if let step = currentCoachStep, let anchor = anchors[step] {
-                    CoachOverlay(
-                        step: step,
-                        targetRect: proxy[anchor],
-                        container: proxy.size,
-                        onDismiss: { dismissCoach(step) }
-                    )
+                // Only while the Grove root is front-most (the tab bar is up, so
+                // no detail page is pushed over it) and the target is actually
+                // in view — otherwise the bubble drifts over the header/chrome
+                // or lingers on top of a pushed page.
+                if tabBarVisible, let step = currentCoachStep, let anchor = anchors[step] {
+                    let rect = proxy[anchor]
+                    if coachTargetVisible(step, rect, in: proxy.size) {
+                        CoachOverlay(
+                            step: step,
+                            targetRect: rect,
+                            container: proxy.size,
+                            onDismiss: { dismissCoach(step) }
+                        )
+                    }
                 }
             }
         }
@@ -112,6 +119,18 @@ struct RootView: View {
 
     private func refreshReminders() {
         NotificationManager.refresh(catches: catches, enabled: notificationsEnabled)
+    }
+
+    /// Whether a step's target is on-screen enough to point at. `.snap` is
+    /// pinned to the fixed tab bar, so it's always fair game; the scrolling
+    /// Grove targets must sit in the band between the header and the floating
+    /// tab bar, so a bubble never drifts over the chrome or off-screen.
+    private func coachTargetVisible(_ step: CoachStep, _ rect: CGRect, in size: CGSize) -> Bool {
+        guard step != .snap else { return true }
+        guard rect.height > 0 else { return false }
+        let top: CGFloat = 90
+        let bottom = size.height - Theme.tabBarClearance
+        return rect.midY > top && rect.midY < bottom
     }
 
     /// Dismiss the active coach mark. Snap jumps the player to Catch (and gets
