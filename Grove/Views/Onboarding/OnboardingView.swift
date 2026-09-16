@@ -78,8 +78,8 @@ struct OnboardingSlide {
         ),
         OnboardingSlide(
             emojis: ["📸", "🦊"],
-            title: "Spot & snap",
-            body: "See an animal out in the wild? Take its photo and Grove figures out who it is — instantly, right on your phone.",
+            title: "Snap & name",
+            body: "See an animal out in the wild? Snap a photo, then pick who it is from the field guide — your new friend, named by you.",
             tint: Theme.sky
         ),
         OnboardingSlide(
@@ -114,17 +114,18 @@ private struct SlideView: View {
                 }
             }
 
-            VStack(spacing: 12) {
+            VStack(spacing: 14) {
                 Text(slide.title)
-                    .font(.system(size: 28, weight: .heavy, design: .rounded))
+                    .font(.system(size: 30, weight: .heavy, design: .rounded))
                     .foregroundStyle(Theme.ink)
                     .multilineTextAlignment(.center)
 
                 Text(slide.body)
-                    .font(.system(.body, design: .rounded))
-                    .foregroundStyle(Theme.ink.opacity(0.7))
+                    .font(.system(size: 18, weight: .medium, design: .rounded))
+                    .foregroundStyle(Theme.ink.opacity(0.72))
                     .multilineTextAlignment(.center)
-                    .padding(.horizontal, 36)
+                    .lineSpacing(5)
+                    .padding(.horizontal, 32)
             }
 
             Spacer()
