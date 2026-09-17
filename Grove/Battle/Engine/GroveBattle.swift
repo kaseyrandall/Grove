@@ -30,15 +30,15 @@ public enum BattleType: String, CaseIterable, Sendable {
     case hearth, bloom, tide, shore, meadow, timber, gale, feral
 
     /// Damage multiplier attacking `foe`. Each type beats the two clockwise from
-    /// it (1.5×) and is weak to the two behind (0.67×); everything else is 1.0×.
+    /// it (1.25×) and is weak to the two behind (0.8×); everything else is 1.0×.
     public func multiplier(against foe: BattleType) -> Double {
         let all = BattleType.allCases
         let n = all.count
         let i = all.firstIndex(of: self)!
         let j = all.firstIndex(of: foe)!
         let diff = (j - i + n) % n
-        if diff == 1 || diff == 2 { return 1.04 }
-        if diff == n - 1 || diff == n - 2 { return 0.97 }
+        if diff == 1 || diff == 2 { return 1.25 }
+        if diff == n - 1 || diff == n - 2 { return 0.8 }
         return 1.0
     }
 }

@@ -220,7 +220,7 @@ private func resolve(_ move: Move, me: inout Combatant, foe: inout Combatant,
         foe.hp -= dmg
         let eff: Effectiveness = mult > 1.0 ? .advantaged : (mult < 1.0 ? .resisted : .neutral)
         var line = "\(me.card.name) uses \(move.name) for \(dmg)."
-        if eff == .advantaged { line += " Type edge!" } else if eff == .resisted { line += " Resisted." }
+        if eff == .advantaged { line += " Super effective!" } else if eff == .resisted { line += " Not very effective." }
         raw.append(RawEvent(kind: .strike(move: move.name, damage: dmg, effectiveness: eff), text: line))
 
         if let e = move.effect {
