@@ -1,10 +1,10 @@
 import SwiftUI
 import SwiftData
 
-/// The whole world of friends, grouped by zone. The ones you've caught show in
-/// full colour; the rest stay hidden as mystery "?" slots until you find and
-/// unlock them, so each first meeting is a genuine discovery while still giving
-/// everyone a sense of how much is left to collect.
+/// The whole world of friends, as one collection checklist. Friends you've met
+/// show in full colour with their rarity; the rest are greyed out but still
+/// recognisable, so you can see what's out there to find. There's no zone
+/// grouping — where a friend lives is up to you, in your Grove.
 struct FieldGuideView: View {
     @Query private var catches: [Catch]
     @State private var selected: Species?
@@ -20,6 +20,11 @@ struct FieldGuideView: View {
             .count
     }
 
+    /// Every kind, A–Z, so any friend is easy to find.
+    private var allSpecies: [Species] {
+        CreatureCatalog.all.sorted { $0.name < $1.name }
+    }
+
     private let columns = [GridItem(.adaptive(minimum: 96), spacing: 12)]
 
     var body: some View {
@@ -29,8 +34,10 @@ struct FieldGuideView: View {
             ScrollView {
                 VStack(spacing: 20) {
                     summary
-                    ForEach(Habitat.ordered) { zone in
-                        section(zone)
+                    LazyVGrid(columns: columns, spacing: 12) {
+                        ForEach(allSpecies) { s in
+                            GuideTile(species: s, count: counts[s.id] ?? 0) { selected = s }
+                        }
                     }
                 }
                 .padding()
@@ -65,34 +72,10 @@ struct FieldGuideView: View {
         .padding()
         .softCard()
     }
-
-    private func section(_ zone: Habitat) -> some View {
-        let species = CreatureCatalog.species(in: zone)
-        let met = species.filter { (counts[$0.id] ?? 0) > 0 }.count
-        return VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 6) {
-                Text("\(zone.emoji) \(zone.shortName)")
-                    .font(.system(.headline, design: .rounded, weight: .bold))
-                    .foregroundStyle(Theme.ink)
-                Spacer()
-                Text("\(met)/\(species.count)")
-                    .font(.system(.caption, design: .rounded, weight: .bold))
-                    .foregroundStyle(Theme.ink.opacity(0.45))
-            }
-            .padding(.leading, 6)
-
-            LazyVGrid(columns: columns, spacing: 12) {
-                ForEach(species) { s in
-                    GuideTile(species: s, count: counts[s.id] ?? 0) { selected = s }
-                }
-            }
-        }
-    }
 }
 
-/// One friend in the guide: full colour once met, a hidden silhouette until
-/// then. Unmet friends keep their identity secret — a "?" stands in for the
-/// emoji and name — so meeting one for the first time stays a discovery.
+/// One friend in the guide: full colour once met, greyed but still recognisable
+/// until then — a collection you can see and fill in, not a set of secrets.
 private struct GuideTile: View {
     let species: Species
     let count: Int
@@ -103,11 +86,11 @@ private struct GuideTile: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 6) {
-                Text(met ? species.emoji : "❓")
+                Text(species.emoji)
                     .font(.system(size: 34))
                     .grayscale(met ? 0 : 1)
-                    .opacity(met ? 1 : 0.4)
-                Text(met ? species.name : "???")
+                    .opacity(met ? 1 : 0.45)
+                Text(species.name)
                     .font(.system(.caption, design: .rounded, weight: .semibold))
                     .foregroundStyle(met ? Theme.ink : Theme.ink.opacity(0.4))
                     .lineLimit(1)
@@ -140,8 +123,8 @@ private struct GuideTile: View {
     }
 }
 
-/// Tap a guide entry for a closer look. A caught friend shows its lore; an
-/// unmet one shows a gentle nudge toward where to find it.
+/// Tap a guide entry for a closer look. A met friend shows its lore and how many
+/// you've welcomed; an unmet one shows what it is and a nudge to go find one.
 private struct SpeciesGuideSheet: View {
     let species: Species
     let count: Int
@@ -155,20 +138,18 @@ private struct SpeciesGuideSheet: View {
                     Circle()
                         .fill(met ? species.rarity.tint.opacity(0.5) : Theme.ink.opacity(0.06))
                         .frame(width: 96, height: 96)
-                    Text(met ? species.emoji : "❓")
+                    Text(species.emoji)
                         .font(.system(size: 48))
                         .grayscale(met ? 0 : 1)
                         .opacity(met ? 1 : 0.45)
                 }
                 .padding(.top, 12)
 
-                Text(met ? species.name : "???")
+                Text(species.name)
                     .font(.system(size: 26, weight: .heavy, design: .rounded))
-                    .foregroundStyle(Theme.ink)
+                    .foregroundStyle(met ? Theme.ink : Theme.ink.opacity(0.55))
 
-                if met {
-                    RarityBadge(rarity: species.rarity)
-                }
+                RarityBadge(rarity: species.rarity)
 
                 if met {
                     Text(species.blurb)
@@ -182,12 +163,12 @@ private struct SpeciesGuideSheet: View {
                         .font(.system(.caption, design: .rounded, weight: .semibold))
                         .foregroundStyle(Theme.accent)
                 } else {
-                    Text("You haven't met this friend yet — find and unlock it to reveal who it is.")
+                    Text("You haven't met this friend yet.")
                         .font(.system(.body, design: .rounded))
                         .foregroundStyle(Theme.ink.opacity(0.6))
                         .multilineTextAlignment(.center)
-                    Label("Keep exploring the \(species.zone.shortName) to discover it.",
-                          systemImage: "map.fill")
+                    Label("Snap one out in the wild to welcome it home.",
+                          systemImage: "camera.fill")
                         .font(.system(.subheadline, design: .rounded, weight: .semibold))
                         .foregroundStyle(Theme.accent)
                         .multilineTextAlignment(.center)
