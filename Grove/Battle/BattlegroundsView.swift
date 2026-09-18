@@ -25,7 +25,6 @@ struct BattlegroundsView: View {
         roster.teamCatches(from: catches)
     }
     private var promotable: [Catch] { catches.filter { !roster.teamContains($0) } }
-    private func readyFighters() -> [Catch] { team.map(\.friend).filter { roster.canSend($0) } }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -58,21 +57,15 @@ struct BattlegroundsView: View {
 
     private var arenaTab: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        sectionHeader("The Arena",
-                                      "Send a friend off to a match. They're away a bit, then come back with a result — and a nap.")
-                        squadStrip
-                        teamLabel
-                        ForEach(0..<roster.maxSlots, id: \.self) { i in slot(i) }
-                    }
-                    .padding()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    sectionHeader("The Arena",
+                                  "Tap a friend to see their card, then send them off to a match. They're away a bit, then come back with a result — and a nap.")
+                    squadStrip
+                    teamLabel
+                    ForEach(0..<roster.maxSlots, id: \.self) { i in slot(i) }
                 }
-                findMatchButton
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                    .padding(.bottom, 6)
+                .padding()
             }
         }
     }
@@ -144,25 +137,6 @@ struct BattlegroundsView: View {
         }
     }
 
-    @ViewBuilder private var findMatchButton: some View {
-        let ready = readyFighters()
-        if ready.isEmpty {
-            HStack(spacing: 8) {
-                Image(systemName: "bolt.slash.fill").font(.system(size: 14, weight: .bold))
-                Text(team.isEmpty ? "Send a friend to the Arena to begin" : "Everyone's away or resting")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-            }
-            .foregroundStyle(BattleTheme.muted)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.white.opacity(0.03))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1)))
-        } else {
-            FindMatchCTA { MatchmakingView(fighters: ready) }
-        }
-    }
-
     private var teamLabel: some View {
         Text("YOUR TEAM")
             .font(.system(size: 12.5, weight: .heavy, design: .rounded))
@@ -190,7 +164,10 @@ struct BattlegroundsView: View {
             } else if roster.isResting(f) {
                 TeamStatusCard(friend: f, progress: p, state: .resting(roster.restRemaining(f)))
             } else {
-                TeamStatusCard(friend: f, progress: p, state: .ready)
+                NavigationLink { FighterCardView(friend: f) } label: {
+                    TeamStatusCard(friend: f, progress: p, state: .ready)
+                }
+                .buttonStyle(.plain)
             }
         } else {
             EmptySlotCard { showPromote = true }
@@ -307,44 +284,6 @@ struct BattlegroundsView: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-    }
-}
-
-// MARK: - The living CTA
-
-/// The Arena's primary call — a breathing green capsule with a charging bolt.
-/// Self-contained so its animation is isolated from the tab's per-second ticks.
-private struct FindMatchCTA<Destination: View>: View {
-    @ViewBuilder var destination: () -> Destination
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var glow = false
-    @State private var arrived = false
-
-    var body: some View {
-        NavigationLink {
-            destination()
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "bolt.fill")
-                    .symbolEffect(.pulse, options: reduceMotion ? .nonRepeating : .repeating)
-                Text("Find a Match")
-            }
-            .font(.system(size: 18, weight: .heavy, design: .rounded))
-            .foregroundStyle(Color(hex: 0x07130B))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 17)
-            .background(Capsule().fill(LinearGradient(colors: [BattleTheme.leaf, BattleTheme.leafDeep],
-                                                      startPoint: .top, endPoint: .bottom)))
-            .shadow(color: BattleTheme.leaf.opacity(glow ? 0.55 : 0.28),
-                    radius: glow ? 22 : 12, y: 6)
-        }
-        .buttonStyle(.plain)
-        .simultaneousGesture(TapGesture().onEnded { arrived.toggle() })
-        .sensoryFeedback(.selection, trigger: arrived)
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { glow = true }
-        }
     }
 }
 
@@ -581,25 +520,26 @@ private struct EmptySlotCard: View {
     }
 }
 
-// MARK: - Matchmaking: choose a ready fighter, send them off vs a hidden rival
+// MARK: - Fighter card: view a friend's card, then send them off vs a hidden rival
 
-struct MatchmakingView: View {
-    let fighters: [Catch]
+/// Tap a ready team member to land here: their full battle card (stats, moves,
+/// XP), their Battle Plan, and the button that sends them off. The opponent
+/// stays hidden until the match comes back.
+struct FighterCardView: View {
+    let friend: Catch
 
     @Environment(\.dismiss) private var dismiss
-    @State private var selected: Catch
     @State private var seed: UInt64
     @State private var opponent: Contender
     @State private var showPlan = false
     @State private var dispatching = false
 
     private var roster: BattleRoster { .shared }
-    private var level: Int { roster.progress(for: selected)?.level ?? 1 }
-    private var fighterContender: Contender { .from(selected) }
+    private var level: Int { roster.progress(for: friend)?.level ?? 1 }
+    private var contender: Contender { .from(friend) }
 
-    init(fighters: [Catch]) {
-        self.fighters = fighters
-        _selected = State(initialValue: fighters[0])
+    init(friend: Catch) {
+        self.friend = friend
         let s = UInt64.random(in: 0 ..< UInt64.max)
         _seed = State(initialValue: s)
         _opponent = State(initialValue: .wildRival(seed: s))
@@ -610,10 +550,11 @@ struct MatchmakingView: View {
             BattleTheme.background.ignoresSafeArea()
             ScrollView {
                 VStack(spacing: 18) {
-                    if fighters.count > 1 { fighterPicker }
-                    labeled("YOUR FIGHTER") {
-                        BattleCardView(card: fighterContender.card(level: level), photoData: selected.photoData)
-                    }
+                    BattleCardView(card: contender.card(level: level),
+                                   photoData: friend.photoData,
+                                   rarity: friend.species.rarity,
+                                   xp: xpProgress)
+                        .frame(maxWidth: .infinity)
                     planButton
                     Text("VS").font(.system(size: 15, weight: .heavy, design: .rounded)).foregroundStyle(BattleTheme.gold)
                     labeled("YOUR OPPONENT") { HiddenOpponentCard() }
@@ -622,20 +563,29 @@ struct MatchmakingView: View {
                 .padding()
             }
         }
-        .overlay { if dispatching { DispatchOverlay(fighter: selected) } }
+        .overlay { if dispatching { DispatchOverlay(fighter: friend) } }
         .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: dispatching)
-        .navigationTitle("Find a Match")
+        .navigationTitle(friend.displayName)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .groveTabBarHidden()
         .sheet(isPresented: $showPlan) {
-            BattlePlanEditorView(fighter: selected, archetype: fighterContender.archetype)
+            BattlePlanEditorView(fighter: friend, archetype: contender.archetype)
         }
     }
 
+    /// Progress toward the next level, for the card's XP bar.
+    private var xpProgress: (fraction: Double, caption: String) {
+        let lvl = level
+        let xp = roster.progress(for: friend)?.xp ?? 0
+        if lvl >= 30 { return (1, "MAX") }
+        let need = BattleRoster.xpNeeded(for: lvl)
+        return (Double(xp) / Double(max(1, need)), "\(xp)/\(need) XP")
+    }
+
     private var planCount: Int {
-        roster.storedPlan(for: selected, archetype: fighterContender.archetype).rules.count
+        roster.storedPlan(for: friend, archetype: contender.archetype).rules.count
     }
 
     private var planButton: some View {
@@ -667,37 +617,6 @@ struct MatchmakingView: View {
         .buttonStyle(.plain)
     }
 
-    private var fighterPicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("CHOOSE WHO FIGHTS")
-                .font(.system(size: 11, weight: .heavy, design: .rounded)).tracking(1)
-                .foregroundStyle(BattleTheme.muted)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(fighters, id: \.persistentModelID) { f in
-                        let isSel = f.persistentModelID == selected.persistentModelID
-                        Button { withAnimation(.easeInOut(duration: 0.15)) { selected = f } } label: {
-                            VStack(spacing: 5) {
-                                PortraitCircle(photoData: f.photoData,
-                                               type: BattleType(habitat: f.effectiveZone),
-                                               monogram: String(f.displayName.prefix(1)), size: 56)
-                                    .overlay(Circle().stroke(BattleTheme.gold, lineWidth: isSel ? 3 : 0))
-                                Text(f.displayName)
-                                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    .foregroundStyle(isSel ? BattleTheme.ink : BattleTheme.muted)
-                                    .lineLimit(1)
-                            }
-                            .frame(width: 68)
-                            .opacity(isSel ? 1 : 0.7)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 2)
-            }
-        }
-    }
-
     private func labeled<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             Text(title).font(.system(size: 11, weight: .heavy, design: .rounded)).tracking(1).foregroundStyle(BattleTheme.muted)
@@ -707,11 +626,11 @@ struct MatchmakingView: View {
 
     private var sendButton: some View {
         Button {
-            let plan = roster.storedPlan(for: selected, archetype: fighterContender.archetype)
-            let r = simulate(fighterContender.card(level: level), plan.battlePlan,
+            let plan = roster.storedPlan(for: friend, archetype: contender.archetype)
+            let r = simulate(contender.card(level: level), plan.battlePlan,
                              vs: opponent.card(level: level), .defaultPlan(for: opponent.archetype),
                              seed: seed)
-            roster.send(selected, opponent: opponent, level: level, plan: plan, seed: seed, result: r)
+            roster.send(friend, opponent: opponent, level: level, plan: plan, seed: seed, result: r)
             withAnimation(.easeInOut(duration: 0.25)) { dispatching = true }
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(1500))
@@ -920,102 +839,209 @@ private struct PromoteRow: View {
     }
 }
 
-// MARK: - Battle card (portrait + stats + moves)
+// MARK: - Battle card (a tall, raised trading card)
 
+/// A friend as a collectible battle card: their photo as the card face with the
+/// type badge and level on it, then HP/STA meters, an ATK/DEF/SPD triad, their
+/// moves, and (optionally) an XP bar. Type-tinted, lightly raised.
 struct BattleCardView: View {
     let card: BattleCard
     let photoData: Data?
-    var compact: Bool = false
+    var rarity: Rarity? = nil
+    /// When set, shows an XP bar at the foot of the card.
+    var xp: (fraction: Double, caption: String)? = nil
+
+    private var type: BattleType { card.type }
+    private var accent: Color { type.color }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 14) {
-                PortraitCircle(photoData: photoData, type: card.type,
-                               monogram: String(card.name.prefix(1)), size: compact ? 56 : 76)
-                VStack(alignment: .leading, spacing: 5) {
-                    HStack(spacing: 8) {
-                        Text(card.name)
-                            .font(.system(size: compact ? 17 : 20, weight: .bold, design: .rounded))
-                            .foregroundStyle(BattleTheme.ink).lineLimit(1)
-                        TypeChip(type: card.type)
-                    }
-                    Text("\(card.archetype.rawValue.capitalized) · Lv \(card.level)")
-                        .font(.system(size: 12, weight: .bold, design: .rounded))
-                        .foregroundStyle(BattleTheme.muted)
-                }
-                Spacer()
-            }
-            statGrid
-            if !compact { movesRow }
+        VStack(spacing: 0) {
+            header
+            face
+            meters
+            triad
+            moves
+            if let xp { xpBar(xp) }
         }
-        .padding(16)
+        .frame(maxWidth: 340)
+        .background(BattleTheme.panelFill)
+        .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(accent.opacity(0.45), lineWidth: 1)
+        )
+        .shadow(color: .black.opacity(0.45), radius: 18, y: 10)
+    }
+
+    // Header: name + archetype, with a cosmetic rarity frame.
+    private var header: some View {
+        HStack(alignment: .center, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(card.name)
+                    .font(.system(size: 20, weight: .heavy, design: .rounded))
+                    .foregroundStyle(BattleTheme.ink).lineLimit(1)
+                Text(card.archetype.rawValue.capitalized)
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundStyle(BattleTheme.muted)
+            }
+            Spacer(minLength: 6)
+            if let rarity { rarityFrame(rarity) }
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+        .background(accent.opacity(0.16))
+    }
+
+    private func rarityFrame(_ r: Rarity) -> some View {
+        VStack(spacing: 0) {
+            Text(r.fieldTerm.uppercased())
+                .font(.system(size: 9, weight: .heavy, design: .rounded)).tracking(0.4)
+                .foregroundStyle(BattleTheme.ink)
+            Text("◆ frame")
+                .font(.system(size: 8, weight: .bold, design: .rounded))
+                .foregroundStyle(BattleTheme.gold)
+        }
+        .padding(.horizontal, 9).padding(.vertical, 5)
         .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(BattleTheme.panelFill)
-                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
+            Capsule().fill(r.tint.opacity(0.22))
+                .overlay(Capsule().stroke(r.tint.opacity(0.5), lineWidth: 1))
         )
     }
 
-    private var statGrid: some View {
-        let ref = Double(totalBudget(atLevel: card.level)) * 0.34
-        let rows: [(String, Int, Color)] = [
-            ("HP",  card.stats.hp,  BattleTheme.leaf),
-            ("ATK", card.stats.atk, Color(hex: 0xE8654F)),
-            ("DEF", card.stats.def, Color(hex: 0x5F9AD6)),
-            ("SPD", card.stats.spd, Color(hex: 0xF0C24B)),
-            ("STA", card.stats.sta, Color(hex: 0x5FC7D6)),
-        ]
-        return VStack(spacing: 6) {
-            ForEach(rows, id: \.0) { row in
-                HStack(spacing: 10) {
-                    Text(row.0)
-                        .font(.system(size: 10, weight: .heavy, design: .rounded))
-                        .foregroundStyle(BattleTheme.muted)
-                        .frame(width: 30, alignment: .leading)
-                    GeometryReader { geo in
-                        ZStack(alignment: .leading) {
-                            Capsule().fill(.white.opacity(0.07))
-                            Capsule().fill(row.2)
-                                .frame(width: max(4, geo.size.width * min(1, Double(row.1) / ref)))
-                        }
-                    }
-                    .frame(height: 7)
-                    Text("\(row.1)")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
-                        .foregroundStyle(BattleTheme.ink)
-                        .monospacedDigit()
-                        .frame(width: 30, alignment: .trailing)
+    // Face: the friend's photo as card art, with type badge + level on it.
+    private var face: some View {
+        ZStack {
+            Group {
+                if let photoData, let ui = UIImage(data: photoData) {
+                    Image(uiImage: ui).resizable().scaledToFill()
+                } else {
+                    LinearGradient(colors: [accent, accent.darkened(0.45)], startPoint: .top, endPoint: .bottom)
+                        .overlay(Text(String(card.name.prefix(1)))
+                            .font(.system(size: 64, weight: .bold, design: .rounded))
+                            .foregroundStyle(.white.opacity(0.85)))
                 }
             }
+            .frame(height: 172)
+            .frame(maxWidth: .infinity)
+            .clipped()
+        }
+        .frame(height: 172)
+        .clipped()
+        .overlay(alignment: .bottom) {
+            LinearGradient(colors: [.clear, .black.opacity(0.35)], startPoint: .center, endPoint: .bottom)
+                .frame(height: 60).allowsHitTesting(false)
+        }
+        .overlay(alignment: .bottomLeading) { TypeChip(type: type).padding(10) }
+        .overlay(alignment: .bottomTrailing) {
+            Text("Lv \(card.level)")
+                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color(hex: 0x07130B))
+                .padding(.horizontal, 10).padding(.vertical, 5)
+                .background(Capsule().fill(BattleTheme.gold))
+                .padding(10)
         }
     }
 
-    private var movesRow: some View {
-        HStack(spacing: 8) {
-            moveChip(card.strike)
-            moveChip(card.utility)
-            moveChip(card.special, special: true)
+    // HP + Stamina meters.
+    private var meters: some View {
+        VStack(spacing: 9) {
+            meter("HP", card.stats.hp, BattleTheme.leaf)
+            meter("STA", card.stats.sta, Color(hex: 0x5FC7D6))
+        }
+        .padding(.horizontal, 14).padding(.top, 13).padding(.bottom, 4)
+    }
+
+    private func meter(_ lab: String, _ val: Int, _ color: Color) -> some View {
+        let ref = Double(totalBudget(atLevel: card.level)) * 0.40
+        return HStack(spacing: 9) {
+            Text(lab)
+                .font(.system(size: 10.5, weight: .heavy, design: .rounded))
+                .foregroundStyle(BattleTheme.muted).frame(width: 34, alignment: .leading)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.08))
+                    Capsule().fill(color)
+                        .frame(width: max(6, geo.size.width * min(1, Double(val) / ref)))
+                }
+            }
+            .frame(height: 9)
+            Text("\(val)")
+                .font(.system(size: 12, weight: .bold, design: .rounded)).monospacedDigit()
+                .foregroundStyle(BattleTheme.ink).frame(width: 34, alignment: .trailing)
         }
     }
 
-    private func moveChip(_ move: Move, special: Bool = false) -> some View {
-        VStack(spacing: 3) {
-            Text(move.name)
-                .font(.system(size: 12, weight: .bold, design: .rounded))
-                .foregroundStyle(special ? BattleTheme.gold : BattleTheme.ink)
-                .lineLimit(1)
-            Text(move.power > 0 ? "⚔ \(move.power) · ⚡\(move.stamina)" : "⚡\(move.stamina)")
-                .font(.system(size: 9.5, weight: .semibold, design: .rounded))
+    // ATK / DEF / SPD as three boxes.
+    private var triad: some View {
+        HStack(spacing: 6) {
+            triadBox("ATK", card.stats.atk)
+            triadBox("DEF", card.stats.def)
+            triadBox("SPD", card.stats.spd)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 8)
+    }
+
+    private func triadBox(_ k: String, _ n: Int) -> some View {
+        VStack(spacing: 1) {
+            Text("\(n)")
+                .font(.system(size: 16, weight: .heavy, design: .rounded)).monospacedDigit()
+                .foregroundStyle(BattleTheme.ink)
+            Text(k)
+                .font(.system(size: 9.5, weight: .heavy, design: .rounded)).tracking(0.5)
                 .foregroundStyle(BattleTheme.muted)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 8)
+        .frame(maxWidth: .infinity).padding(.vertical, 7)
         .background(
-            RoundedRectangle(cornerRadius: 11, style: .continuous)
-                .fill(Color(hex: 0x0E1712))
-                .overlay(RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .stroke(special ? BattleTheme.gold.opacity(0.5) : BattleTheme.panelLine, lineWidth: 1))
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color.white.opacity(0.04))
+                .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
         )
+    }
+
+    // The three moves.
+    private var moves: some View {
+        VStack(spacing: 8) {
+            moveRow(card.strike)
+            moveRow(card.utility)
+            moveRow(card.special, special: true)
+        }
+        .padding(.horizontal, 14).padding(.top, 11).padding(.bottom, xp == nil ? 14 : 11)
+        .overlay(alignment: .top) { Rectangle().fill(BattleTheme.panelLine).frame(height: 1) }
+    }
+
+    private func moveRow(_ m: Move, special: Bool = false) -> some View {
+        HStack(spacing: 9) {
+            RoundedRectangle(cornerRadius: 2, style: .continuous)
+                .fill(special ? BattleTheme.gold : accent)
+                .frame(width: 8, height: 8)
+                .rotationEffect(.degrees(special ? 45 : 0))
+            Text(m.name)
+                .font(.system(size: 13, weight: .heavy, design: .rounded))
+                .foregroundStyle(special ? BattleTheme.gold : BattleTheme.ink).lineLimit(1)
+            Spacer(minLength: 6)
+            Text(m.power > 0 ? "⚔ \(m.power) · ⚡\(m.stamina)" : "⚡\(m.stamina)")
+                .font(.system(size: 11, weight: .semibold, design: .rounded)).monospacedDigit()
+                .foregroundStyle(BattleTheme.muted)
+        }
+    }
+
+    private func xpBar(_ xp: (fraction: Double, caption: String)) -> some View {
+        HStack(spacing: 9) {
+            Text("XP").font(.system(size: 10, weight: .heavy, design: .rounded)).foregroundStyle(BattleTheme.muted)
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(.white.opacity(0.08))
+                    Capsule().fill(BattleTheme.gold)
+                        .frame(width: max(4, geo.size.width * min(1, xp.fraction)))
+                }
+            }
+            .frame(height: 7)
+            Text(xp.caption)
+                .font(.system(size: 10.5, weight: .bold, design: .rounded)).monospacedDigit()
+                .foregroundStyle(BattleTheme.gold)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10)
+        .background(Color.white.opacity(0.03))
+        .overlay(alignment: .top) { Rectangle().fill(BattleTheme.panelLine).frame(height: 1) }
     }
 }
 
