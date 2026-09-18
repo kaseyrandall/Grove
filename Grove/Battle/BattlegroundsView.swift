@@ -25,7 +25,6 @@ struct BattlegroundsView: View {
         roster.teamCatches(from: catches)
     }
     private var promotable: [Catch] { catches.filter { !roster.teamContains($0) } }
-    private func readyFighters() -> [Catch] { team.map(\.friend).filter { roster.canSend($0) } }
 
     var body: some View {
         ZStack(alignment: .top) {
@@ -58,21 +57,15 @@ struct BattlegroundsView: View {
 
     private var arenaTab: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
-            VStack(spacing: 0) {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        sectionHeader("The Arena",
-                                      "Find a match to send whoever's ready — or tap a friend to see their card first. They're away a bit, then come back with a result — and a nap.")
-                        squadStrip
-                        teamLabel
-                        ForEach(0..<roster.maxSlots, id: \.self) { i in slot(i) }
-                    }
-                    .padding()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 16) {
+                    sectionHeader("The Arena",
+                                  "Tap a friend to see their card, then send them off to a match. They're away a bit, then come back with a result — and a nap.")
+                    squadStrip
+                    teamLabel
+                    ForEach(0..<roster.maxSlots, id: \.self) { i in slot(i) }
                 }
-                findMatchButton
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-                    .padding(.bottom, 6)
+                .padding()
             }
         }
     }
@@ -141,25 +134,6 @@ struct BattlegroundsView: View {
             Text(subtitle)
                 .font(.system(size: 15, weight: .medium, design: .rounded))
                 .foregroundStyle(BattleTheme.muted)
-        }
-    }
-
-    @ViewBuilder private var findMatchButton: some View {
-        let ready = readyFighters()
-        if ready.isEmpty {
-            HStack(spacing: 8) {
-                Image(systemName: "bolt.slash.fill").font(.system(size: 14, weight: .bold))
-                Text(team.isEmpty ? "Send a friend to the Arena to begin" : "Everyone's away or resting")
-                    .font(.system(size: 14, weight: .bold, design: .rounded))
-            }
-            .foregroundStyle(BattleTheme.muted)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 16)
-            .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .fill(Color.white.opacity(0.03))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1)))
-        } else {
-            FindMatchCTA { MatchmakingView(fighters: ready) }
         }
     }
 
@@ -582,7 +556,14 @@ struct FighterCardView: View {
                                    xp: xpProgress)
                         .frame(maxWidth: .infinity)
                     planButton
-                    sendButton
+                    VStack(spacing: 8) {
+                        sendButton
+                        Label("Off to face a wild challenger — revealed when they're back.",
+                              systemImage: "questionmark.circle")
+                            .font(.system(size: 12, weight: .semibold, design: .rounded))
+                            .foregroundStyle(BattleTheme.muted)
+                            .multilineTextAlignment(.center)
+                    }
                 }
                 .padding()
             }
@@ -669,242 +650,6 @@ struct FighterCardView: View {
     }
 }
 
-// MARK: - The living CTA + Find a Match
-
-/// The Arena's primary call — a breathing green capsule with a charging bolt.
-/// Self-contained so its animation is isolated from the tab's per-second ticks.
-private struct FindMatchCTA<Destination: View>: View {
-    @ViewBuilder var destination: () -> Destination
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var glow = false
-
-    var body: some View {
-        NavigationLink {
-            destination()
-        } label: {
-            HStack(spacing: 10) {
-                Image(systemName: "bolt.fill")
-                    .symbolEffect(.pulse, options: reduceMotion ? .nonRepeating : .repeating)
-                Text("Find a Match")
-            }
-            .font(.system(size: 18, weight: .heavy, design: .rounded))
-            .foregroundStyle(Color(hex: 0x07130B))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 17)
-            .background(Capsule().fill(LinearGradient(colors: [BattleTheme.leaf, BattleTheme.leafDeep],
-                                                      startPoint: .top, endPoint: .bottom)))
-            .shadow(color: BattleTheme.leaf.opacity(glow ? 0.55 : 0.28),
-                    radius: glow ? 22 : 12, y: 6)
-        }
-        .buttonStyle(.plain)
-        .onAppear {
-            guard !reduceMotion else { return }
-            withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { glow = true }
-        }
-    }
-}
-
-// MARK: - Find a Match: pick a ready fighter, send them off vs a hidden rival
-
-/// The quick send path from the Arena's main CTA: choose who fights, glance at
-/// their card, and send them off against a hidden challenger.
-struct MatchmakingView: View {
-    let fighters: [Catch]
-
-    @Environment(\.dismiss) private var dismiss
-    @State private var selected: Catch
-    @State private var seed: UInt64
-    @State private var opponent: Contender
-    @State private var showPlan = false
-    @State private var dispatching = false
-
-    private var roster: BattleRoster { .shared }
-    private var level: Int { roster.progress(for: selected)?.level ?? 1 }
-    private var contender: Contender { .from(selected) }
-
-    init(fighters: [Catch]) {
-        self.fighters = fighters
-        _selected = State(initialValue: fighters[0])
-        let s = UInt64.random(in: 0 ..< UInt64.max)
-        _seed = State(initialValue: s)
-        _opponent = State(initialValue: .wildRival(seed: s))
-    }
-
-    var body: some View {
-        ZStack {
-            BattleTheme.background.ignoresSafeArea()
-            ScrollView {
-                VStack(spacing: 18) {
-                    if fighters.count > 1 { fighterPicker }
-                    BattleCardView(card: contender.card(level: level),
-                                   photoData: selected.photoData,
-                                   rarity: selected.species.rarity,
-                                   xp: xpProgress)
-                        .frame(maxWidth: .infinity)
-                    planButton
-                    Text("VS").font(.system(size: 15, weight: .heavy, design: .rounded)).foregroundStyle(BattleTheme.gold)
-                    labeled("YOUR OPPONENT") { HiddenOpponentCard() }
-                    sendButton
-                }
-                .padding()
-            }
-        }
-        .overlay { if dispatching { DispatchOverlay(fighter: selected) } }
-        .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: dispatching)
-        .navigationTitle("Find a Match")
-        .navigationBarTitleDisplayMode(.inline)
-        .toolbarColorScheme(.dark, for: .navigationBar)
-        .toolbarBackground(.hidden, for: .navigationBar)
-        .groveTabBarHidden()
-        .sheet(isPresented: $showPlan) {
-            BattlePlanEditorView(fighter: selected, archetype: contender.archetype)
-        }
-    }
-
-    private var xpProgress: (fraction: Double, caption: String) {
-        let lvl = level
-        let xp = roster.progress(for: selected)?.xp ?? 0
-        if lvl >= 30 { return (1, "MAX") }
-        let need = BattleRoster.xpNeeded(for: lvl)
-        return (Double(xp) / Double(max(1, need)), "\(xp)/\(need) XP")
-    }
-
-    private var planCount: Int {
-        roster.storedPlan(for: selected, archetype: contender.archetype).rules.count
-    }
-
-    private var planButton: some View {
-        Button { showPlan = true } label: {
-            HStack(spacing: 12) {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.system(size: 16, weight: .semibold))
-                    .foregroundStyle(BattleTheme.gold)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Battle Plan")
-                        .font(.system(size: 15, weight: .bold, design: .rounded))
-                        .foregroundStyle(BattleTheme.ink)
-                    Text("\(planCount) rule\(planCount == 1 ? "" : "s") · tap to coach")
-                        .font(.system(size: 12, weight: .semibold, design: .rounded))
-                        .foregroundStyle(BattleTheme.muted)
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(BattleTheme.muted.opacity(0.6))
-            }
-            .padding(14)
-            .background(
-                RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(BattleTheme.panelFill)
-                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
-            )
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var fighterPicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("CHOOSE WHO FIGHTS")
-                .font(.system(size: 11, weight: .heavy, design: .rounded)).tracking(1)
-                .foregroundStyle(BattleTheme.muted)
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 12) {
-                    ForEach(fighters, id: \.persistentModelID) { f in
-                        let isSel = f.persistentModelID == selected.persistentModelID
-                        Button { withAnimation(.easeInOut(duration: 0.15)) { selected = f } } label: {
-                            VStack(spacing: 5) {
-                                PortraitCircle(photoData: f.photoData,
-                                               type: BattleType(habitat: f.effectiveZone),
-                                               monogram: String(f.displayName.prefix(1)), size: 56)
-                                    .overlay(Circle().stroke(BattleTheme.gold, lineWidth: isSel ? 3 : 0))
-                                Text(f.displayName)
-                                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                                    .foregroundStyle(isSel ? BattleTheme.ink : BattleTheme.muted)
-                                    .lineLimit(1)
-                            }
-                            .frame(width: 68)
-                            .opacity(isSel ? 1 : 0.7)
-                        }
-                        .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 2)
-            }
-        }
-    }
-
-    private func labeled<Content: View>(_ title: String, @ViewBuilder _ content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(title).font(.system(size: 11, weight: .heavy, design: .rounded)).tracking(1).foregroundStyle(BattleTheme.muted)
-            content()
-        }
-    }
-
-    private var sendButton: some View {
-        Button {
-            let plan = roster.storedPlan(for: selected, archetype: contender.archetype)
-            let r = simulate(contender.card(level: level), plan.battlePlan,
-                             vs: opponent.card(level: level), .defaultPlan(for: opponent.archetype),
-                             seed: seed)
-            roster.send(selected, opponent: opponent, level: level, plan: plan, seed: seed, result: r)
-            withAnimation(.easeInOut(duration: 0.25)) { dispatching = true }
-            Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(1500))
-                dismiss()
-            }
-        } label: {
-            HStack(spacing: 9) {
-                Image(systemName: "paperplane.fill")
-                Text("Send to battle")
-            }
-            .font(.system(size: 18, weight: .heavy, design: .rounded))
-            .foregroundStyle(Color(hex: 0x07130B))
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 15)
-            .background(Capsule().fill(LinearGradient(colors: [BattleTheme.leaf, BattleTheme.leafDeep], startPoint: .top, endPoint: .bottom)))
-        }
-        .buttonStyle(.plain)
-        .padding(.top, 4)
-    }
-}
-
-// MARK: - Hidden opponent (revealed only when you watch the result)
-
-private struct HiddenOpponentCard: View {
-    @State private var pulse = false
-    var body: some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle().fill(Color(hex: 0x1C2C23))
-                    .overlay(Circle().stroke(BattleTheme.panelLine, lineWidth: 1))
-                Text("?")
-                    .font(.system(size: 34, weight: .heavy, design: .rounded))
-                    .foregroundStyle(BattleTheme.muted)
-                    .opacity(pulse ? 0.5 : 1)
-            }
-            .frame(width: 76, height: 76)
-            VStack(alignment: .leading, spacing: 4) {
-                Text("A wild challenger")
-                    .font(.system(size: 18, weight: .bold, design: .rounded))
-                    .foregroundStyle(BattleTheme.ink)
-                Text("Revealed when the match comes back.")
-                    .font(.system(size: 12, weight: .semibold, design: .rounded))
-                    .foregroundStyle(BattleTheme.muted)
-            }
-            Spacer()
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity)
-        .background(
-            RoundedRectangle(cornerRadius: 20, style: .continuous)
-                .fill(BattleTheme.panelFill)
-                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .strokeBorder(BattleTheme.panelLine, style: StrokeStyle(lineWidth: 1.5, dash: [6, 5])))
-        )
-        .onAppear { withAnimation(.easeInOut(duration: 1.1).repeatForever(autoreverses: true)) { pulse = true } }
-    }
-}
-
 // MARK: - Dispatch confirmation ("off they go")
 
 private struct DispatchOverlay: View {
@@ -936,7 +681,7 @@ private struct DispatchOverlay: View {
                         .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundStyle(BattleTheme.ink)
                         .multilineTextAlignment(.center)
-                    Text("We'll ping you when the match is done.")
+                    Text("Off to face a wild challenger — we'll ping you with the result.")
                         .font(.system(size: 14, weight: .semibold, design: .rounded))
                         .foregroundStyle(BattleTheme.muted)
                 }
