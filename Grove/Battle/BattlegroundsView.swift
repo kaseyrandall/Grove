@@ -907,38 +907,35 @@ struct BattleCardView: View {
         )
     }
 
-    // Face: the friend's photo as card art, with type badge + level on it.
+    // Face: the friend's photo as card art (a 3:2 window that scales with the
+    // card width), with the type badge + level on it.
     private var face: some View {
-        ZStack {
-            Group {
+        Color.clear
+            .aspectRatio(3.0 / 2.0, contentMode: .fit)
+            .overlay {
                 if let photoData, let ui = UIImage(data: photoData) {
                     Image(uiImage: ui).resizable().scaledToFill()
                 } else {
                     LinearGradient(colors: [accent, accent.darkened(0.45)], startPoint: .top, endPoint: .bottom)
                         .overlay(Text(String(card.name.prefix(1)))
-                            .font(.system(size: 64, weight: .bold, design: .rounded))
+                            .font(.system(size: 72, weight: .bold, design: .rounded))
                             .foregroundStyle(.white.opacity(0.85)))
                 }
             }
-            .frame(height: 172)
-            .frame(maxWidth: .infinity)
             .clipped()
-        }
-        .frame(height: 172)
-        .clipped()
-        .overlay(alignment: .bottom) {
-            LinearGradient(colors: [.clear, .black.opacity(0.35)], startPoint: .center, endPoint: .bottom)
-                .frame(height: 60).allowsHitTesting(false)
-        }
-        .overlay(alignment: .bottomLeading) { TypeChip(type: type).padding(10) }
-        .overlay(alignment: .bottomTrailing) {
-            Text("Lv \(card.level)")
-                .font(.system(size: 13, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color(hex: 0x07130B))
-                .padding(.horizontal, 10).padding(.vertical, 5)
-                .background(Capsule().fill(BattleTheme.gold))
-                .padding(10)
-        }
+            .overlay(alignment: .bottom) {
+                LinearGradient(colors: [.clear, .black.opacity(0.4)], startPoint: .center, endPoint: .bottom)
+                    .allowsHitTesting(false)
+            }
+            .overlay(alignment: .bottomLeading) { TypeChip(type: type).padding(10) }
+            .overlay(alignment: .bottomTrailing) {
+                Text("Lv \(card.level)")
+                    .font(.system(size: 13, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Color(hex: 0x07130B))
+                    .padding(.horizontal, 10).padding(.vertical, 5)
+                    .background(Capsule().fill(BattleTheme.gold))
+                    .padding(10)
+            }
     }
 
     // HP + Stamina meters.
