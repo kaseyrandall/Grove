@@ -863,7 +863,7 @@ struct BattleCardView: View {
             moves
             if let xp { xpBar(xp) }
         }
-        .frame(maxWidth: 340)
+        .frame(maxWidth: .infinity)
         .background(BattleTheme.panelFill)
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
         .overlay(
