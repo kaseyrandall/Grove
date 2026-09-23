@@ -26,6 +26,7 @@ struct SettingsView: View {
                 VStack(spacing: 20) {
                     preferencesCard
                     introCard
+                    aboutCard
                     dangerZone
                 }
                 .padding()
@@ -100,6 +101,30 @@ struct SettingsView: View {
                     .font(.system(.body, design: .rounded, weight: .semibold))
                     .foregroundStyle(Theme.ink)
                 Spacer()
+            }
+            .padding()
+            .contentShape(Rectangle())
+            .softCard()
+        }
+        .buttonStyle(.plain)
+    }
+
+    private var aboutCard: some View {
+        NavigationLink {
+            AboutView()
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "leaf.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 26)
+                Text("About Grove")
+                    .font(.system(.body, design: .rounded, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.ink.opacity(0.25))
             }
             .padding()
             .contentShape(Rectangle())
