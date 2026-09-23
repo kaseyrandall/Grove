@@ -43,10 +43,12 @@ struct AboutView: View {
 
     private var hero: some View {
         VStack(spacing: 12) {
-            ZStack {
-                Circle().fill(Theme.mint.opacity(0.5)).frame(width: 96, height: 96)
-                Text("🌿").font(.system(size: 44))
-            }
+            Image("GroveIcon")
+                .resizable()
+                .scaledToFit()
+                .frame(width: 92, height: 92)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .shadow(color: .black.opacity(0.15), radius: 8, y: 4)
             Text("Grove")
                 .font(.system(size: 24, weight: .heavy, design: .rounded))
                 .foregroundStyle(Theme.ink)
@@ -79,7 +81,7 @@ struct AboutView: View {
         VStack(spacing: 0) {
             linkRow(icon: "globe", title: "Website", url: website)
             Divider().padding(.leading, 56)
-            linkRow(icon: "envelope.fill", title: "Send feedback", url: email)
+            linkRow(icon: "envelope.fill", title: "Contact us", url: email)
             Divider().padding(.leading, 56)
             linkRow(icon: "square.and.pencil", title: "Share your thoughts", url: survey)
         }

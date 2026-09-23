@@ -7,6 +7,11 @@ struct ProfileView: View {
     @Query private var catches: [Catch]
     @Environment(\.modelContext) private var context
 
+    /// The player's chosen avatar look (emoji + background). Tap the header to change it.
+    @AppStorage("profileEmoji") private var profileEmoji = "🌿"
+    @AppStorage("profileColorHex") private var profileColorHex = ProfileLookPicker.defaultColor
+    @State private var showLookPicker = false
+
     private var stats: PlayerStats { PlayerStats(catches: catches) }
 
     /// Marketing version (e.g. "1.0"), read from the bundle so it never goes stale.
@@ -39,6 +44,9 @@ struct ProfileView: View {
                 }
             }
             .navigationTitle("Profile")
+            .sheet(isPresented: $showLookPicker) {
+                ProfileLookPicker(emoji: $profileEmoji, colorHex: $profileColorHex)
+            }
         }
     }
 
@@ -46,10 +54,21 @@ struct ProfileView: View {
 
     private var headerCard: some View {
         VStack(spacing: 12) {
-            ZStack {
-                Circle().fill(Theme.mint.opacity(0.5)).frame(width: 96, height: 96)
-                Text("🌿").font(.system(size: 44))
+            Button {
+                showLookPicker = true
+            } label: {
+                ZStack(alignment: .bottomTrailing) {
+                    ZStack {
+                        Circle().fill(Color(hex: UInt(profileColorHex))).frame(width: 96, height: 96)
+                        Text(profileEmoji).font(.system(size: 44))
+                    }
+                    Image(systemName: "pencil.circle.fill")
+                        .font(.system(size: 26))
+                        .foregroundStyle(Theme.accent)
+                        .background(Circle().fill(.white).frame(width: 24, height: 24))
+                }
             }
+            .buttonStyle(.plain)
             Text("Explorer")
                 .font(.system(size: 22, weight: .heavy, design: .rounded))
                 .foregroundStyle(Theme.ink)
