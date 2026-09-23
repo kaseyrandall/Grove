@@ -24,6 +24,7 @@ struct ProfileView: View {
                         headerCard
                         achievementsCard
                         menuCard
+                        privacyCard
                         #if DEBUG
                         arenaCard
                         developerCard
@@ -143,6 +144,44 @@ struct ProfileView: View {
                 .softCard()
         }
         .buttonStyle(.plain)
+    }
+
+    // MARK: Privacy — a gentle reassurance that the Grove is theirs alone
+
+    private var privacyCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 14) {
+                Image(systemName: "lock.shield.fill")
+                    .font(.system(size: 20))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Private by design")
+                        .font(.system(.headline, design: .rounded, weight: .bold))
+                        .foregroundStyle(Theme.ink)
+                    Text("Everything you collect stays on this device.")
+                        .font(.system(.subheadline, design: .rounded))
+                        .foregroundStyle(Theme.ink.opacity(0.7))
+                }
+                Spacer(minLength: 0)
+            }
+            HStack(spacing: 8) {
+                privacyChip("No account")
+                privacyChip("No tracking")
+                privacyChip("Works offline")
+            }
+        }
+        .padding()
+        .frame(maxWidth: .infinity)
+        .softCard()
+    }
+
+    private func privacyChip(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 12, weight: .bold, design: .rounded))
+            .foregroundStyle(Theme.ink.opacity(0.7))
+            .padding(.horizontal, 11).padding(.vertical, 6)
+            .background(Capsule().fill(Theme.ink.opacity(0.06)))
     }
 
     private func row(icon: String, title: String, tint: Color = Theme.accent) -> some View {
