@@ -68,9 +68,9 @@ struct GroveView: View {
                         masonryColumn(masonry.right)
                     }
                     .padding()
-                    .padding(.bottom, Theme.tabBarClearance)
                 }
             }
+            .clearsGroveTabBar()
             // Overlaid (not a real toolbar item) so it can transition in and
             // out gracefully instead of popping. Attached to the root content —
             // not the whole NavigationStack — so it shows ONLY on the Grove and

@@ -33,7 +33,6 @@ struct AboutView: View {
                         .foregroundStyle(Theme.ink.opacity(0.35))
                 }
                 .padding()
-                .padding(.bottom, Theme.tabBarClearance)
             }
         }
         .navigationTitle("About")

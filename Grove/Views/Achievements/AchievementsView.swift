@@ -25,7 +25,6 @@ struct AchievementsView: View {
                     }
                 }
                 .padding()
-                .padding(.bottom, Theme.tabBarClearance)
             }
         }
         .navigationTitle("Achievements")

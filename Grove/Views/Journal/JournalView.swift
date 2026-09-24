@@ -5,6 +5,7 @@ import SwiftData
 /// collection stats — all derived from their `Catch` history via `PlayerStats`.
 struct JournalView: View {
     @Query private var catches: [Catch]
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     private var stats: PlayerStats { PlayerStats(catches: catches) }
 
@@ -14,19 +15,40 @@ struct JournalView: View {
                 Theme.background.ignoresSafeArea()
 
                 ScrollView {
-                    VStack(spacing: 20) {
-                        streakCard
-                        levelCard
-                        statsRow
-                        fieldGuideCard
-                        rarityCard
+                    // Wide displays (e.g. iPhone Duo's inner screen) reflow the
+                    // single column into two: progress on the left, collection
+                    // on the right.
+                    if sizeClass == .regular {
+                        HStack(alignment: .top, spacing: 20) {
+                            VStack(spacing: 20) { progressCards }
+                            VStack(spacing: 20) { collectionCards }
+                        }
+                        .padding()
+                    } else {
+                        VStack(spacing: 20) {
+                            progressCards
+                            collectionCards
+                        }
+                        .padding()
                     }
-                    .padding()
-                    .padding(.bottom, Theme.tabBarClearance)
                 }
             }
+            .clearsGroveTabBar()
             .navigationTitle("Journal")
         }
+    }
+
+    /// Streak, level, and headline numbers.
+    @ViewBuilder private var progressCards: some View {
+        streakCard
+        levelCard
+        statsRow
+    }
+
+    /// Field Guide entry and the rarity breakdown.
+    @ViewBuilder private var collectionCards: some View {
+        fieldGuideCard
+        rarityCard
     }
 
     // MARK: Field Guide

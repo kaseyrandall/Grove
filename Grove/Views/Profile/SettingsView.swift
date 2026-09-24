@@ -30,7 +30,6 @@ struct SettingsView: View {
                     dangerZone
                 }
                 .padding()
-                .padding(.bottom, Theme.tabBarClearance)
             }
         }
         .navigationTitle("Settings")

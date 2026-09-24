@@ -61,6 +61,7 @@ struct DiscoveryMapView: View {
                     emptyState
                 }
             }
+            .clearsGroveTabBar()
             .navigationTitle("Discovery Map")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $selected) { friend in

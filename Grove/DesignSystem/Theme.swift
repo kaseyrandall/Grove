@@ -15,9 +15,6 @@ enum Theme {
     /// Primary brand accent (buttons, tint).
     static let accent   = Color(hex: 0xFF7EA6)
 
-    /// Bottom padding scrollable pages add so content clears the floating tab bar.
-    static let tabBarClearance: CGFloat = 104
-
     /// The single aspect ratio (width : height) every friend-photo card uses —
     /// detail hero, edit preview, celebration — so a photo looks the same shape
     /// everywhere it appears. Matches the camera's native 4:3 capture.

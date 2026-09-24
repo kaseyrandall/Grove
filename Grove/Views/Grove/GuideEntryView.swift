@@ -40,7 +40,6 @@ struct GuideEntryView: View {
                     #endif
                 }
                 .padding()
-                .padding(.bottom, Theme.tabBarClearance)
             }
         }
         .navigationTitle("\(species.emoji) \(species.name)")

@@ -16,6 +16,10 @@ struct RootView: View {
     @ObservedObject private var quickActions = QuickActionRouter.shared
     @State private var selection: RootTab = .grove
     @State private var tabBarVisible = true
+    /// The floating bar's measured height. Handed to the pages as extra bottom
+    /// safe area, so scroll content clears the bar on any display size instead
+    /// of each page padding a hardcoded guess.
+    @State private var tabBarHeight: CGFloat = 0
     @Query private var catches: [Catch]
 
     /// The one coach mark to show right now, if any. All three live on the Grove
@@ -51,13 +55,17 @@ struct RootView: View {
             .onPreferenceChange(TabBarVisibilityKey.self) { visible in
                 withAnimation(.easeInOut(duration: 0.25)) { tabBarVisible = visible }
             }
+            // Each tab's root page reserves this much bottom safe area (see
+            // `clearsGroveTabBar()`) so its content clears the bar; backgrounds
+            // and the map still run underneath. Zero while a pushed page hides it.
+            .environment(\.groveTabBarInset, tabBarVisible ? tabBarHeight : 0)
 
-            // The bar floats over content; each scrollable page adds
-            // `Theme.tabBarClearance` bottom padding so its content clears it.
+            // The bar floats over content, which clears it via the inset above.
             GroveTabBar(
                 selection: $selection,
                 onCatch: { withAnimation(.easeInOut(duration: 0.22)) { selection = .catchTab } }
             )
+            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { tabBarHeight = $0 }
             .offset(y: tabBarVisible ? 0 : 160)
             .opacity(tabBarVisible ? 1 : 0)
             .allowsHitTesting(tabBarVisible)
@@ -129,7 +137,7 @@ struct RootView: View {
         guard step != .snap else { return true }
         guard rect.height > 0 else { return false }
         let top: CGFloat = 90
-        let bottom = size.height - Theme.tabBarClearance
+        let bottom = size.height - tabBarHeight
         return rect.midY > top && rect.midY < bottom
     }
 
