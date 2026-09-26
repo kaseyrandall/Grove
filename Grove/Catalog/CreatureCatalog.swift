@@ -384,4 +384,14 @@ enum CreatureCatalog {
 
     /// The whole guide sorted by name — the browse order for pickers.
     static let alphabetical: [Species] = all.sorted { $0.name < $1.name }
+
+    /// Friends whose name or keywords contain `query` (A–Z); everyone when empty.
+    static func matching(_ query: String) -> [Species] {
+        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
+        guard !q.isEmpty else { return alphabetical }
+        return alphabetical.filter { candidate in
+            candidate.name.lowercased().contains(q)
+                || candidate.matchKeywords.contains { $0.contains(q) }
+        }
+    }
 }

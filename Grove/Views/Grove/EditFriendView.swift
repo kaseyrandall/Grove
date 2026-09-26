@@ -311,14 +311,7 @@ struct SpeciesPickerView: View {
 
     private let columns = [GridItem(.adaptive(minimum: 96), spacing: 10)]
 
-    private var results: [Species] {
-        let q = query.trimmingCharacters(in: .whitespaces).lowercased()
-        guard !q.isEmpty else { return CreatureCatalog.alphabetical }
-        return CreatureCatalog.alphabetical.filter { candidate in
-            candidate.name.lowercased().contains(q)
-                || candidate.matchKeywords.contains { $0.contains(q) }
-        }
-    }
+    private var results: [Species] { CreatureCatalog.matching(query) }
 
     var body: some View {
         ZStack {

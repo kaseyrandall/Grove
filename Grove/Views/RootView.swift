@@ -151,7 +151,7 @@ struct RootView: View {
     #if DEBUG
     /// Test hooks so screens can be checked without tapping (e.g. from the
     /// command line): `-GroveSeedSample` fills in the sample Grove, and
-    /// `-GroveTab map|journal|profile` opens that tab.
+    /// `-GroveTab map|catch|journal|profile` opens that tab.
     private func applyDebugLaunchArguments() {
         let args = ProcessInfo.processInfo.arguments
         if args.contains("-GroveSeedSample"), !SeedData.isPresent(in: catches) {
@@ -160,6 +160,7 @@ struct RootView: View {
         if let i = args.firstIndex(of: "-GroveTab"), i + 1 < args.count {
             switch args[i + 1] {
             case "map":     selection = .map
+            case "catch":   selection = .catchTab
             case "journal": selection = .journal
             case "profile": selection = .profile
             default:        break
