@@ -9,6 +9,12 @@ struct FieldGuideView: View {
     @Query private var catches: [Catch]
     @State private var selected: Species?
 
+    /// The open Duo in landscape: the guide opens like a book — the checklist on
+    /// the left page, the chosen friend's page on the right.
+    @Environment(\.groveIsSpread) private var isSpread
+    @Environment(\.groveFoldX) private var foldX
+    @State private var spreadSelection: Species?
+
     /// How many of each kind the player has caught.
     private var counts: [String: Int] {
         catches.reduce(into: [:]) { $0[$1.speciesID, default: 0] += 1 }
@@ -31,17 +37,21 @@ struct FieldGuideView: View {
         ZStack {
             Theme.background.ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: 20) {
-                    summary
-                    LazyVGrid(columns: columns, spacing: 12) {
-                        ForEach(allSpecies) { s in
-                            GuideTile(species: s, count: counts[s.id] ?? 0) { selected = s }
+            if isSpread {
+                spreadLayout
+            } else {
+                ScrollView {
+                    VStack(spacing: 20) {
+                        summary
+                        LazyVGrid(columns: columns, spacing: 12) {
+                            ForEach(allSpecies) { s in
+                                GuideTile(species: s, count: counts[s.id] ?? 0) { selected = s }
+                            }
                         }
                     }
+                    .padding()
+                    .padding(.bottom, 24)
                 }
-                .padding()
-                .padding(.bottom, 24)
             }
         }
         .navigationTitle("Field Guide")
@@ -51,6 +61,54 @@ struct FieldGuideView: View {
             SpeciesGuideSheet(species: species, count: counts[species.id] ?? 0)
                 .presentationDetents([.medium, .large])
                 .presentationDragIndicator(.visible)
+        }
+    }
+
+    // MARK: Spread (the open Duo in landscape)
+
+    /// The friend shown on the right page: the one you tapped, else the first
+    /// friend you've met, else the first in the guide.
+    private var pageSpecies: Species {
+        spreadSelection
+            ?? allSpecies.first { (counts[$0.id] ?? 0) > 0 }
+            ?? allSpecies[0]
+    }
+
+    private var spreadLayout: some View {
+        GeometryReader { geo in
+            let pages = DuoSpread.pageWidths(in: geo.frame(in: .global), foldX: foldX,
+                                             leading: 16, trailing: 16)
+            let current = pageSpecies
+            HStack(alignment: .top, spacing: DuoSpread.foldGutter * 2) {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        summary
+                        LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 10)], spacing: 10) {
+                            ForEach(allSpecies) { s in
+                                GuideTile(species: s, count: counts[s.id] ?? 0,
+                                          highlighted: s.id == current.id) {
+                                    withAnimation(.easeInOut(duration: 0.2)) { spreadSelection = s }
+                                }
+                            }
+                        }
+                    }
+                    .padding(.vertical)
+                }
+                .frame(width: pages.leading)
+
+                ScrollView {
+                    SpeciesPage(
+                        species: current,
+                        friends: catches
+                            .filter { $0.speciesID == current.id }
+                            .sorted { $0.caughtAt > $1.caughtAt }
+                    )
+                    .padding(.vertical)
+                }
+                .frame(width: pages.trailing)
+            }
+            .padding(.horizontal, 16)
+            .frame(width: geo.size.width, alignment: .topLeading)
         }
     }
 
@@ -79,6 +137,8 @@ struct FieldGuideView: View {
 private struct GuideTile: View {
     let species: Species
     let count: Int
+    /// The friend currently open on the spread's right page.
+    var highlighted = false
     let onTap: () -> Void
 
     private var met: Bool { count > 0 }
@@ -101,12 +161,14 @@ private struct GuideTile: View {
             .padding(.horizontal, 6)
             .background(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .fill(met ? Color.white : Color.white.opacity(0.45))
+                    .fill(highlighted ? Theme.accent.opacity(0.12)
+                          : met ? Color.white : Color.white.opacity(0.45))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 16, style: .continuous)
-                    .stroke(met ? species.rarity.tint : Theme.ink.opacity(0.08),
-                            lineWidth: met ? 2 : 1)
+                    .stroke(highlighted ? Theme.accent
+                            : met ? species.rarity.tint : Theme.ink.opacity(0.08),
+                            lineWidth: highlighted ? 2.5 : met ? 2 : 1)
             )
             .overlay(alignment: .topTrailing) {
                 if count > 1 {
@@ -120,6 +182,118 @@ private struct GuideTile: View {
             }
         }
         .buttonStyle(.plain)
+        .accessibilityAddTraits(highlighted ? .isSelected : [])
+    }
+}
+
+/// A friend's page in the Field Guide book (the open Duo's right page): your
+/// latest photo of it (or its emoji), what it is, and every friend of that kind
+/// you've welcomed home. An unmet friend shows greyed, with a nudge to go find one.
+private struct SpeciesPage: View {
+    let species: Species
+    /// Friends of this kind, newest first.
+    let friends: [Catch]
+
+    private var met: Bool { !friends.isEmpty }
+    private var zone: Habitat { friends.first?.effectiveZone ?? species.zone }
+    private var heroImage: UIImage? {
+        friends.lazy.compactMap { $0.photoData.flatMap(UIImage.init(data:)) }.first
+    }
+
+    var body: some View {
+        VStack(spacing: 16) {
+            hero
+
+            VStack(spacing: 6) {
+                Text(species.name)
+                    .font(.system(size: 28, weight: .heavy, design: .rounded))
+                    .foregroundStyle(met ? Theme.ink : Theme.ink.opacity(0.55))
+                RarityBadge(rarity: species.rarity)
+            }
+
+            if met {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(species.blurb)
+                        .font(.system(.body, design: .rounded))
+                        .foregroundStyle(Theme.ink)
+                    Label(species.habitatNote, systemImage: "leaf.fill")
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Theme.ink.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+                .softCard()
+
+                friendsCard
+            } else {
+                VStack(spacing: 10) {
+                    Text("You haven't met this friend yet.")
+                        .font(.system(.body, design: .rounded))
+                        .foregroundStyle(Theme.ink.opacity(0.6))
+                    Label("Snap one out in the wild to welcome it home.",
+                          systemImage: "camera.fill")
+                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Theme.accent)
+                }
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
+                .padding()
+                .softCard()
+            }
+        }
+    }
+
+    private var hero: some View {
+        Color.clear
+            .aspectRatio(Theme.photoAspectRatio, contentMode: .fit)
+            .frame(maxWidth: .infinity)
+            .overlay {
+                ZStack {
+                    zone.gradient
+                    if let ui = heroImage {
+                        Image(uiImage: ui).resizable().scaledToFill()
+                    } else {
+                        Text(species.emoji)
+                            .font(.system(size: 92))
+                            .grayscale(met ? 0 : 1)
+                            .opacity(met ? 1 : 0.45)
+                    }
+                }
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+            .overlay(alignment: .bottomTrailing) {
+                if met {
+                    Text("\(zone.emoji) Lives in your \(zone.shortName)")
+                        .font(.system(.caption, design: .rounded, weight: .bold))
+                        .foregroundStyle(Theme.ink)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(.white.opacity(0.92)))
+                        .padding(12)
+                }
+            }
+    }
+
+    /// Every friend of this kind you've met; each opens its own page.
+    private var friendsCard: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(friends.count == 1 ? "Your friend" : "Your \(friends.count) friends")
+                .font(.system(.headline, design: .rounded, weight: .bold))
+                .foregroundStyle(Theme.ink)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 60), spacing: 10)], spacing: 10) {
+                ForEach(Array(friends.enumerated()), id: \.element.persistentModelID) { index, friend in
+                    NavigationLink {
+                        GuideEntryView(friend: friend)
+                    } label: {
+                        ResidentPortrait(friend: friend, index: index)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding()
+        .softCard()
     }
 }
 

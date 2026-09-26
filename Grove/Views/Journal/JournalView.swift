@@ -8,6 +8,9 @@ struct JournalView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.groveIsSpread) private var isSpread
     @Environment(\.groveFoldX) private var foldX
+    #if DEBUG
+    @State private var debugOpenGuide = false
+    #endif
 
     private var stats: PlayerStats { PlayerStats(catches: catches) }
 
@@ -56,6 +59,13 @@ struct JournalView: View {
             }
             .clearsGroveTabBar()
             .navigationTitle("Journal")
+            #if DEBUG
+            // Test hook: `-GroveOpenFieldGuide` opens the Field Guide on launch.
+            .navigationDestination(isPresented: $debugOpenGuide) { FieldGuideView() }
+            .onAppear {
+                if ProcessInfo.processInfo.arguments.contains("-GroveOpenFieldGuide") { debugOpenGuide = true }
+            }
+            #endif
         }
     }
 
