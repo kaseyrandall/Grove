@@ -3,6 +3,24 @@ import SwiftUI
 /// A little about-the-maker page: who made Grove, how to reach them, and a way
 /// to share feedback. Reached from Settings.
 struct AboutView: View {
+    var body: some View {
+        ZStack {
+            Theme.background.ignoresSafeArea()
+
+            ScrollView {
+                AboutContent()
+                    .padding()
+            }
+        }
+        .navigationTitle("About")
+        .navigationBarTitleDisplayMode(.inline)
+        .groveTabBarHidden()
+    }
+}
+
+/// The About page's content, shared by the About page and the Profile spread
+/// on the open iPhone Duo.
+struct AboutContent: View {
     /// Marketing version (e.g. "1.0"), read from the bundle so it never goes stale.
     private var appVersion: String {
         Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "1.0"
@@ -13,31 +31,21 @@ struct AboutView: View {
     private let survey = URL(string: "https://forms.gle/bKomWP17BUP1msbY8")!
 
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
+        VStack(spacing: 20) {
+            hero
+            noteCard
+            linksCard
 
-            ScrollView {
-                VStack(spacing: 20) {
-                    hero
-                    noteCard
-                    linksCard
+            Text("Made with 💗 for the wild things around us.")
+                .font(.system(.footnote, design: .rounded, weight: .medium))
+                .foregroundStyle(Theme.ink.opacity(0.55))
+                .multilineTextAlignment(.center)
+                .padding(.top, 2)
 
-                    Text("Made with 💗 for the wild things around us.")
-                        .font(.system(.footnote, design: .rounded, weight: .medium))
-                        .foregroundStyle(Theme.ink.opacity(0.55))
-                        .multilineTextAlignment(.center)
-                        .padding(.top, 2)
-
-                    Text("Grove \(appVersion)")
-                        .font(.system(.caption2, design: .rounded))
-                        .foregroundStyle(Theme.ink.opacity(0.35))
-                }
-                .padding()
-            }
+            Text("Grove \(appVersion)")
+                .font(.system(.caption2, design: .rounded))
+                .foregroundStyle(Theme.ink.opacity(0.35))
         }
-        .navigationTitle("About")
-        .navigationBarTitleDisplayMode(.inline)
-        .groveTabBarHidden()
     }
 
     private var hero: some View {
