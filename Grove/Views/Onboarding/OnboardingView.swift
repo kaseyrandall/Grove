@@ -7,45 +7,98 @@ struct OnboardingView: View {
 
     @State private var page = 0
 
+    /// The open Duo in landscape: each slide's picture on the left page, its
+    /// words and the buttons on the right.
+    @Environment(\.groveIsSpread) private var isSpread
+    @Environment(\.groveFoldX) private var foldX
+
     private let slides = OnboardingSlide.all
 
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
 
-            VStack(spacing: 0) {
-                // Skip
-                HStack {
-                    Spacer()
-                    Button("Skip") { onFinish() }
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                        .foregroundStyle(Theme.ink.opacity(0.5))
-                        .padding(.horizontal, 20)
-                        .padding(.top, 8)
-                        .opacity(page == slides.count - 1 ? 0 : 1)
-                }
+            if isSpread {
+                spreadBody
+            } else {
+                VStack(spacing: 0) {
+                    // Skip
+                    HStack {
+                        Spacer()
+                        skipButton
+                            .padding(.horizontal, 20)
+                            .padding(.top, 8)
+                    }
 
+                    TabView(selection: $page) {
+                        ForEach(Array(slides.enumerated()), id: \.offset) { index, slide in
+                            SlideView(slide: slide).tag(index)
+                        }
+                    }
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+
+                    dots
+                        .padding(.bottom, 8)
+
+                    nextButton
+                        .padding(.horizontal, 28)
+                        .padding(.bottom, 28)
+                }
+            }
+        }
+    }
+
+    private var skipButton: some View {
+        Button("Skip") { onFinish() }
+            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+            .foregroundStyle(Theme.ink.opacity(0.5))
+            .opacity(page == slides.count - 1 ? 0 : 1)
+    }
+
+    private var nextButton: some View {
+        GroveButton(
+            title: page == slides.count - 1 ? "Start exploring 🌿" : "Next"
+        ) {
+            if page < slides.count - 1 {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { page += 1 }
+            } else {
+                onFinish()
+            }
+        }
+    }
+
+    /// The slides still swipe as one; each lays out across both pages, and the
+    /// Skip / dots / Next controls sit on the right page over them.
+    private var spreadBody: some View {
+        GeometryReader { geo in
+            let pages = DuoSpread.pageWidths(in: geo.frame(in: .global), foldX: foldX,
+                                             leading: 24, trailing: 24)
+            ZStack {
                 TabView(selection: $page) {
                     ForEach(Array(slides.enumerated()), id: \.offset) { index, slide in
-                        SlideView(slide: slide).tag(index)
+                        SlideView(slide: slide, spreadPages: pages).tag(index)
                     }
                 }
                 .tabViewStyle(.page(indexDisplayMode: .never))
 
-                dots
-                    .padding(.bottom, 8)
-
-                GroveButton(
-                    title: page == slides.count - 1 ? "Start exploring 🌿" : "Next"
-                ) {
-                    if page < slides.count - 1 {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.8)) { page += 1 }
-                    } else {
-                        onFinish()
+                HStack(spacing: 0) {
+                    Color.clear
+                        .frame(width: pages.leading + DuoSpread.foldGutter * 2)
+                        .allowsHitTesting(false)
+                    VStack(alignment: .leading, spacing: 20) {
+                        HStack {
+                            Spacer()
+                            skipButton
+                        }
+                        Spacer()
+                        dots
+                        nextButton
                     }
+                    .frame(width: pages.trailing)
                 }
-                .padding(.horizontal, 28)
-                .padding(.bottom, 28)
+                .padding(.horizontal, 24)
+                .padding(.vertical, 24)
+                .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
             }
         }
     }
@@ -93,50 +146,80 @@ struct OnboardingSlide {
 
 private struct SlideView: View {
     let slide: OnboardingSlide
+    /// The two page widths on the open Duo's spread (nil on every other screen).
+    var spreadPages: (leading: CGFloat, trailing: CGFloat)? = nil
 
     var body: some View {
-        VStack(spacing: 28) {
-            Spacer()
-
-            ZStack {
-                Circle()
-                    .fill(slide.tint.opacity(0.55))
-                    .frame(width: 220, height: 220)
-
-                // Hero emoji, with the smaller ones tucked around it.
-                Text(slide.emojis.first ?? "")
-                    .font(.system(size: 96))
-
-                ForEach(Array(slide.emojis.dropFirst().enumerated()), id: \.offset) { i, emoji in
-                    Text(emoji)
-                        .font(.system(size: 40))
-                        .offset(satellite(i, of: slide.emojis.count - 1))
+        if let pages = spreadPages {
+            // Picture on the left page; the words on the right, above the
+            // controls that OnboardingView lays over them.
+            HStack(spacing: DuoSpread.foldGutter * 2) {
+                illustration(scale: 1.35)
+                    .frame(width: pages.leading)
+                VStack(alignment: .leading, spacing: 14) {
+                    Spacer()
+                    Text(slide.title)
+                        .font(.system(size: 34, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Theme.ink)
+                    Text(slide.body)
+                        .font(.system(size: 19, weight: .medium, design: .rounded))
+                        .foregroundStyle(Theme.ink.opacity(0.72))
+                        .lineSpacing(5)
+                    Spacer()
+                    Spacer().frame(height: 130) // room for the dots and Next
                 }
+                .frame(width: pages.trailing, alignment: .leading)
             }
+            .padding(.horizontal, 24)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        } else {
+            VStack(spacing: 28) {
+                Spacer()
 
-            VStack(spacing: 14) {
-                Text(slide.title)
-                    .font(.system(size: 30, weight: .heavy, design: .rounded))
-                    .foregroundStyle(Theme.ink)
-                    .multilineTextAlignment(.center)
+                illustration(scale: 1)
 
-                Text(slide.body)
-                    .font(.system(size: 18, weight: .medium, design: .rounded))
-                    .foregroundStyle(Theme.ink.opacity(0.72))
-                    .multilineTextAlignment(.center)
-                    .lineSpacing(5)
-                    .padding(.horizontal, 32)
+                VStack(spacing: 14) {
+                    Text(slide.title)
+                        .font(.system(size: 30, weight: .heavy, design: .rounded))
+                        .foregroundStyle(Theme.ink)
+                        .multilineTextAlignment(.center)
+
+                    Text(slide.body)
+                        .font(.system(size: 18, weight: .medium, design: .rounded))
+                        .foregroundStyle(Theme.ink.opacity(0.72))
+                        .multilineTextAlignment(.center)
+                        .lineSpacing(5)
+                        .padding(.horizontal, 32)
+                }
+
+                Spacer()
+                Spacer()
             }
+        }
+    }
 
-            Spacer()
-            Spacer()
+    /// The slide's little scene: a hero emoji in a soft circle, with the
+    /// smaller ones tucked around it.
+    private func illustration(scale: CGFloat) -> some View {
+        ZStack {
+            Circle()
+                .fill(slide.tint.opacity(0.55))
+                .frame(width: 220 * scale, height: 220 * scale)
+
+            Text(slide.emojis.first ?? "")
+                .font(.system(size: 96 * scale))
+
+            ForEach(Array(slide.emojis.dropFirst().enumerated()), id: \.offset) { i, emoji in
+                Text(emoji)
+                    .font(.system(size: 40 * scale))
+                    .offset(satellite(i, of: slide.emojis.count - 1, radius: 96 * scale))
+            }
         }
     }
 
     /// Places the little satellite emojis evenly around the hero.
-    private func satellite(_ index: Int, of count: Int) -> CGSize {
+    private func satellite(_ index: Int, of count: Int, radius: Double) -> CGSize {
         guard count > 0 else { return .zero }
-        let radius = 96.0
         let angle = (Double(index) / Double(count)) * 2 * .pi - .pi / 2
         return CGSize(width: cos(angle) * radius, height: sin(angle) * radius)
     }

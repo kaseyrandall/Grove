@@ -142,6 +142,10 @@ struct RootView: View {
         #endif
         .fullScreenCover(isPresented: onboardingBinding) {
             OnboardingView { hasOnboarded = true }
+                // Presented from here, outside the tab content, so hand the
+                // spread layout down explicitly.
+                .environment(\.groveIsSpread, isSpread)
+                .environment(\.groveFoldX, windowSize.width / 2)
         }
     }
 
