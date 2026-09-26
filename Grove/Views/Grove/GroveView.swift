@@ -36,6 +36,9 @@ struct GroveView: View {
     /// The open Duo in landscape: the Grove lays out as a two-page spread.
     @Environment(\.groveIsSpread) private var isSpread
     @Environment(\.groveFoldX) private var foldX
+    #if DEBUG
+    @State private var debugFriend: Catch?
+    #endif
 
     var body: some View {
         NavigationStack {
@@ -94,6 +97,15 @@ struct GroveView: View {
             .navigationTitle("Your Grove")
             // The spread draws its own title on the left page.
             .toolbar(isSpread ? .hidden : .automatic, for: .navigationBar)
+            #if DEBUG
+            // Test hook: `-GroveOpenFriend` opens your rarest friend's page on launch.
+            .navigationDestination(item: $debugFriend) { GuideEntryView(friend: $0) }
+            .task {
+                guard ProcessInfo.processInfo.arguments.contains("-GroveOpenFriend") else { return }
+                try? await Task.sleep(for: .milliseconds(600)) // let sample data land first
+                debugFriend = catches.max { $0.species.rarity < $1.species.rarity }
+            }
+            #endif
             .onAppear {
                 challengeDismissed = (challengeDismissedDay == todayKey)
                 guard !seenIntro else { return }

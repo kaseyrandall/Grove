@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MapKit
 
 /// A field page for one individual friend: their photo, their kind, where they
 /// live in your Grove, and the personal touches you've given them.
@@ -20,26 +21,31 @@ struct GuideEntryView: View {
     private var isMystery: Bool { species.id == Species.mystery.id }
     private var heroImage: UIImage? { friend.photoData.flatMap(UIImage.init(data:)) }
 
+    /// The open Duo in landscape: the photo on the left page, the details on
+    /// the right.
+    @Environment(\.groveIsSpread) private var isSpread
+    @Environment(\.groveFoldX) private var foldX
+
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: 18) {
-                    hero
-                    nameBlock
-                    if let place = friend.placeName, !place.isEmpty {
-                        Label("Met at \(place)", systemImage: "mappin.and.ellipse")
-                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                            .foregroundStyle(Theme.ink.opacity(0.7))
+            if isSpread {
+                spreadLayout
+            } else {
+                ScrollView {
+                    VStack(spacing: 18) {
+                        hero
+                        nameBlock
+                        placeLabel
+                        metaRow
+                        infoCard
+                        #if DEBUG
+                        arenaSection
+                        #endif
                     }
-                    metaRow
-                    infoCard
-                    #if DEBUG
-                    arenaSection
-                    #endif
+                    .padding()
                 }
-                .padding()
             }
         }
         .navigationTitle("\(species.emoji) \(species.name)")
@@ -76,6 +82,77 @@ struct GuideEntryView: View {
                 try? context.save()
                 dismiss()
             }
+        }
+    }
+
+    @ViewBuilder private var placeLabel: some View {
+        if let place = friend.placeName, !place.isEmpty {
+            Label("Met at \(place)", systemImage: "mappin.and.ellipse")
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .foregroundStyle(Theme.ink.opacity(0.7))
+        }
+    }
+
+    // MARK: Spread (the open Duo in landscape)
+
+    /// The photo, name and where you met on the left page; the details and a
+    /// map of the spot on the right. Each page scrolls on its own.
+    private var spreadLayout: some View {
+        GeometryReader { geo in
+            let pages = DuoSpread.pageWidths(in: geo.frame(in: .global), foldX: foldX,
+                                             leading: 16, trailing: 16)
+            HStack(alignment: .top, spacing: DuoSpread.foldGutter * 2) {
+                ScrollView {
+                    VStack(spacing: 18) {
+                        hero
+                        nameBlock
+                        placeLabel
+                    }
+                    .padding(.vertical)
+                }
+                .frame(width: pages.leading)
+
+                ScrollView {
+                    VStack(spacing: 18) {
+                        metaRow
+                        infoCard
+                        whereYouMetCard
+                        #if DEBUG
+                        arenaSection
+                        #endif
+                    }
+                    .padding(.vertical)
+                }
+                .frame(width: pages.trailing)
+            }
+            .padding(.horizontal, 16)
+            .frame(width: geo.size.width, alignment: .topLeading)
+        }
+    }
+
+    /// A small, still map of the spot you met this friend (when it was tagged).
+    @ViewBuilder private var whereYouMetCard: some View {
+        if let lat = friend.latitude, let lng = friend.longitude {
+            let spot = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+            VStack(alignment: .leading, spacing: 0) {
+                Map(initialPosition: .region(MKCoordinateRegion(center: spot,
+                                                                latitudinalMeters: 700,
+                                                                longitudinalMeters: 700)),
+                    interactionModes: []) {
+                    Annotation("", coordinate: spot) { MapPin(species: species) }
+                }
+                .frame(height: 170)
+                .allowsHitTesting(false)
+
+                Label("Where you met", systemImage: "mappin.and.ellipse")
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                    .padding(14)
+            }
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: Theme.ink.opacity(0.08), radius: 12, x: 0, y: 6)
+            .accessibilityElement(children: .combine)
         }
     }
 
