@@ -6,6 +6,8 @@ import SwiftData
 struct JournalView: View {
     @Query private var catches: [Catch]
     @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.groveIsSpread) private var isSpread
+    @Environment(\.groveFoldX) private var foldX
 
     private var stats: PlayerStats { PlayerStats(catches: catches) }
 
@@ -14,22 +16,41 @@ struct JournalView: View {
             ZStack {
                 Theme.background.ignoresSafeArea()
 
-                ScrollView {
-                    // Wide displays (e.g. iPhone Duo's inner screen) reflow the
-                    // single column into two: progress on the left, collection
-                    // on the right.
-                    if sizeClass == .regular {
-                        HStack(alignment: .top, spacing: 20) {
-                            VStack(spacing: 20) { progressCards }
-                            VStack(spacing: 20) { collectionCards }
+                if isSpread {
+                    // The open Duo in landscape: progress on the left page,
+                    // collection on the right, kept clear of the fold.
+                    GeometryReader { geo in
+                        let pages = DuoSpread.pageWidths(in: geo.frame(in: .global), foldX: foldX,
+                                                         leading: 16, trailing: 16)
+                        ScrollView {
+                            HStack(alignment: .top, spacing: DuoSpread.foldGutter * 2) {
+                                VStack(spacing: 20) { progressCards }
+                                    .frame(width: pages.leading)
+                                VStack(spacing: 20) { collectionCards }
+                                    .frame(width: pages.trailing)
+                            }
+                            .padding()
+                            .frame(width: geo.size.width, alignment: .topLeading)
                         }
-                        .padding()
-                    } else {
-                        VStack(spacing: 20) {
-                            progressCards
-                            collectionCards
+                    }
+                } else {
+                    ScrollView {
+                        // Other wide displays (e.g. the open Duo turned upright)
+                        // reflow the single column into two: progress on the
+                        // left, collection on the right.
+                        if sizeClass == .regular {
+                            HStack(alignment: .top, spacing: 20) {
+                                VStack(spacing: 20) { progressCards }
+                                VStack(spacing: 20) { collectionCards }
+                            }
+                            .padding()
+                        } else {
+                            VStack(spacing: 20) {
+                                progressCards
+                                collectionCards
+                            }
+                            .padding()
                         }
-                        .padding()
                     }
                 }
             }

@@ -11,7 +11,8 @@ struct TabBarVisibilityKey: PreferenceKey {
 }
 
 extension EnvironmentValues {
-    /// Height of the floating tab bar while it's showing (0 when tucked away).
+    /// Room the floating tab bar takes while it's showing (0 when tucked away):
+    /// its height along the bottom, or its width when it stands on the side.
     @Entry var groveTabBarInset: CGFloat = 0
 }
 
@@ -31,10 +32,19 @@ extension View {
 
 private struct TabBarClearance: ViewModifier {
     @Environment(\.groveTabBarInset) private var inset
+    @Environment(\.groveIsSpread) private var isSpread
 
     func body(content: Content) -> some View {
-        content.safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear.frame(height: inset)
+        // On a spread the bar stands along the trailing edge; otherwise it floats
+        // along the bottom.
+        if isSpread {
+            content.safeAreaInset(edge: .trailing, spacing: 0) {
+                Color.clear.frame(width: inset)
+            }
+        } else {
+            content.safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear.frame(height: inset)
+            }
         }
     }
 }

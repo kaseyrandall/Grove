@@ -51,36 +51,57 @@ struct CoachMarkBubble: View {
     let text: String
     /// True when the tail points down (bubble above the target).
     let arrowDown: Bool
+    /// True when the tail points right instead (bubble beside a target on the
+    /// trailing edge, like the side tab bar on the open Duo).
+    var arrowRight = false
     let onTap: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bounce = false
 
     var body: some View {
-        VStack(spacing: 0) {
-            if !arrowDown {
-                CoachTriangle(pointingUp: true).fill(Theme.accent).frame(width: 20, height: 11)
-            }
-            Text(text)
-                .font(.system(.subheadline, design: .rounded, weight: .bold))
-                .foregroundStyle(.white)
-                .multilineTextAlignment(.center)
-                .fixedSize()
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(Capsule().fill(Theme.accent))
-                .shadow(color: Theme.accent.opacity(0.4), radius: 10, y: 4)
-            if arrowDown {
-                CoachTriangle(pointingUp: false).fill(Theme.accent).frame(width: 20, height: 11)
+        Group {
+            if arrowRight {
+                HStack(spacing: 0) {
+                    label
+                    CoachTriangle(pointingUp: true)
+                        .rotation(.degrees(90))
+                        .fill(Theme.accent)
+                        .frame(width: 20, height: 11)
+                        .frame(width: 11, height: 20)
+                }
+            } else {
+                VStack(spacing: 0) {
+                    if !arrowDown {
+                        CoachTriangle(pointingUp: true).fill(Theme.accent).frame(width: 20, height: 11)
+                    }
+                    label
+                    if arrowDown {
+                        CoachTriangle(pointingUp: false).fill(Theme.accent).frame(width: 20, height: 11)
+                    }
+                }
             }
         }
-        .offset(y: bounce ? 3 : -3)
+        .offset(x: arrowRight ? (bounce ? 3 : -3) : 0,
+                y: arrowRight ? 0 : (bounce ? 3 : -3))
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
         .onAppear {
             guard !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 0.9).repeatForever(autoreverses: true)) { bounce = true }
         }
+    }
+
+    private var label: some View {
+        Text(text)
+            .font(.system(.subheadline, design: .rounded, weight: .bold))
+            .foregroundStyle(.white)
+            .multilineTextAlignment(.center)
+            .fixedSize()
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
+            .background(Capsule().fill(Theme.accent))
+            .shadow(color: Theme.accent.opacity(0.4), radius: 10, y: 4)
     }
 }
 
@@ -118,14 +139,25 @@ struct CoachOverlay: View {
         // Roughly half a two-line bubble + a little breathing room.
         let clearance: CGFloat = 46
         let margin: CGFloat = 120
+        // A target hugging the trailing edge (the side tab bar on the open Duo)
+        // gets the bubble beside it, pointing right, instead of above it.
+        let beside = targetRect.minX > container.width - 160
         let x = min(max(targetRect.midX, margin), max(margin, container.width - margin))
         let y = step.prefersAbove
             ? targetRect.minY - clearance
             : targetRect.maxY + clearance
 
-        CoachMarkBubble(text: step.text, arrowDown: step.prefersAbove, onTap: onDismiss)
-            .frame(maxWidth: container.width - 32)
-            .position(x: x, y: y)
-            .transition(.opacity.combined(with: .scale(scale: 0.9)))
+        if beside {
+            let width = max(0, targetRect.minX - 8)
+            CoachMarkBubble(text: step.text, arrowDown: false, arrowRight: true, onTap: onDismiss)
+                .frame(width: width, alignment: .trailing)
+                .position(x: width / 2, y: targetRect.midY)
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+        } else {
+            CoachMarkBubble(text: step.text, arrowDown: step.prefersAbove, onTap: onDismiss)
+                .frame(maxWidth: container.width - 32)
+                .position(x: x, y: y)
+                .transition(.opacity.combined(with: .scale(scale: 0.9)))
+        }
     }
 }
