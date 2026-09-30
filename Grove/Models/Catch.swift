@@ -91,6 +91,12 @@ final class Catch {
         }
     }
 
+    /// "Met at Cathedral Hill" when the place is known, otherwise "Where you met".
+    var meetingPlaceLabel: String {
+        if let placeName, !placeName.isEmpty { return "Met at \(placeName)" }
+        return "Where you met"
+    }
+
     /// What to call this friend — their nickname if set, otherwise their kind.
     var displayName: String {
         if let nickname, !nickname.isEmpty { return nickname }
