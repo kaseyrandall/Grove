@@ -386,9 +386,7 @@ struct ResidentPortrait: View {
         ZStack {
             Circle().fill(.white)
             if let data = friend.photoData, let ui = UIImage(data: data) {
-                Image(uiImage: ui)
-                    .resizable()
-                    .scaledToFill()
+                FriendPhoto(image: ui, framing: friend.framing)
                     .clipShape(Circle())
                     .padding(3)
             } else {

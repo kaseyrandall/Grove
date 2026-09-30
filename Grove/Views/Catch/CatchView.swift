@@ -250,7 +250,7 @@ struct CatchView: View {
                     PhotosPicker(selection: $libraryItem, matching: .images, photoLibrary: .shared()) {
                         Group {
                             if let last = lastCatch, let data = last.photoData, let ui = UIImage(data: data) {
-                                Image(uiImage: ui).resizable().scaledToFill()
+                                FriendPhoto(image: ui, framing: last.framing)
                             } else {
                                 Image(systemName: "photo.on.rectangle.angled")
                                     .font(.system(size: 19, weight: .semibold))

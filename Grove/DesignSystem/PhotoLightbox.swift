@@ -7,8 +7,11 @@ import SwiftUI
 private struct PhotoLightbox: ViewModifier {
     @Binding var isPresented: Bool
     let image: UIImage?
+    /// The friend whose photo this is; when set, a Crop button is offered.
+    var friend: Catch? = nil
 
     @State private var shown = false
+    @State private var showCrop = false
     /// Settled zoom and pan; the live pinch and drag ride on top of these.
     @State private var zoom: CGFloat = 1
     @State private var pan: CGSize = .zero
@@ -64,6 +67,21 @@ private struct PhotoLightbox: ViewModifier {
 
                 VStack {
                     HStack {
+                        if friend != nil {
+                            Button {
+                                showCrop = true
+                            } label: {
+                                Label("Crop", systemImage: "crop")
+                                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                                    .foregroundStyle(.white)
+                                    .padding(.horizontal, 14)
+                                    .frame(height: 38)
+                                    .background(Capsule().fill(.white.opacity(0.18)))
+                            }
+                            .padding(.leading, 18)
+                            .padding(.top, 8)
+                            .opacity(shown ? 1 : 0)
+                        }
                         Spacer()
                         Button {
                             dismiss()
@@ -84,6 +102,16 @@ private struct PhotoLightbox: ViewModifier {
             .contentShape(Rectangle())
             .onTapGesture { if !isZoomed { dismiss() } }
             .presentationBackground(.clear)
+            .fullScreenCover(isPresented: $showCrop) {
+                if let image, let friend {
+                    PhotoCropView(image: image, framing: friend.framing) { framing in
+                        friend.framing = framing
+                        try? friend.modelContext?.save()
+                        // Back to the card, to see the new crop.
+                        isPresented = false
+                    }
+                }
+            }
             .onAppear {
                 zoom = 1
                 pan = .zero
@@ -116,7 +144,8 @@ private struct PhotoLightbox: ViewModifier {
 
 extension View {
     /// Presents `image` full-screen in a dimmed shadow box when `isPresented`.
-    func photoLightbox(isPresented: Binding<Bool>, image: UIImage?) -> some View {
-        modifier(PhotoLightbox(isPresented: isPresented, image: image))
+    /// Pass `friend` to offer a Crop button for that friend's card.
+    func photoLightbox(isPresented: Binding<Bool>, image: UIImage?, friend: Catch? = nil) -> some View {
+        modifier(PhotoLightbox(isPresented: isPresented, image: image, friend: friend))
     }
 }

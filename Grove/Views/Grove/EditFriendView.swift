@@ -84,7 +84,7 @@ struct EditFriendView: View {
                 ZStack {
                     zone.gradient
                     if let data = friend.photoData, let ui = UIImage(data: data) {
-                        Image(uiImage: ui).resizable().scaledToFill()
+                        FriendPhoto(image: ui, framing: friend.framing)
                     } else {
                         Text(species.emoji).font(.system(size: 64))
                     }

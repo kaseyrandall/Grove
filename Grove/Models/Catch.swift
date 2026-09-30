@@ -32,6 +32,14 @@ final class Catch {
     /// park or neighborhood. Filled in shortly after the catch.
     var placeName: String?
 
+    /// How the player framed the photo for its cards: the point of the photo
+    /// kept in the middle (0…1 across and down) and how far it's zoomed in.
+    /// All nil means "not cropped" — cards centre the photo. The photo itself
+    /// is never cut; see `framing`.
+    var cropCenterX: Double?
+    var cropCenterY: Double?
+    var cropZoom: Double?
+
     init(
         speciesID: String,
         caughtAt: Date = .now,
@@ -69,6 +77,19 @@ final class Catch {
 
     /// Where this friend currently lives in the Grove.
     var effectiveZone: Habitat { zoneOverride ?? species.zone }
+
+    /// The player's crop for this friend's cards, if they've set one.
+    var framing: PhotoFraming? {
+        get {
+            guard let x = cropCenterX, let y = cropCenterY, let zoom = cropZoom else { return nil }
+            return PhotoFraming(centerX: x, centerY: y, zoom: zoom)
+        }
+        set {
+            cropCenterX = newValue?.centerX
+            cropCenterY = newValue?.centerY
+            cropZoom = newValue?.zoom
+        }
+    }
 
     /// What to call this friend — their nickname if set, otherwise their kind.
     var displayName: String {

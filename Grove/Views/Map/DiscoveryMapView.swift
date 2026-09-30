@@ -141,7 +141,7 @@ struct ClusterBubble: View {
         ZStack {
             Circle().fill(.white)
             if let data = c.photoData, let ui = UIImage(data: data) {
-                Image(uiImage: ui).resizable().scaledToFill().clipShape(Circle()).padding(3)
+                FriendPhoto(image: ui, framing: c.framing).clipShape(Circle()).padding(3)
             } else {
                 Text(c.species.emoji).font(.system(size: 18))
             }
@@ -188,7 +188,7 @@ struct ClusterListView: View {
             ZStack {
                 Circle().fill(.white)
                 if let data = c.photoData, let ui = UIImage(data: data) {
-                    Image(uiImage: ui).resizable().scaledToFill().clipShape(Circle()).padding(2)
+                    FriendPhoto(image: ui, framing: c.framing).clipShape(Circle()).padding(2)
                 } else {
                     Text(c.species.emoji).font(.system(size: 22))
                 }

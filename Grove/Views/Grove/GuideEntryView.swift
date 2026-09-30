@@ -48,7 +48,7 @@ struct GuideEntryView: View {
         .navigationTitle("\(species.emoji) \(species.name)")
         .navigationBarTitleDisplayMode(.inline)
         .groveTabBarHidden()
-        .photoLightbox(isPresented: $showPhoto, image: heroImage)
+        .photoLightbox(isPresented: $showPhoto, image: heroImage, friend: friend)
         .task {
             // Fill in the place name for older catches (or if it wasn't ready yet).
             if friend.placeName == nil, let lat = friend.latitude, let lng = friend.longitude {
@@ -92,9 +92,7 @@ struct GuideEntryView: View {
                 ZStack {
                     zone.gradient
                     if let ui = heroImage {
-                        Image(uiImage: ui)
-                            .resizable()
-                            .scaledToFill()
+                        FriendPhoto(image: ui, framing: friend.framing)
                     } else {
                         Text(species.emoji)
                             .font(.system(size: 92))
