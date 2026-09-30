@@ -206,9 +206,6 @@ struct GuideEntryView: View {
         .softCard()
     }
 
-    #if DEBUG
-    // MARK: Battlegrounds — the "Send to the Arena" ritual (dev only)
-
     /// A small, still map of the spot where you met this friend.
     @ViewBuilder private var whereYouMetCard: some View {
         if let lat = friend.latitude, let lng = friend.longitude {
@@ -234,6 +231,9 @@ struct GuideEntryView: View {
             .accessibilityElement(children: .combine)
         }
     }
+
+    #if DEBUG
+    // MARK: Battlegrounds — the "Send to the Arena" ritual (dev only)
 
     @ViewBuilder private var arenaSection: some View {
         let roster = BattleRoster.shared
