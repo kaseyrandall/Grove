@@ -66,7 +66,13 @@ struct GuideEntryView: View {
                 Button("Edit") { showEdit = true }
             }
         }
-        .sheet(isPresented: $showEdit) {
+        #if DEBUG
+        // Test hook: `-GroveOpenEdit` opens Edit on the first friend page shown.
+        .onAppear {
+            if ProcessInfo.processInfo.arguments.contains("-GroveOpenEdit") { showEdit = true }
+        }
+        #endif
+        .groveSheet(isPresented: $showEdit) {
             EditFriendView(friend: friend, onRelease: { wasReleased = true })
         }
         #if DEBUG

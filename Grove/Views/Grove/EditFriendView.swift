@@ -12,6 +12,8 @@ struct EditFriendView: View {
     let onRelease: () -> Void
 
     @Environment(\.dismiss) private var dismiss
+    /// Set when this opens as a right-page panel on the open Duo.
+    @Environment(\.groveSheetClose) private var closePanel
     @Environment(\.modelContext) private var context
 
     /// The friend's kind — mutable so it can be (re)identified here.
@@ -34,45 +36,37 @@ struct EditFriendView: View {
     private var isMystery: Bool { species.id == Species.mystery.id }
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.background.ignoresSafeArea()
+        ZStack {
+            Theme.background.ignoresSafeArea()
 
-                ScrollView {
-                    VStack(spacing: 22) {
-                        preview
-                        typeSection
-                        zonePicker
-                        nicknameField
-                        releaseButton
-                    }
-                    .padding()
+            ScrollView {
+                VStack(spacing: 22) {
+                    preview
+                    typeSection
+                    zonePicker
+                    nicknameField
+                    releaseButton
                 }
-                .navigationDestination(isPresented: $showPicker) {
-                    SpeciesPickerView(selectedID: species.id) { picked in
-                        select(picked)
-                    }
+                .padding()
+            }
+            .navigationDestination(isPresented: $showPicker) {
+                SpeciesPickerView(selectedID: species.id) { picked in
+                    select(picked)
                 }
             }
-            .navigationTitle(isMystery ? "New Friend" : "Edit \(species.name)")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }
-                        .fontWeight(.bold)
-                }
+        }
+        .groveSheetChrome(
+            title: isMystery ? "New Friend" : "Edit \(species.name)",
+            cancel: SheetAction(title: "Cancel") { close() },
+            confirm: SheetAction(title: "Save") { save() }
+        )
+        .sheet(isPresented: $showReleaseConfirm) {
+            ReleaseSheet(speciesName: species.name) {
+                onRelease()
+                close()
             }
-            .sheet(isPresented: $showReleaseConfirm) {
-                ReleaseSheet(speciesName: species.name) {
-                    onRelease()
-                    dismiss()
-                }
-                .presentationDetents([.height(340)])
-                .presentationDragIndicator(.visible)
-            }
+            .presentationDetents([.height(340)])
+            .presentationDragIndicator(.visible)
         }
     }
 
@@ -237,7 +231,12 @@ struct EditFriendView: View {
         friend.zoneOverride = (zone == species.zone) ? nil : zone
 
         try? context.save()
-        dismiss()
+        close()
+    }
+
+    /// Close this sheet, or the right-page panel it opened as.
+    private func close() {
+        if let closePanel { closePanel() } else { dismiss() }
     }
 }
 

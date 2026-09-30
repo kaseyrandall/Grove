@@ -7,6 +7,8 @@ struct ProfileLookPicker: View {
     @Binding var emoji: String
     @Binding var colorHex: Int
     @Environment(\.dismiss) private var dismiss
+    /// Set when this opens as a right-page panel on the open Duo.
+    @Environment(\.groveSheetClose) private var closePanel
     @State private var tab = 0
 
     /// The default avatar background (a soft mint).
@@ -29,26 +31,26 @@ struct ProfileLookPicker: View {
     private let colorColumns = [GridItem(.adaptive(minimum: 60), spacing: 12)]
 
     var body: some View {
-        NavigationStack {
-            ZStack {
-                Theme.background.ignoresSafeArea()
-                VStack(spacing: 16) {
-                    preview
-                    lookTabs
-                        .padding(.horizontal)
+        ZStack {
+            Theme.background.ignoresSafeArea()
+            VStack(spacing: 16) {
+                preview
+                lookTabs
+                    .padding(.horizontal)
 
-                    ScrollView {
-                        if tab == 0 { emojiGrid } else { colorTab }
-                    }
+                ScrollView {
+                    if tab == 0 { emojiGrid } else { colorTab }
                 }
-                .padding(.top, 10)
             }
-            .navigationTitle("Choose your look")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) { Button("Done") { dismiss() } }
-            }
+            .padding(.top, 10)
         }
+        .groveSheetChrome(title: "Choose your look",
+                          confirm: SheetAction(title: "Done") { close() })
+    }
+
+    /// Close this sheet, or the right-page panel it opened as.
+    private func close() {
+        if let closePanel { closePanel() } else { dismiss() }
     }
 
     private var preview: some View {

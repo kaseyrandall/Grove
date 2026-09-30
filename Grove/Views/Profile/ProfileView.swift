@@ -54,15 +54,17 @@ struct ProfileView: View {
             // The spread draws its own titles on each page.
             .toolbar(isSpread ? .hidden : .automatic, for: .navigationBar)
             #if DEBUG
-            // Test hook: `-GroveProfileSection settings|about` opens that section.
+            // Test hooks: `-GroveProfileSection settings|about` opens that
+            // section; `-GroveOpenLook` opens Choose your look.
             .onAppear {
                 let args = ProcessInfo.processInfo.arguments
+                if args.contains("-GroveOpenLook") { showLookPicker = true }
                 if let i = args.firstIndex(of: "-GroveProfileSection"), i + 1 < args.count {
                     section = args[i + 1] == "settings" ? .settings : args[i + 1] == "about" ? .about : .achievements
                 }
             }
             #endif
-            .sheet(isPresented: $showLookPicker) {
+            .groveSheet(isPresented: $showLookPicker) {
                 ProfileLookPicker(emoji: $profileEmoji, colorHex: $profileColorHex)
             }
         }
