@@ -12,7 +12,7 @@ Built 100% native — SwiftUI and SwiftData. No backend, no accounts, no cost. Y
 
 > **Spot a friend → Snap → "A new friend found your Grove! Red Fox — +120 sparks, first find!" → it settles into your Woods → go find more.**
 
-- **Friends come home.** Every animal you photograph moves into the habitat **zone** it belongs to — the Garden, Pond, Meadow, Woods, or Treetops. No flat grid, no `???` silhouettes; empty zones are just quiet spots waiting for a visitor.
+- **Friends come home.** Every animal you photograph moves into the habitat **zone** it belongs to — Home, the Garden, the Pond, the Coast, the Meadow, the Woods, the Treetops, or the Wilds. No flat grid, no `???` silhouettes; empty zones are just quiet spots waiting for a visitor.
 - **A personal field guide.** Each friend has a guide page with your photos, its **real name**, the **nickname you give it**, a field note, and where/when you first met.
 - **Live camera only.** Catches must be taken *in the moment* — no photo-library upload, so you can't collect screenshots or downloaded images. (A library picker exists in **DEBUG builds only** for Simulator testing; it's compiled out of release builds.)
 - **You name your friends.** Snap first — **random animal confetti** rains down — then pick which animal it is from the searchable catalog. No flaky auto-guessing.
@@ -63,7 +63,7 @@ Grove/
 ├── GroveApp.swift            # App entry + SwiftData container
 ├── Models/
 │   ├── Rarity.swift           # Rarity tiers, sparks, field-guide language, colors
-│   ├── Habitat.swift          # Grove zones (Garden/Pond/Meadow/Woods/Treetops)
+│   ├── Habitat.swift          # Grove zones (Home/Garden/Pond/Coast/Meadow/Woods/Treetops/Wilds)
 │   ├── Species.swift          # A collectible friend *type* (catalog data)
 │   └── Catch.swift            # A photo you took (nickname + geotag; the persisted model)
 ├── Catalog/
