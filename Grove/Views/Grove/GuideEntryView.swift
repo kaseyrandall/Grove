@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MapKit
 
 /// A field page for one individual friend: their photo, their kind, where they
 /// live in your Grove, and the personal touches you've given them.
@@ -35,6 +36,7 @@ struct GuideEntryView: View {
                     }
                     metaRow
                     infoCard
+                    whereYouMetCard
                     #if DEBUG
                     arenaSection
                     #endif
@@ -206,6 +208,32 @@ struct GuideEntryView: View {
 
     #if DEBUG
     // MARK: Battlegrounds — the "Send to the Arena" ritual (dev only)
+
+    /// A small, still map of the spot where you met this friend.
+    @ViewBuilder private var whereYouMetCard: some View {
+        if let lat = friend.latitude, let lng = friend.longitude {
+            let spot = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+            VStack(alignment: .leading, spacing: 0) {
+                Map(initialPosition: .region(MKCoordinateRegion(center: spot,
+                                                                latitudinalMeters: 700,
+                                                                longitudinalMeters: 700)),
+                    interactionModes: []) {
+                    Annotation("", coordinate: spot) { MapPin(species: species) }
+                }
+                .frame(height: 170)
+                .allowsHitTesting(false)
+
+                Label("Where you met", systemImage: "mappin.and.ellipse")
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                    .padding(14)
+            }
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: Theme.ink.opacity(0.08), radius: 12, x: 0, y: 6)
+            .accessibilityElement(children: .combine)
+        }
+    }
 
     @ViewBuilder private var arenaSection: some View {
         let roster = BattleRoster.shared
