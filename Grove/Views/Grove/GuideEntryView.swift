@@ -40,6 +40,7 @@ struct GuideEntryView: View {
                         placeLabel
                         metaRow
                         infoCard
+                        whereYouMetCard
                         #if DEBUG
                         arenaSection
                         #endif
