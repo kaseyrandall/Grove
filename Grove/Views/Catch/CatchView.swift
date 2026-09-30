@@ -115,23 +115,30 @@ struct CatchView: View {
 
     // MARK: Viewfinder
 
+    #if DEBUG
+    /// Test hook for screenshots in the simulator (which has no camera):
+    /// `-GroveCameraBackdrop <image path>` fills the viewfinder with that photo
+    /// and shows the controls as they'd be with a live camera.
+    private static let debugBackdrop: UIImage? = {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-GroveCameraBackdrop"), i + 1 < args.count else { return nil }
+        return UIImage(contentsOfFile: args[i + 1])
+    }()
+    #endif
+
+    /// Whether the camera-only controls (flip) should show.
+    private var cameraIsLive: Bool {
+        #if DEBUG
+        if Self.debugBackdrop != nil { return true }
+        #endif
+        return camera.status == .authorized
+    }
+
     private var viewfinder: some View {
         ZStack {
             Color.black
 
-            switch camera.status {
-            case .authorized:
-                CameraPreview(session: camera.session) { layerPoint, devicePoint in
-                    camera.focus(at: devicePoint)
-                    showFocus(at: layerPoint)
-                }
-            case .denied:
-                placeholder("🚫", "Grove needs your camera to meet friends.\nTurn it on in Settings to start snapping.", showSettings: true)
-            case .unavailable:
-                placeholder("📷", "No camera on this device.")
-            case .idle:
-                placeholder("🌿", "Warming up the lens…")
-            }
+            cameraLayer
 
             if gridOn { GridOverlay() }
 
@@ -151,6 +158,39 @@ struct CatchView: View {
                     .position(point)
                     .allowsHitTesting(false)
             }
+        }
+    }
+
+    /// The live camera, or a friendly placeholder when there isn't one.
+    @ViewBuilder private var cameraLayer: some View {
+        #if DEBUG
+        if let backdrop = Self.debugBackdrop {
+            // In an overlay so the photo fills the viewfinder without
+            // stretching the layout around it.
+            Color.clear
+                .overlay { Image(uiImage: backdrop).resizable().scaledToFill() }
+                .clipped()
+        } else {
+            liveCameraLayer
+        }
+        #else
+        liveCameraLayer
+        #endif
+    }
+
+    @ViewBuilder private var liveCameraLayer: some View {
+        switch camera.status {
+        case .authorized:
+            CameraPreview(session: camera.session) { layerPoint, devicePoint in
+                camera.focus(at: devicePoint)
+                showFocus(at: layerPoint)
+            }
+        case .denied:
+            placeholder("🚫", "Grove needs your camera to meet friends.\nTurn it on in Settings to start snapping.", showSettings: true)
+        case .unavailable:
+            placeholder("📷", "No camera on this device.")
+        case .idle:
+            placeholder("🌿", "Warming up the lens…")
         }
     }
 
@@ -201,7 +241,7 @@ struct CatchView: View {
                 // camera authorizes (and the flip button appears) or when there's
                 // no last catch yet — an empty view alone would collapse to zero.
                 sideSlot(alignment: .leading) {
-                    if camera.status == .authorized {
+                    if cameraIsLive {
                         circleButton("arrow.triangle.2.circlepath") { camera.flip() }
                             .transition(.opacity.combined(with: .scale))
                     }
@@ -263,7 +303,7 @@ struct CatchView: View {
         }
         .buttonStyle(BouncyButtonStyle())
         .disabled(camera.status != .authorized || isIdentifying)
-        .opacity(camera.status == .authorized ? 1 : 0.45)
+        .opacity(cameraIsLive ? 1 : 0.45)
     }
 
     /// A fixed 52pt-wide slot flanking the shutter. Always reserves its width so
