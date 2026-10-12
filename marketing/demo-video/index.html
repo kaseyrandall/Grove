@@ -1,0 +1,377 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Grove Demo</title>
+<style>
+@font-face { font-family: "Nunito"; src: url("nunito.woff2") format("woff2"); font-weight: 200 1000; font-display: block; }
+:root {
+  --cream: #FFF7EF; --ink: #4A4458; --accent: #FF7EA6;
+  --mint: #9FE8C8; --sky: #A9D8FF; --lavender: #C9B6FF; --blush: #FFB3C7; --gold: #FFD98A;
+  --S: 1.78;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 1080px; height: 1920px; overflow: hidden; }
+body {
+  font-family: "Nunito", "Noto Color Emoji", sans-serif; color: var(--ink);
+  background: linear-gradient(180deg, #FFF7EF 0%, #FDF1F4 45%, #E6F2FF 100%);
+  -webkit-font-smoothing: antialiased;
+}
+.emoji { font-family: "Noto Color Emoji", sans-serif; }
+#stage { position: absolute; inset: 0; overflow: hidden; }
+
+/* soft background blobs */
+.blob { position: absolute; border-radius: 50%; filter: blur(70px); opacity: .55; }
+.b1 { width: 620px; height: 620px; background: var(--mint); left: -220px; top: 120px; }
+.b2 { width: 560px; height: 560px; background: var(--blush); right: -200px; top: 760px; }
+.b3 { width: 640px; height: 640px; background: var(--lavender); left: -160px; top: 1380px; opacity: .4; }
+.b4 { width: 420px; height: 420px; background: var(--gold); right: -120px; top: -120px; opacity: .45; }
+
+#floaters { position: absolute; inset: 0; }
+.floater { position: absolute; font-size: 64px; opacity: .5; }
+
+/* captions */
+#captions { position: absolute; left: 0; right: 0; top: 64px; height: 250px; }
+.cap {
+  position: absolute; left: 50px; right: 50px; top: 0; height: 250px;
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  font-size: 68px; line-height: 1.1; font-weight: 900; letter-spacing: -0.5px;
+  opacity: 0;
+}
+.cap em { font-style: normal; color: var(--accent); }
+
+/* intro / outro */
+.center-col { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.appicon { width: 300px; height: 300px; border-radius: 68px; overflow: hidden; box-shadow: 0 30px 60px rgba(74,68,88,.25), 0 6px 14px rgba(74,68,88,.15); }
+.appicon img { width: 100%; height: 100%; display: block; }
+.wordmark { font-size: 168px; font-weight: 900; letter-spacing: -3px; margin-top: 40px; line-height: 1; }
+.tagline { font-size: 48px; font-weight: 700; color: rgba(74,68,88,.7); margin-top: 26px; text-align: center; max-width: 1000px; line-height: 1.2; }
+#intro > *, #outro > * { opacity: 0; }
+.chips { display: flex; flex-direction: column; align-items: center; gap: 22px; margin-top: 70px; }
+.chip { font-size: 40px; font-weight: 800; background: #fff; border-radius: 999px; padding: 18px 38px; box-shadow: 0 10px 26px rgba(74,68,88,.1); opacity: 0; }
+.foot { font-size: 34px; font-weight: 800; color: rgba(74,68,88,.45); margin-top: 70px; letter-spacing: 1px; }
+
+/* phone */
+#phoneWrap { position: absolute; left: 171px; top: 332px; width: 737px; height: 1545px; transform: translateY(1700px); }
+#phone {
+  position: absolute; left: 0; top: 0; width: 414px; height: 868px; transform: scale(var(--S)); transform-origin: 0 0;
+  border-radius: 66px; background: #1d1b22; padding: 12px;
+  box-shadow: 0 0 0 2px #3a3642 inset, 0 40px 80px rgba(74,68,88,.28), 0 12px 24px rgba(74,68,88,.18);
+}
+#screen { position: relative; width: 390px; height: 844px; border-radius: 55px; overflow: hidden; background: var(--cream); }
+#island { position: absolute; left: 132px; top: 11px; width: 126px; height: 37px; border-radius: 20px; background: #000; z-index: 50; }
+#statusbar { position: absolute; left: 0; top: 0; width: 390px; height: 54px; z-index: 49; color: #fff; }
+#statusbar .time { position: absolute; left: 50px; top: 17px; font-size: 17px; font-weight: 800; font-family: -apple-system, "Nunito", sans-serif; }
+#statusbar svg { position: absolute; top: 21px; }
+#homebar { position: absolute; left: 128px; bottom: 8px; width: 134px; height: 5px; border-radius: 3px; background: var(--ink); z-index: 49; opacity: .85; }
+.layer { position: absolute; inset: 0; overflow: hidden; }
+
+/* ---- painted outdoor scene (the "photo") ---- */
+.scene { position: absolute; left: 0; top: 0; width: 390px; height: 844px; overflow: hidden;
+  background: linear-gradient(180deg, #8FCBFA 0%, #C6E6FF 40%, #E7F6E4 56%); }
+.scene > div { position: absolute; }
+.sun { left: 270px; top: 110px; width: 76px; height: 76px; border-radius: 50%; background: #FFE9A8; box-shadow: 0 0 60px 30px rgba(255,233,168,.55); }
+.cloud { background: #fff; border-radius: 40px; opacity: .92; }
+.cloud::before, .cloud::after { content: ""; position: absolute; background: #fff; border-radius: 50%; }
+.cloud.c1 { left: 30px; top: 150px; width: 120px; height: 34px; }
+.cloud.c1::before { left: 20px; top: -22px; width: 54px; height: 54px; }
+.cloud.c1::after { left: 58px; top: -14px; width: 42px; height: 42px; }
+.cloud.c2 { left: 210px; top: 240px; width: 90px; height: 26px; opacity: .8; }
+.cloud.c2::before { left: 16px; top: -16px; width: 40px; height: 40px; }
+.cloud.c2::after { left: 44px; top: -10px; width: 32px; height: 32px; }
+.hill1 { left: -120px; top: 400px; width: 420px; height: 220px; border-radius: 50%; background: #B7DFA2; }
+.hill2 { left: 150px; top: 380px; width: 460px; height: 240px; border-radius: 50%; background: #A9D894; }
+.trunk { width: 22px; height: 200px; background: #9A7457; border-radius: 8px; }
+.canopy { border-radius: 50%; background: #6CBB70; }
+.meadow { left: 0; top: 470px; width: 390px; height: 374px; background: linear-gradient(180deg, #A2D88C 0%, #86C676 60%, #78BB69 100%); }
+.path { left: 120px; top: 600px; width: 260px; height: 400px; border-radius: 50%; background: #E9DDB8; opacity: .7; transform: rotate(-18deg); }
+.bush { border-radius: 50%; background: #5DAE62; }
+.bush.dark { background: #4F9F56; }
+.fox { left: 128px; top: 418px; width: 134px; height: 134px; font-size: 118px; line-height: 134px; text-align: center; }
+.flower { font-size: 22px; }
+
+/* camera chrome */
+.circbtn { position: absolute; width: 40px; height: 40px; border-radius: 50%; background: rgba(0,0,0,.42); display: flex; align-items: center; justify-content: center; }
+.safety { position: absolute; left: 50%; top: 664px; transform: translateX(-50%); white-space: nowrap; padding: 6px 13px; border-radius: 999px; background: rgba(0,0,0,.42); color: var(--gold); font-size: 11.5px; font-weight: 800; display: flex; gap: 7px; align-items: center; }
+.shutter { position: absolute; left: 156px; top: 712px; width: 78px; height: 78px; border-radius: 50%; border: 4px solid #fff; }
+.shutter .core { position: absolute; left: 5px; top: 5px; width: 60px; height: 60px; border-radius: 50%; background: var(--accent); box-shadow: 0 3px 8px rgba(255,126,166,.5); display: flex; align-items: center; justify-content: center; }
+.thumb { position: absolute; left: 316px; top: 728px; width: 46px; height: 46px; border-radius: 13px; border: 2px solid rgba(255,255,255,.9); overflow: hidden; background: linear-gradient(#cfe8c3, #9cd08a); font-size: 28px; text-align: center; line-height: 42px; }
+.focus { position: absolute; left: 140px; top: 430px; width: 110px; height: 110px; border: 2px solid #FFD60A; opacity: 0; }
+.focus::before, .focus::after { content: ""; position: absolute; background: #FFD60A; }
+.focus::before { left: 50%; top: -1px; width: 2px; height: 8px; }
+.focus::after { left: -1px; top: 50%; width: 8px; height: 2px; }
+#flash { background: #fff; opacity: 0; z-index: 40; }
+
+/* result screen */
+#result { background: linear-gradient(rgba(201,182,255,.38), rgba(201,182,255,.38)), linear-gradient(180deg, #FFF7EF, #E9F3FC); opacity: 0; }
+#confetti { position: absolute; inset: 0; }
+.cf { position: absolute; top: -50px; font-size: 26px; }
+#resClip { position: absolute; left: 0; right: 0; top: 0; height: 692px; overflow: hidden;
+  -webkit-mask-image: linear-gradient(180deg, transparent 0, transparent 50px, #000 64px, #000 92%, transparent 100%); }
+#resContent { position: absolute; left: 0; right: 0; top: 60px; display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 0 16px; }
+.headline { font-size: 17px; font-weight: 800; color: rgba(74,68,88,.7); }
+.photo { position: relative; width: 272px; height: 207px; border-radius: 30px; background: #fff; padding: 6px; box-shadow: 0 8px 16px rgba(74,68,88,.15); transform: scale(.6) rotate(-8deg); }
+.photo .crop { position: relative; width: 260px; height: 195px; border-radius: 24px; overflow: hidden; }
+.photo .crop .scene { transform-origin: 0 0; transform: scale(.8667) translate(-45px, -408px); }
+.photo .badge { position: absolute; right: -10px; bottom: -10px; width: 60px; height: 60px; border-radius: 50%; background: #fff; font-size: 40px; line-height: 60px; text-align: center; }
+.swap { display: grid; justify-items: center; align-items: center; }
+.swap > * { grid-area: 1 / 1; }
+.swap > *:nth-child(2) { opacity: 0; }
+.name { font-size: 30px; font-weight: 900; line-height: 38px; }
+.rbadge { display: inline-block; font-size: 12px; font-weight: 800; padding: 6px 12px; border-radius: 999px; white-space: nowrap; }
+#badgeWrap { height: 0; overflow: hidden; display: flex; justify-content: center; }
+.idlabel { font-size: 15px; font-weight: 700; color: rgba(74,68,88,.7); }
+.idbtn { position: relative; width: 358px; height: 44px; border-radius: 16px; background: #fff; display: flex; align-items: center; padding: 0 14px; gap: 10px; font-size: 15px; font-weight: 700; }
+.idbtn .ring { position: absolute; inset: 0; border-radius: 16px; border: 2px solid var(--accent); }
+.idbtn .ring2 { position: absolute; inset: 0; border-radius: 16px; border: 1px solid rgba(74,68,88,.08); opacity: 0; }
+.zlabel { font-size: 12px; font-weight: 700; color: rgba(74,68,88,.55); }
+.zrowClip { width: 390px; overflow: hidden; height: 36px; }
+.zrow { display: flex; gap: 8px; padding: 0 4px; height: 36px; align-items: center; }
+.zchip { position: relative; flex: none; font-size: 12px; font-weight: 700; padding: 8px 12px; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1.5px rgba(74,68,88,.1); white-space: nowrap; }
+.zchip .sel { position: absolute; inset: 0; border-radius: 999px; box-shadow: inset 0 0 0 1.5px var(--accent); opacity: 0; }
+.zchip span { position: relative; }
+.softcard { background: #fff; border-radius: 24px; box-shadow: 0 6px 12px rgba(74,68,88,.08); }
+.sparks { display: flex; align-items: center; gap: 6px; padding: 12px 20px; white-space: nowrap; }
+.sparks b { font-size: 20px; font-weight: 800; }
+#firstFind { font-size: 15px; font-weight: 700; color: var(--accent); max-width: 0; overflow: hidden; opacity: 0; display: inline-block; }
+#achCard { max-height: 0; opacity: 0; overflow: hidden; padding: 0 20px; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+#achCard .t { font-size: 15px; font-weight: 800; color: var(--accent); margin-top: 12px; }
+#achCard .r { font-size: 15px; font-weight: 700; margin-bottom: 12px; display: flex; gap: 8px; align-items: center; }
+.donebtn { position: absolute; left: 16px; right: 16px; top: 704px; height: 52px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 17px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 6px 14px rgba(255,126,166,.4); }
+.secrow { position: absolute; left: 16px; right: 16px; top: 766px; display: flex; gap: 10px; }
+.secbtn { flex: 1; height: 44px; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1.5px rgba(255,126,166,.4); color: var(--accent); font-size: 15px; font-weight: 800; display: flex; align-items: center; justify-content: center; gap: 6px; }
+
+/* picker */
+#picker { background: linear-gradient(180deg, #FFF7EF, #ECF5FC); transform: translateX(390px); box-shadow: -10px 0 30px rgba(0,0,0,.08); }
+.navtitle { position: absolute; left: 0; right: 0; top: 60px; text-align: center; font-size: 17px; font-weight: 800; }
+.backchev { position: absolute; left: 14px; top: 58px; }
+.search { position: absolute; left: 16px; right: 16px; top: 100px; height: 36px; border-radius: 10px; background: rgba(118,118,128,.12); display: flex; align-items: center; gap: 6px; padding: 0 8px; font-size: 17px; }
+.search .ph { color: rgba(60,60,67,.6); font-weight: 500; }
+.search .typed { font-weight: 600; }
+.caret { display: inline-block; width: 2px; height: 20px; background: var(--accent); margin-left: 1px; vertical-align: middle; }
+.grid3 { position: absolute; left: 16px; right: 16px; top: 152px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.tile { position: relative; height: 84px; border-radius: 16px; background: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+.tile .e { font-size: 30px; line-height: 34px; }
+.tile .n { font-size: 12px; font-weight: 700; }
+.tile .bd { position: absolute; inset: 0; border-radius: 16px; }
+.tile .selbd { position: absolute; inset: 0; border-radius: 16px; border: 2.5px solid var(--accent); background: rgba(255,126,166,.12); opacity: 0; }
+.tile .check { position: absolute; right: 6px; top: 5px; opacity: 0; }
+
+/* grove */
+#grove { background: linear-gradient(180deg, #FFF7EF, #E9F3FC); opacity: 0; }
+#groveScroll { position: absolute; left: 0; top: 0; width: 390px; height: 1200px; }
+.largetitle { position: absolute; left: 16px; top: 92px; font-size: 34px; font-weight: 900; letter-spacing: -.3px; }
+.gheader { position: absolute; left: 16px; right: 16px; top: 144px; display: flex; align-items: center; gap: 12px; }
+.gheader .t { font-size: 17px; font-weight: 800; }
+.gheader .s { font-size: 12px; color: rgba(74,68,88,.6); font-weight: 600; }
+.challenge { position: absolute; left: 16px; right: 16px; top: 202px; height: 78px; padding: 14px; display: flex; align-items: center; gap: 14px; }
+.challenge .ic { width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; font-size: 24px; }
+.challenge .k { font-size: 10px; font-weight: 800; color: rgba(74,68,88,.4); letter-spacing: .3px; }
+.challenge .t { font-size: 15px; font-weight: 800; }
+.challenge .d { font-size: 12px; font-weight: 700; color: var(--accent); }
+.zone { position: absolute; width: 173px; border-radius: 24px; padding: 14px; box-shadow: 0 5px 10px rgba(74,68,88,.08); }
+.zone .zh { display: flex; justify-content: space-between; font-size: 15px; font-weight: 800; height: 20px; align-items: center; }
+.zone .zh .c { font-size: 12px; color: rgba(74,68,88,.45); }
+.zone .quiet { position: absolute; left: 14px; right: 14px; top: 42px; height: 64px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 12px; color: rgba(74,68,88,.45); font-weight: 600; }
+.zone .slots { position: absolute; left: 14px; top: 42px; width: 145px; }
+.portrait { position: absolute; width: 56px; height: 56px; }
+.portrait .bob, .portrait .popw { position: absolute; inset: 0; }
+.pcircle { position: absolute; inset: 0; border-radius: 50%; background: #fff; box-shadow: 0 3px 6px rgba(74,68,88,.15); }
+.pphoto { position: absolute; inset: 3px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; font-size: 30px; }
+.pring { position: absolute; inset: 0; border-radius: 50%; border: 3px solid; }
+.pcorner { position: absolute; right: -3px; bottom: -3px; width: 22px; height: 22px; border-radius: 50%; background: #fff; font-size: 13px; display: grid; place-items: center; box-shadow: 0 1px 2px rgba(74,68,88,.15); }
+.pphoto .scene { transform-origin: 0 0; }
+#groveNav { position: absolute; left: 0; top: 0; width: 390px; height: 100px; background: rgba(255,247,239,.94); backdrop-filter: blur(10px); border-bottom: 0.5px solid rgba(74,68,88,.08); opacity: 0; z-index: 5; }
+#groveNav .navtitle { top: 62px; }
+.bubble { position: absolute; white-space: nowrap; padding: 7px 12px; border-radius: 999px; background: #fff; box-shadow: 0 6px 14px rgba(74,68,88,.18); font-size: 13px; font-weight: 800; opacity: 0; z-index: 8; }
+.bubble i { font-style: normal; color: var(--accent); }
+.burst { position: absolute; width: 0; height: 0; z-index: 7; }
+.burst span { position: absolute; left: -9px; top: -11px; font-size: 18px; opacity: 0; }
+
+/* tab bar */
+#tabbar { position: absolute; left: 16px; right: 16px; top: 752px; height: 60px; border-radius: 30px; background: #fff; box-shadow: 0 4px 12px rgba(74,68,88,.14); transform: translateY(140px); z-index: 30; }
+.tab { position: absolute; top: 10px; width: 64px; height: 40px; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; color: rgba(74,68,88,.35); }
+.tab .on { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; color: var(--accent); opacity: 0; }
+#catchBtn { position: absolute; left: 148px; top: -19px; width: 62px; height: 62px; border-radius: 50%; background: var(--accent); border: 5px solid #fff; box-shadow: 0 5px 10px rgba(255,126,166,.45); display: grid; place-items: center; }
+
+/* map */
+#map { opacity: 0; background: #EFEADB; }
+#map .mtitle { position: absolute; left: 0; right: 0; top: 0; height: 150px; background: linear-gradient(180deg, rgba(255,247,239,.97) 55%, rgba(255,247,239,0)); }
+.pin { position: absolute; width: 40px; height: 48px; margin-left: -20px; margin-top: -48px; opacity: 0; }
+.pin .head { position: absolute; left: 0; top: 0; width: 40px; height: 40px; border-radius: 50%; border: 3px solid #fff; display: grid; place-items: center; font-size: 19px; box-shadow: 0 4px 8px rgba(74,68,88,.25); }
+.pin .tail { position: absolute; left: 14px; top: 34px; width: 0; height: 0; border-left: 6px solid transparent; border-right: 6px solid transparent; border-top: 12px solid #fff; }
+.callout { position: absolute; white-space: nowrap; padding: 10px 14px; display: flex; gap: 10px; align-items: center; opacity: 0; z-index: 4; border-radius: 18px; }
+.callout .e { font-size: 30px; }
+.callout .t { font-size: 15px; font-weight: 900; }
+.callout .s { font-size: 12px; font-weight: 700; color: rgba(74,68,88,.55); }
+.mcount { position: absolute; right: 16px; top: 98px; padding: 7px 12px; border-radius: 999px; background: #fff; font-size: 13px; font-weight: 800; box-shadow: 0 4px 10px rgba(74,68,88,.12); }
+
+/* journal */
+#journal { opacity: 0; background: linear-gradient(180deg, #FFF7EF, #E9F3FC); }
+.jcard { position: absolute; left: 16px; right: 16px; padding: 16px; opacity: 0; }
+.bar { height: 10px; border-radius: 5px; background: rgba(74,68,88,.08); overflow: hidden; }
+.bar > div { height: 100%; border-radius: 5px; width: 0; }
+.rrow { display: grid; grid-template-columns: 26px 118px 1fr 44px; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; height: 25px; }
+.rrow .cnt { text-align: right; color: rgba(74,68,88,.55); }
+
+/* taps */
+.tapdot { position: absolute; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(255,255,255,.55); box-shadow: 0 0 0 2px rgba(74,68,88,.22), 0 4px 12px rgba(74,68,88,.2); opacity: 0; z-index: 60; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div><div class="blob b4"></div>
+  <div id="floaters"></div>
+
+  <div id="intro" class="center-col" style="padding-bottom: 120px">
+    <div class="appicon"><img src="icon.png"></div>
+    <div class="wordmark">Grove</div>
+    <div class="tagline">Grow a place full of the life you've met.</div>
+  </div>
+
+  <div id="captions">
+    <div class="cap" id="c1"><div>Spot a <em>friend</em><br>out in the wild</div></div>
+    <div class="cap" id="c2"><div>Snap it, then<br><em>name it</em> yourself</div></div>
+    <div class="cap" id="c3"><div>First find?<br><em>Double sparks</em> <span class="emoji">✨</span></div></div>
+    <div class="cap" id="c4"><div>Every friend <em>comes<br>home</em> to your Grove</div></div>
+    <div class="cap" id="c5"><div>Keep exploring.<br>Watch it <em>fill with life</em></div></div>
+    <div class="cap" id="c6"><div>Remember<br><em>where you met</em> <span class="emoji">🗺️</span></div></div>
+    <div class="cap" id="c7"><div>Keep your <em>streak</em><br>alive <span class="emoji">🔥</span></div></div>
+  </div>
+
+  <div id="phoneWrap"><div id="phone"><div id="screen">
+
+    <!-- CAMERA -->
+    <div class="layer" id="cam">
+      <div id="camScene" style="position:absolute; inset:0; transform-origin: 195px 480px"></div>
+      <div class="focus" id="focus"></div>
+      <div class="circbtn" style="left:20px; top:62px"><svg width="16" height="16" viewBox="0 0 16 16"><path d="M3 3l10 10M13 3L3 13" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg></div>
+      <div class="circbtn" style="right:20px; top:62px"><svg width="18" height="16" viewBox="0 0 18 16"><path d="M2 4h14M2 12h14" stroke="#fff" stroke-width="2" stroke-linecap="round"/><circle cx="6" cy="4" r="2.6" fill="#fff"/><circle cx="12" cy="12" r="2.6" fill="#fff"/></svg></div>
+      <div class="safety"><svg width="12" height="13" viewBox="0 0 12 13"><path d="M6 0.5L11 2.5V6.5C11 9.5 8.8 11.8 6 12.5C3.2 11.8 1 9.5 1 6.5V2.5Z" fill="none" stroke="#FFD98A" stroke-width="1.6"/><path d="M6 1.5V11.4C3.8 10.7 2.1 8.9 2.1 6.5V3.2Z" fill="#FFD98A"/></svg>Keep your distance · mind your surroundings</div>
+      <div class="circbtn" style="left:30px; top:731px"><svg width="20" height="18" viewBox="0 0 20 18"><path d="M3 8a7 7 0 0 1 12.5-4M17 10a7 7 0 0 1-12.5 4" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round"/><path d="M16 0.5v4h-4M4 17.5v-4h4" stroke="#fff" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div class="shutter" id="shutter"><div class="core"><svg width="24" height="20" viewBox="0 0 24 20"><path d="M8 1h8l2 3h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3z" fill="#fff"/><circle cx="12" cy="11" r="4.2" fill="#FF7EA6"/></svg></div></div>
+      <div class="thumb emoji">🐿️</div>
+      <div class="layer" id="flash"></div>
+    </div>
+
+    <!-- GROVE (under the result, revealed on Done) -->
+    <div class="layer" id="grove">
+      <div id="groveScroll">
+        <div class="largetitle">Your Grove</div>
+        <div class="gheader"><span class="emoji" style="font-size:30px">🌳</span><div><div class="t"><span id="friendCount">12</span> friends have come home</div><div class="s">Grow a place full of the life you've met.</div></div></div>
+        <div class="challenge softcard">
+          <div class="ic" id="chIc" style="background: rgba(159,232,200,.55)"><span class="emoji">✅</span></div>
+          <div><div class="k">TODAY'S CHALLENGE</div><div class="t">Discover a kind you haven't met</div><div class="d">Done — nice work! <span class="emoji">🎉</span></div></div>
+        </div>
+        <div id="zones"></div>
+      </div>
+      <div id="groveNav"><div class="navtitle">Your Grove</div></div>
+      <div id="groveFx" class="layer" style="overflow: visible"></div>
+    </div>
+
+    <!-- MAP -->
+    <div class="layer" id="map">
+      <svg id="mapSvg" width="390" height="844" viewBox="0 0 390 844" style="position:absolute; inset:0"></svg>
+      <div id="pins" class="layer"></div>
+      <div class="mtitle"><div class="largetitle" style="top:92px">Discovery Map</div></div>
+      <div class="mcount"><span id="pinCount">0</span> sightings</div>
+    </div>
+
+    <!-- JOURNAL -->
+    <div class="layer" id="journal">
+      <div class="largetitle">Journal</div>
+      <div class="jcard softcard" id="j1" style="top:146px; display:flex; align-items:center; gap:14px">
+        <span class="emoji" style="font-size:38px">📖</span>
+        <div style="flex:1"><div style="font-size:17px; font-weight:900">Field Guide</div><div style="font-size:13px; font-weight:700; color:rgba(74,68,88,.55)">18 of 68 friends met</div>
+        <div class="bar" style="margin-top:8px; height:8px"><div id="fgBar" style="background: var(--mint)"></div></div></div>
+        <svg width="8" height="14" viewBox="0 0 8 14"><path d="M1 1l6 6-6 6" stroke="rgba(74,68,88,.3)" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+      </div>
+      <div class="jcard softcard" id="j2" style="top:250px; display:flex; align-items:center; gap:14px">
+        <span class="emoji" id="flame" style="font-size:44px; display:inline-block">🔥</span>
+        <div style="flex:1"><div style="font-size:20px; font-weight:900"><span id="streakNum">11</span>-day streak</div><div style="font-size:12px; font-weight:700; color:rgba(74,68,88,.55)">Snap a friend each day to keep it going</div></div>
+        <div style="text-align:center"><div style="font-size:20px; font-weight:900">14</div><div style="font-size:11px; font-weight:700; color:rgba(74,68,88,.5)">best</div></div>
+      </div>
+      <div class="jcard softcard" id="j3" style="top:358px; text-align:center">
+        <div class="emoji" style="font-size:44px">🌟</div>
+        <div style="font-size:24px; font-weight:900">Level 6</div>
+        <div style="font-size:14px; font-weight:700; color:rgba(74,68,88,.6)"><span id="totalSparks">0</span> <span class="emoji">✨</span> sparks total</div>
+        <div class="bar" style="margin: 12px 20px 8px"><div id="lvBar" style="background: linear-gradient(90deg, #FFB3C7, #FF7EA6)"></div></div>
+        <div style="font-size:12px; font-weight:700; color:rgba(74,68,88,.5)">Keep snapping to reach Level 7!</div>
+      </div>
+      <div class="jcard softcard" id="j4" style="top:560px">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px"><div style="font-size:16px; font-weight:900">Collection by rarity</div><div style="font-size:12px; font-weight:700; color:rgba(74,68,88,.55)">Rarest: <span class="emoji">🦅</span> Eagle</div></div>
+        <div id="rrows"></div>
+      </div>
+    </div>
+
+    <!-- picker sits above result when pushed -->
+    <!-- RESULT -->
+    <div class="layer" id="result">
+      <div id="confetti"></div>
+      <div id="resClip"><div id="resContent">
+        <div class="headline">A new friend found your Grove!</div>
+        <div class="photo" id="photo"><div class="crop" id="photoCrop"></div>
+          <div class="badge swap emoji"><span>❓</span><span>🦊</span></div></div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:8px">
+          <div class="swap name" id="nameSwap"><span>Mystery Friend</span><span>Fox</span></div>
+          <div id="badgeWrap"><span class="rbadge" style="background: var(--lavender)"><span class="emoji">💜</span> Seldom seen</span></div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:10px">
+          <div class="swap idlabel"><span>What did you find?</span><span>Not quite?</span></div>
+          <div class="idbtn" id="idbtn"><div class="ring" id="ring1"></div><div class="ring2" id="ring2"></div>
+            <svg width="16" height="16" viewBox="0 0 16 16"><rect x="1" y="1" width="6" height="6" rx="1.5" fill="#FF7EA6"/><rect x="9" y="1" width="6" height="6" rx="1.5" fill="#FF7EA6"/><rect x="1" y="9" width="6" height="6" rx="1.5" fill="#FF7EA6"/><rect x="9" y="9" width="6" height="6" rx="1.5" fill="#FF7EA6"/></svg>
+            <div class="swap" style="justify-items:start; flex:1"><span>Choose your friend</span><span>Not a Fox? Choose another</span></div>
+            <svg width="8" height="13" viewBox="0 0 8 13"><path d="M1 1l5.5 5.5L1 12" stroke="rgba(74,68,88,.3)" stroke-width="2" fill="none" stroke-linecap="round"/></svg>
+          </div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:8px">
+          <div class="zlabel">Found in your…</div>
+          <div class="zrowClip"><div class="zrow" id="zrow"></div></div>
+        </div>
+        <div class="softcard sparks"><span class="emoji">✨</span><b>+<span id="sparkNum">10</span> sparks</b><span id="firstFind">&nbsp;· 2× first find!</span></div>
+        <div class="softcard" id="achCard"><div class="t"><span class="emoji">🎖</span> Achievement unlocked!</div><div class="r"><span class="emoji" style="font-size:20px">💎</span> Lucky Day</div></div>
+      </div></div>
+      <div class="donebtn" id="doneBtn"><svg width="16" height="13" viewBox="0 0 16 13"><path d="M1.5 7l4.5 4.5L14.5 1.5" stroke="#fff" stroke-width="2.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>Done</div>
+      <div class="secrow"><div class="secbtn"><svg width="14" height="15" viewBox="0 0 14 15"><path d="M2 1.5h9a1 1 0 0 1 1 1v11H3a1 1 0 0 1-1-1z" fill="#FF7EA6"/></svg>Details</div><div class="secbtn"><svg width="17" height="14" viewBox="0 0 24 20"><path d="M8 1h8l2 3h3a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h3z" fill="#FF7EA6"/><circle cx="12" cy="11" r="4.2" fill="#fff"/></svg>Snap another</div></div>
+    </div>
+
+    <!-- PICKER -->
+    <div class="layer" id="picker">
+      <svg class="backchev" width="14" height="22" viewBox="0 0 14 22"><path d="M11 2L2 11l9 9" stroke="#FF7EA6" stroke-width="3" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <div class="navtitle">Choose a Friend</div>
+      <div class="search"><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="6.5" cy="6.5" r="5" stroke="rgba(60,60,67,.6)" stroke-width="2" fill="none"/><path d="M10.5 10.5L15 15" stroke="rgba(60,60,67,.6)" stroke-width="2" stroke-linecap="round"/></svg>
+        <span id="searchText"></span></div>
+      <div class="grid3" id="gridAll"></div>
+      <div class="grid3" id="gridFox" style="opacity:0"></div>
+    </div>
+
+    <!-- TAB BAR -->
+    <div id="tabbar"></div>
+
+    <div id="statusbar">
+      <div class="time">9:41</div>
+      <svg style="left:292px" width="18" height="12" viewBox="0 0 18 12"><rect x="0" y="8" width="3" height="4" rx="1" fill="currentColor"/><rect x="5" y="6" width="3" height="6" rx="1" fill="currentColor"/><rect x="10" y="3" width="3" height="9" rx="1" fill="currentColor"/><rect x="15" y="0" width="3" height="12" rx="1" fill="currentColor"/></svg>
+      <svg style="left:316px" width="16" height="12" viewBox="0 0 16 12"><path d="M8 11.5l2.4-2.9a3.6 3.6 0 0 0-4.8 0z" fill="currentColor"/><path d="M3.6 6.2a6.6 6.6 0 0 1 8.8 0M1 3.4a10.2 10.2 0 0 1 14 0" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+      <svg style="left:338px" width="27" height="13" viewBox="0 0 27 13"><rect x="0.5" y="0.5" width="23" height="12" rx="3.5" stroke="currentColor" stroke-opacity=".4" fill="none"/><rect x="2.5" y="2.5" width="19" height="8" rx="2" fill="currentColor"/><path d="M25 4.5v4a2 2 0 0 0 0-4z" fill="currentColor" fill-opacity=".4"/></svg>
+    </div>
+    <div id="island"></div>
+    <div id="homebar"></div>
+    <div id="taps" class="layer" style="overflow:visible; z-index:60"></div>
+  </div></div></div>
+
+  <div id="outro" class="center-col" style="padding-bottom: 60px">
+    <div class="appicon" style="width:260px; height:260px; border-radius:58px"><img src="icon.png"></div>
+    <div class="wordmark" style="font-size:150px">Grove</div>
+    <div class="tagline">Grow a place full of the life you've met.</div>
+    <div class="chips">
+      <div class="chip"><span class="emoji">📸</span> Live camera only. Real moments.</div>
+      <div class="chip"><span class="emoji">🏷️</span> You name every friend</div>
+      <div class="chip"><span class="emoji">🔒</span> No accounts. Private by design.</div>
+    </div>
+    <div class="foot">GROVE · FOR IPHONE</div>
+  </div>
+</div>
+
+<script src="timeline.js"></script>
+</body>
+</html>
