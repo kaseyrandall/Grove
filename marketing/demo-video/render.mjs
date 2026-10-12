@@ -2,8 +2,8 @@
 //   node render.mjs                 → grove-demo-silent.mp4 + cues.json
 //   node render.mjs --still 12.5 a.png [b.png@20 …]  → single preview frames
 import { chromium } from 'playwright';
-import { spawn } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { spawn, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -11,12 +11,21 @@ const here = path.dirname(fileURLToPath(import.meta.url));
 const FPS = 30;
 const args = process.argv.slice(2);
 
+// one JPEG per video frame of the viewfinder footage (regenerated, not committed)
+const framesDir = path.join(here, 'assets', '.frames');
+if (!existsSync(path.join(framesDir, 'f120.jpg'))) {
+  mkdirSync(framesDir, { recursive: true });
+  execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-i', path.join(here, 'assets', 'fox-clip.mp4'), '-q:v', '2', path.join(framesDir, 'f%03d.jpg')]);
+}
+
 const browser = await chromium.launch({ args: ['--font-render-hinting=none', '--disable-lcd-text'] });
 const page = await browser.newPage({ viewport: { width: 1080, height: 1920 }, deviceScaleFactor: 1 });
 page.on('pageerror', e => console.error('PAGE ERROR', e.message));
 page.on('console', m => { if (m.type() === 'error') console.error('console:', m.text()); });
 await page.goto('file://' + path.join(here, 'index.html'));
 await page.waitForFunction(() => window.READY === true, null, { timeout: 30000 });
+await page.waitForLoadState('networkidle');
+await page.evaluate(() => Promise.all(Array.from(document.images).map(i => i.decode().catch(() => {}))));
 
 if (args[0] === '--still') {
   // pairs: time file

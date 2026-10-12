@@ -4,6 +4,8 @@
 
 const S = 1.78;                 // phone points → video pixels
 const DURATION = 45;
+const SNAP = 7.3;              // shutter moment (viewfinder freezes here)
+const pending = [];             // image decodes the current frame must wait for
 const $ = (s, root = document) => root.querySelector(s);
 const hooks = [];
 const CUES = [];                // sound-effect cues, read by the audio mixer
@@ -52,27 +54,9 @@ const ZONES = {
   wilds:  { name: 'Wilds',    emoji: '🌴', g: ['#FCE9C9', '#F6D6A0'] },
 };
 const ZONE_ORDER = ['home', 'garden', 'pond', 'coast', 'meadow', 'woods', 'sky', 'wilds'];
+// real wildlife photos (iNaturalist, CC BY / CC0 — see CREDITS.md); the fox is the frame you snapped
+const photoSq = key => key === 'fox' ? 'assets/fox-snap-sq.jpg' : `assets/photos/${key}-sq.jpg`;
 const zgrad = z => `linear-gradient(180deg, ${ZONES[z].g[0]}, ${ZONES[z].g[1]})`;
-
-// ---------- the painted outdoor scene (our "photo") ----------
-function sceneHTML(foxStyle = '') {
-  const circ = (cls, x, y, w, h) => `<div class="${cls}" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px"></div>`;
-  return `<div class="scene">
-    <div class="sun"></div><div class="cloud c1"></div><div class="cloud c2"></div>
-    <div class="hill1"></div><div class="hill2"></div>
-    <div class="trunk" style="left:44px;top:300px"></div>
-    ${circ('canopy', -30, 210, 140, 130)}${circ('canopy', 30, 180, 120, 120)}${circ('canopy', 0, 250, 120, 100)}
-    <div class="trunk" style="left:330px;top:320px;height:180px"></div>
-    ${circ('canopy', 280, 230, 140, 130)}${circ('canopy', 300, 190, 110, 110)}
-    <div class="meadow"></div><div class="path"></div>
-    <div class="flower emoji" style="left:40px;top:520px">🌼</div><div class="flower emoji" style="left:330px;top:540px">🌸</div>
-    <div class="flower emoji" style="left:70px;top:700px">🌼</div><div class="flower emoji" style="left:300px;top:690px">🌼</div>
-    <div class="fox emoji" style="${foxStyle}">🦊</div>
-    ${circ('bush', 70, 535, 120, 92)}${circ('bush', 140, 516, 120, 100)}${circ('bush', 215, 524, 120, 96)}${circ('bush', 275, 548, 100, 80)}
-    ${circ('bush dark', 90, 578, 190, 96)}${circ('bush dark', 200, 574, 170, 92)}
-    <div class="flower emoji" style="left:150px;top:560px">🌸</div><div class="flower emoji" style="left:250px;top:575px">🌼</div>
-  </div>`;
-}
 
 // screen-point center of an element inside the phone
 function pt(el) {
@@ -109,6 +93,8 @@ function build() {
   A($('#floaters').children[11], [{ opacity: .5 }, { opacity: 0 }], 3.2, .5);
   A($('#floaters').children[13], [{ opacity: .5 }, { opacity: 0 }], 3.2, .5);
   A([$('#floaters').children[10], $('#floaters').children[11], $('#floaters').children[13]], [{ opacity: 0 }, { opacity: .5 }], 38.9, .8);
+  // clear the floaters that would sit on the end card's tagline and credits
+  A([3, 8, 9, 12].map(i => $('#floaters').children[i]), [{ opacity: .5 }, { opacity: 0 }], 38.6, .6);
 
   // ---------- intro ----------
   const [icon, word, tag] = $('#intro').children;
@@ -150,14 +136,18 @@ function build() {
 
 // ============================================================ CAMERA
 function buildCamera() {
-  $('#camScene').innerHTML = sceneHTML('transform: translateY(112px)');
-  const fox = $('#camScene .fox');
-  A($('#camScene'), [{ transform: 'scale(1)' }, { transform: 'scale(1.07)' }], 3.5, 4.0, 'inout');
-  A(fox, [{ transform: 'translateY(112px) rotate(0)' }, { transform: 'translateY(0) rotate(-4deg)' }], 4.9, 1.0, 'spring');
-  A(fox, [{ transform: 'translateY(0) rotate(-4deg)' }, { transform: 'translateY(0) rotate(3deg)' }], 5.9, .6, 'inout');
-  cue(4.95, 'peek');
+  // Real footage (a fox kit, Alexis Lours, CC BY 4.0) plays in the viewfinder,
+  // one pre-extracted frame per video frame so every render is deterministic.
+  const cam = $('#camFrame');
+  const FR = 120, frameAt = t => Math.max(0, Math.min(FR - 1, Math.floor((Math.min(t, SNAP) - 3.45) * 30)));
+  hooks.push(t => {
+    const src = `assets/.frames/f${String(frameAt(t) + 1).padStart(3, '0')}.jpg`;
+    if (!cam.src.endsWith(src)) { cam.src = src; pending.push(cam.decode().catch(() => {})); }
+  });
+  // a slow push-in on the fox, like steadying the phone
+  A($('#camScene'), [{ transform: 'scale(1)' }, { transform: 'scale(1.22)' }], 3.45, 3.85, 'inout');
 
-  tap(195, 486, 6.0);
+  tap(156, 317, 6.0);
   const focus = $('#focus');
   A(focus, [{ opacity: 0, transform: 'scale(1.45)' }, { opacity: 1, transform: 'scale(1)' }], 6.02, .35, 'out');
   A(focus, [{ opacity: 1, transform: 'scale(1)' }, { opacity: .55, transform: 'scale(1)' }], 6.7, .4, 'out');
@@ -165,7 +155,7 @@ function buildCamera() {
 
   tap(195, 751, 7.2);
   press($('#shutter'), 7.2);
-  cue(7.3, 'shutter');
+  cue(SNAP, 'shutter');
   A($('#flash'), [{ opacity: 0 }, { opacity: 1 }], 7.3, .08, 'lin');
   A($('#flash'), [{ opacity: 1 }, { opacity: 0 }], 7.5, .6, 'out');
   A($('#cam'), [{ opacity: 1 }, { opacity: 0 }], 7.44, .02, 'lin');
@@ -178,7 +168,7 @@ function buildResult(R) {
   A(res, [{ opacity: 0 }, { opacity: 1 }], 7.42, .02, 'lin');
 
   // photo (same painted scene, cropped 4:3 around the fox)
-  $('#photoCrop').innerHTML = sceneHTML();
+  $('#photoCrop').innerHTML = '<img src="assets/fox-snap.jpg" style="width:100%;height:100%;object-fit:cover;display:block">';
   A($('#photo'), [{ transform: 'scale(.6) rotate(-8deg)' }, { transform: 'scale(1) rotate(0)' }], 7.5, 1.0, 'spring');
   cue(7.55, 'confetti');
 
@@ -340,15 +330,9 @@ function buildGrove() {
       const appear = f[4];
       const p = html(`<div class="portrait" data-k="${key}"><div class="popw"><div class="bob">
         <div class="pcircle"></div>
-        <div class="pphoto" style="background: radial-gradient(circle at 35% 30%, rgba(255,255,255,.75), rgba(255,255,255,0) 60%), ${zgrad(z)}"><span class="emoji">${emoji}</span></div>
-        <div class="pring" style="border-color:${TINT[rar]}"></div></div></div></div>`);
-      if (key === 'fox') {
-        // the fox gets its real "photo": the painted scene, cropped round
-        const ph = p.querySelector('.pphoto');
-        ph.innerHTML = sceneHTML();
-        ph.querySelector('.scene').style.transform = 'scale(.37) translate(-128px, -428px)';
-        p.querySelector('.bob').appendChild(html(`<div class="pcorner emoji">🦊</div>`));
-      }
+        <div class="pphoto" style="background-image:url(${photoSq(key)})"></div>
+        <div class="pring" style="border-color:${TINT[rar]}"></div>
+        <div class="pcorner emoji" style="box-shadow: 0 0 0 1.5px ${TINT[rar]}99, 0 1px 2px rgba(74,68,88,.15)">${emoji}</div></div></div></div>`);
       card.querySelector('.slots').appendChild(p);
       const bob = p.querySelector('.bob');
       bob.animate([{ transform: 'translateY(3px) rotate(-2.5deg)' }, { transform: 'translateY(-4px) rotate(2.5deg)' }],
@@ -389,9 +373,7 @@ function buildGrove() {
 
   // the fox flies home from the camera into the Woods
   const w = zoneRect.woods, dest = { x: w.x + 14 + 6.25, y: w.y + 42 + 6 - SCROLL };
-  const fly = html(`<div class="portrait" style="left:0;top:0;opacity:0;z-index:9"><div class="pcircle"></div><div class="pphoto"></div><div class="pring" style="border-color:${TINT[2]}"></div><div class="pcorner emoji">🦊</div></div>`);
-  fly.querySelector('.pphoto').innerHTML = sceneHTML();
-  fly.querySelector('.scene').style.transform = 'scale(.37) translate(-128px, -428px)';
+  const fly = html(`<div class="portrait" style="left:0;top:0;opacity:0;z-index:9"><div class="pcircle"></div><div class="pphoto" style="background-image:url(${photoSq('fox')})"></div><div class="pring" style="border-color:${TINT[2]}"></div><div class="pcorner emoji">🦊</div></div>`);
   $('#groveFx').appendChild(fly);
   cue(18.4, 'fly');
   A(fly, [
@@ -532,7 +514,7 @@ function buildJournal() {
 
 // ============================================================ OUTRO
 function buildOutro() {
-  const [icon, word, tag, chips, foot] = $('#outro').children;
+  const [icon, word, tag, chips, foot, credits] = $('#outro').children;
   A(icon, [{ opacity: 0, transform: 'scale(.4) rotate(-10deg)' }, { opacity: 1, transform: 'scale(1) rotate(0)' }], 39.0, 1.0, 'spring');
   cue(39.0, 'pop');
   A(word, [{ opacity: 0, transform: 'translateY(40px)' }, { opacity: 1, transform: 'translateY(0)' }], 39.35, .7, 'soft');
@@ -543,13 +525,16 @@ function buildOutro() {
     A(c, [{ opacity: 0, transform: 'translateY(26px) scale(.9)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], 40.3 + i * .3, .6, 'bouncy');
     cue(40.3 + i * .3, 'tick');
   });
-  A(foot, [{ opacity: 0 }, { opacity: 1 }], 41.6, .8, 'out');
+  A(foot, [{ opacity: 0, transform: 'translateY(26px) scale(.9)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], 41.3, .7, 'bouncy');
+  cue(41.3, 'pop');
+  A(credits, [{ opacity: 0 }, { opacity: 1 }], 42.0, .8, 'out');
 }
 
 // ============================================================ seek
 window.seek = t => {
   for (const a of document.getAnimations()) { a.pause(); a.currentTime = t * 1000; }
   hooks.forEach(h => h(t));
+  return Promise.all(pending.splice(0));
 };
 window.DURATION = DURATION;
 window.CUES = CUES;
