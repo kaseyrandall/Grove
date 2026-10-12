@@ -1,3 +1,5 @@
+# Grove demo video
+
 A 45-second demo/explainer plus a 15-second ad cut, each in three shapes — all rendered
 from the same timeline:
 
@@ -6,7 +8,8 @@ from the same timeline:
 | 9:16 (1080×1920) | `grove-demo.mp4` | `grove-demo-15s.mp4` | Reels, TikTok, Shorts, Stories |
 | 16:9 (1920×1080) | `grove-demo-16x9.mp4` | `grove-demo-16x9-15s.mp4` | YouTube, website, presentations |
 | 1:1 (1080×1080) | `grove-demo-1x1.mp4` | `grove-demo-1x1-15s.mp4` | Instagram/Facebook feed, LinkedIn, X |
- The app screens
+
+The app screens
 are recreated in HTML/CSS from the real SwiftUI views (Theme palette, habitat
 gradients, rarity tints, catalog data, copy) and animated on a deterministic
 timeline, rendered frame by frame in headless Chromium, and scored with a

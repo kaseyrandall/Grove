@@ -548,7 +548,7 @@ window.seek = t => {
 // Six hard-cut segments of the master timeline, [masterStart, masterEnd], with
 // their own captions (#s0–#s4). The background keeps running on short-cut time
 // so nothing behind the phone jumps at the cuts.
-const SEGMENTS = [[4.6, 8.6], [12.8, 15.0], [18.2, 20.2], [25.6, 27.6], [29.6, 31.2], [40.2, 43.4]];
+const SEGMENTS = [[4.9, 8.6], [12.8, 15.6], [18.3, 20.2], [25.6, 27.6], [29.6, 31.2], [40.4, 43.4]];  // the sparks shot runs long enough to read "2× first find!"
 const SHORT_DURATION = SEGMENTS.reduce((d, [a, b]) => d + b - a, 0);
 function shortToMaster(t) {
   let acc = 0;
