@@ -1,6 +1,7 @@
 <!doctype html>
 <html>
 <head>
+<script>if (/landscape/.test(location.search)) document.documentElement.classList.add('landscape');</script>
 <meta charset="utf-8">
 <title>Grove Demo</title>
 <style>
@@ -56,11 +57,17 @@ body {
 /* phone */
 #phoneWrap { position: absolute; left: 171px; top: 332px; width: 737px; height: 1545px; transform: translateY(1700px); }
 #phone {
-  position: absolute; left: 0; top: 0; width: 414px; height: 868px; transform: scale(var(--S)); transform-origin: 0 0;
+  position: absolute; left: 0; top: 0; width: 414px; height: 868px; zoom: var(--S);
   border-radius: 66px; background: #1d1b22; padding: 12px;
   box-shadow: 0 0 0 2px #3a3642 inset, 0 40px 80px rgba(74,68,88,.28), 0 12px 24px rgba(74,68,88,.18);
 }
-#screen { position: relative; width: 390px; height: 844px; border-radius: 55px; overflow: hidden; background: var(--cream); }
+/* clip-path (not just overflow+radius) so animated/composited layers are clipped to the rounded screen too */
+#screen { position: relative; width: 390px; height: 844px; border-radius: 55px; overflow: hidden; clip-path: inset(0 round 55px); isolation: isolate; background: var(--cream); }
+/* The bezel is painted again as a ring ON TOP of the screen: Chromium can drop
+   patches of #phone's own background (and the rounded clip) under animated
+   screen layers, which showed up as notches at the corners. */
+#bezel { position: absolute; left: 12px; top: 12px; width: 390px; height: 844px; border-radius: 55px; pointer-events: none; z-index: 100;
+  box-shadow: 0 0 0 10.5px #1d1b22, 0 0 0 12px #3a3642, inset 0 0 0 1px #1d1b22; }
 #island { position: absolute; left: 132px; top: 11px; width: 126px; height: 37px; border-radius: 20px; background: #000; z-index: 50; }
 #statusbar { position: absolute; left: 0; top: 0; width: 390px; height: 54px; z-index: 49; color: #fff; }
 #statusbar .time { position: absolute; left: 50px; top: 17px; font-size: 17px; font-weight: 800; font-family: -apple-system, "Nunito", sans-serif; }
@@ -192,6 +199,26 @@ body {
 
 /* taps */
 .tapdot { position: absolute; width: 46px; height: 46px; margin: -23px 0 0 -23px; border-radius: 50%; background: rgba(255,255,255,.55); box-shadow: 0 0 0 2px rgba(74,68,88,.22), 0 4px 12px rgba(74,68,88,.2); opacity: 0; z-index: 60; }
+
+/* ---------- 16:9 layout (index.html?landscape) ---------- */
+.landscape { --S: 1.13; }
+.landscape, .landscape body { width: 1920px; height: 1080px; }
+.landscape body { background: linear-gradient(120deg, #FFF7EF 0%, #FDF1F4 50%, #E6F2FF 100%); }
+.landscape .b1 { left: -200px; top: -160px; } .landscape .b2 { right: 200px; top: 520px; }
+.landscape .b3 { left: 700px; top: 700px; } .landscape .b4 { right: -120px; top: -160px; }
+.landscape #phoneWrap { left: 1210px; top: 50px; width: 468px; height: 981px; }
+.landscape #captions { left: 130px; top: 0; width: 980px; height: 1080px; right: auto; }
+.landscape .cap { left: 0; right: 0; height: 1080px; justify-content: flex-start; text-align: left; font-size: 96px; letter-spacing: -1px; }
+.landscape .wordmark { font-size: 150px; margin-top: 30px; }
+.landscape .tagline { font-size: 52px; }
+.landscape #outro .appicon { width: 190px !important; height: 190px !important; border-radius: 42px !important; }
+.landscape #outro .wordmark { font-size: 120px !important; margin-top: 22px; }
+.landscape #outro .tagline { font-size: 44px; margin-top: 14px; }
+.landscape .chips { flex-direction: row; gap: 18px; margin-top: 44px; }
+.landscape .chip { font-size: 30px; padding: 14px 28px; }
+.landscape .foot { margin-top: 44px; }
+.landscape .foot img { height: 104px; }
+.landscape .credits { left: 160px; right: 160px; bottom: 26px; font-size: 16px; }
 </style>
 </head>
 <body>
@@ -333,7 +360,7 @@ body {
     <div id="island"></div>
     <div id="homebar"></div>
     <div id="taps" class="layer" style="overflow:visible; z-index:60"></div>
-  </div></div></div>
+  </div><div id="bezel"></div></div></div>
 
   <div id="outro" class="center-col" style="padding-bottom: 60px">
     <div class="appicon" style="width:260px; height:260px; border-radius:58px"><img src="icon.png"></div>

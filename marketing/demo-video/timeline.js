@@ -2,7 +2,8 @@
 // Every motion is a paused Web Animation (or a pure `hook(t)`), so the
 // renderer can seek to any frame with `window.seek(seconds)`.
 
-const S = 1.78;                 // phone points → video pixels
+const LANDSCAPE = document.documentElement.classList.contains('landscape');
+const S = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--S')); // phone points → video pixels
 const DURATION = 45;
 const SNAP = 7.3;              // shutter moment (viewfinder freezes here)
 const pending = [];             // image decodes the current frame must wait for
@@ -81,7 +82,9 @@ function build() {
 
   // ---------- floaters ----------
   const floatEm = ['🦊', '🐿️', '🦆', '🦉', '🐰', '🦋', '🐢', '🐝', '🐸', '🦔', '🐞', '🦅', '🐱', '🦝'];
-  const spots = [[60, 420], [930, 470], [40, 760], [960, 820], [70, 1120], [940, 1180], [30, 1460], [960, 1520], [80, 1780], [920, 1830], [210, 180], [840, 150], [500, 1790], [120, 300]];
+  const spots = LANDSCAPE
+    ? [[50, 150], [1090, 110], [40, 520], [1100, 470], [60, 860], [1090, 840], [1760, 130], [1790, 470], [1770, 820], [880, 900], [560, 70], [300, 930], [1830, 960], [360, 60]]
+    : [[60, 420], [930, 470], [40, 760], [960, 820], [70, 1120], [940, 1180], [30, 1460], [960, 1520], [80, 1780], [920, 1830], [210, 180], [840, 150], [500, 1790], [120, 300]];
   spots.forEach(([x, y], i) => {
     const f = html(`<div class="floater emoji" style="left:${x}px;top:${y}px;font-size:${54 + (i % 3) * 10}px">${floatEm[i]}</div>`);
     $('#floaters').appendChild(f);
@@ -94,7 +97,7 @@ function build() {
   A($('#floaters').children[13], [{ opacity: .5 }, { opacity: 0 }], 3.2, .5);
   A([$('#floaters').children[10], $('#floaters').children[11], $('#floaters').children[13]], [{ opacity: 0 }, { opacity: .5 }], 38.9, .8);
   // clear the floaters that would sit on the end card's tagline and credits
-  A([3, 8, 9, 12].map(i => $('#floaters').children[i]), [{ opacity: .5 }, { opacity: 0 }], 38.6, .6);
+  A((LANDSCAPE ? [4, 5, 9, 11, 12, 0, 1, 3] : [3, 8, 9, 12]).map(i => $('#floaters').children[i]), [{ opacity: .5 }, { opacity: 0 }], 38.6, .6);
 
   // ---------- intro ----------
   const [icon, word, tag] = $('#intro').children;

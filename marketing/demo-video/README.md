@@ -1,6 +1,8 @@
 # Grove demo video
 
-A 45-second vertical (1080×1920) demo/explainer, `grove-demo.mp4`. The app screens
+A 45-second demo/explainer in two cuts: vertical 9:16 `grove-demo.mp4` (1080×1920, for
+Reels/TikTok/Shorts/Stories) and widescreen 16:9 `grove-demo-16x9.mp4` (1920×1080, for
+YouTube, the website, presentations). Both come from the same timeline. The app screens
 are recreated in HTML/CSS from the real SwiftUI views (Theme palette, habitat
 gradients, rarity tints, catalog data, copy) and animated on a deterministic
 timeline, rendered frame by frame in headless Chromium, and scored with a
@@ -32,19 +34,27 @@ Needs Node + Playwright (Chromium), Python 3 + numpy, and ffmpeg.
 cd marketing/demo-video
 ln -s "$(npm root -g)" node_modules            # if playwright is installed globally
 node render.mjs                                # → grove-demo-silent.mp4 + cues.json
-python3 music.py cues.json audio.wav           # → soundtrack, SFX synced to cues
+node render.mjs --landscape                    # → grove-demo-16x9-silent.mp4
+python3 music.py cues.json audio.wav           # → soundtrack, SFX synced to cues (shared by both cuts)
 ffmpeg -y -i grove-demo-silent.mp4 -i audio.wav -c:v copy -c:a aac -b:a 192k -shortest grove-demo.mp4
+ffmpeg -y -i grove-demo-16x9-silent.mp4 -i audio.wav -c:v copy -c:a aac -b:a 192k -shortest grove-demo-16x9.mp4
 ```
 
 Preview single frames without rendering the whole video:
 
 ```sh
 node render.mjs --still 14.9 frame.png 27.5 frame2.png
+node render.mjs --landscape --still 14.9 wide.png
 ```
 
 ## Editing
 
 - **Copy / captions / end card:** `index.html` (`#captions`, `#outro`).
+- **16:9 layout:** the `.landscape` CSS block in `index.html` (phone on the right, captions
+  left-aligned on the left, chips in a row on the end card) plus the `LANDSCAPE` floater
+  positions in `timeline.js`. Everything else is shared.
+- **Phone scale:** `--S` in `index.html` (applied with CSS `zoom`, not a transform — a
+  transform made Chromium drop the rounded clip/bezel paint at the corners).
 - **Timing:** everything is in `timeline.js`, in seconds. Each scene has its own
   `build*()` function; `cue(t, type)` drops a sound effect at the same moment.
 - **Friends in the Grove / montage:** the `FRIENDS` table (`appearsAt` > 0 means
