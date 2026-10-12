@@ -1,8 +1,12 @@
-# Grove demo video
+A 45-second demo/explainer plus a 15-second ad cut, each in three shapes — all rendered
+from the same timeline:
 
-A 45-second demo/explainer in two cuts: vertical 9:16 `grove-demo.mp4` (1080×1920, for
-Reels/TikTok/Shorts/Stories) and widescreen 16:9 `grove-demo-16x9.mp4` (1920×1080, for
-YouTube, the website, presentations). Both come from the same timeline. The app screens
+| | 45 s full | 15 s ad cut | Best for |
+|---|---|---|---|
+| 9:16 (1080×1920) | `grove-demo.mp4` | `grove-demo-15s.mp4` | Reels, TikTok, Shorts, Stories |
+| 16:9 (1920×1080) | `grove-demo-16x9.mp4` | `grove-demo-16x9-15s.mp4` | YouTube, website, presentations |
+| 1:1 (1080×1080) | `grove-demo-1x1.mp4` | `grove-demo-1x1-15s.mp4` | Instagram/Facebook feed, LinkedIn, X |
+ The app screens
 are recreated in HTML/CSS from the real SwiftUI views (Theme palette, habitat
 gradients, rarity tints, catalog data, copy) and animated on a deterministic
 timeline, rendered frame by frame in headless Chromium, and scored with a
@@ -26,6 +30,15 @@ licenses require keeping the credit line on the end card (or in the post caption
 | 33–38.4s | Keep your streak alive 🔥 | Journal: field guide, streak ticks to 12, level/sparks, collection by rarity |
 | 38.5–45s | — | End card: icon, tagline, "Live camera only · You name every friend · No accounts", App Store badge, credits |
 
+## 15-second cut
+
+Six hard-cut segments of the full timeline (`SEGMENTS` in `timeline.js`) with their own,
+punchier captions (`#s0`–`#s4` in `index.html`): spot the fox → snap → *Name it. Earn
+sparks* (+120, 2× first find) → *It comes home to your Grove* → *Watch it fill with life*
+(montage, mythical eagle) → map → end card with the App Store badge. The background keeps
+running across cuts; sound effects inside each segment are carried over, with a swish at
+each cut, and `music.py … 15` scores it to length.
+
 ## Re-rendering
 
 Needs Node + Playwright (Chromium), Python 3 + numpy, and ffmpeg.
@@ -38,6 +51,12 @@ node render.mjs --landscape                    # → grove-demo-16x9-silent.mp4
 python3 music.py cues.json audio.wav           # → soundtrack, SFX synced to cues (shared by both cuts)
 ffmpeg -y -i grove-demo-silent.mp4 -i audio.wav -c:v copy -c:a aac -b:a 192k -shortest grove-demo.mp4
 ffmpeg -y -i grove-demo-16x9-silent.mp4 -i audio.wav -c:v copy -c:a aac -b:a 192k -shortest grove-demo-16x9.mp4
+
+# square: --square; 15-second cut: --short (combine with --landscape / --square)
+node render.mjs --square                       # → grove-demo-1x1-silent.mp4
+node render.mjs --short                        # → grove-demo-15s-silent.mp4 + cues-15s.json
+python3 music.py cues-15s.json audio-15s.wav 15
+ffmpeg -y -i grove-demo-15s-silent.mp4 -i audio-15s.wav -c:v copy -c:a aac -b:a 192k -shortest grove-demo-15s.mp4
 ```
 
 Preview single frames without rendering the whole video:
@@ -50,6 +69,7 @@ node render.mjs --landscape --still 14.9 wide.png
 ## Editing
 
 - **Copy / captions / end card:** `index.html` (`#captions`, `#outro`).
+- **1:1 layout:** the `.square` CSS block in `index.html` + `SQUARE` floater positions.
 - **16:9 layout:** the `.landscape` CSS block in `index.html` (phone on the right, captions
   left-aligned on the left, chips in a row on the end card) plus the `LANDSCAPE` floater
   positions in `timeline.js`. Everything else is shared.

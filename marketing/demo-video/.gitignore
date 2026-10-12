@@ -4,3 +4,7 @@ grove-demo-silent.mp4
 audio.wav
 assets/.frames
 grove-demo-16x9-silent.mp4
+*-silent.mp4
+cues-15s.json
+audio-15s.wav
+*.log

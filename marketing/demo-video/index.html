@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
 <head>
-<script>if (/landscape/.test(location.search)) document.documentElement.classList.add('landscape');</script>
+<script>for (const m of ['landscape', 'square', 'short']) if (new RegExp(m).test(location.search)) document.documentElement.classList.add(m);</script>
 <meta charset="utf-8">
 <title>Grove Demo</title>
 <style>
@@ -219,6 +219,31 @@ body {
 .landscape .foot { margin-top: 44px; }
 .landscape .foot img { height: 104px; }
 .landscape .credits { left: 160px; right: 160px; bottom: 26px; font-size: 16px; }
+
+/* ---------- 1:1 layout (index.html?square) ---------- */
+.square { --S: 0.95; }
+.square, .square body { width: 1080px; height: 1080px; }
+.square .b1 { left: -260px; top: -200px; } .square .b2 { right: -220px; top: 380px; }
+.square .b3 { left: -200px; top: 700px; } .square .b4 { right: -140px; top: -180px; }
+.square #phoneWrap { left: 343px; top: 238px; width: 394px; height: 825px; }
+.square #captions { top: 18px; height: 210px; }
+.square .cap { height: 210px; font-size: 60px; left: 40px; right: 40px; }
+.square .wordmark { font-size: 140px; margin-top: 26px; }
+.square .tagline { font-size: 44px; }
+.square #outro { padding-bottom: 90px !important; }
+.square #outro .appicon { width: 150px !important; height: 150px !important; border-radius: 34px !important; }
+.square #outro .wordmark { font-size: 100px !important; margin-top: 16px; }
+.square #outro .tagline { font-size: 36px; margin-top: 10px; }
+.square .chips { gap: 12px; margin-top: 30px; }
+.square .chip { font-size: 28px; padding: 11px 26px; }
+.square .foot { margin-top: 30px; }
+.square .foot img { height: 90px; }
+.square .credits { left: 50px; right: 50px; bottom: 16px; font-size: 14px; }
+
+/* ---------- 15-second cut ---------- */
+.scap { display: none; }
+.short .scap { display: flex; }
+.short .cap:not(.scap) { display: none; }
 </style>
 </head>
 <body>
@@ -240,6 +265,12 @@ body {
     <div class="cap" id="c5"><div>Keep exploring.<br>Watch it <em>fill with life</em></div></div>
     <div class="cap" id="c6"><div>Remember<br><em>where you met</em> <span class="emoji">🗺️</span></div></div>
     <div class="cap" id="c7"><div>Keep your <em>streak</em><br>alive <span class="emoji">🔥</span></div></div>
+    <!-- 15-second cut (index.html?short) -->
+    <div class="cap scap" id="s0"><div>Spot a <em>friend</em><br>out in the wild</div></div>
+    <div class="cap scap" id="s1"><div>Name it. Earn<br><em>sparks</em> <span class="emoji">✨</span></div></div>
+    <div class="cap scap" id="s2"><div>It comes <em>home</em><br>to your Grove</div></div>
+    <div class="cap scap" id="s3"><div>Watch it<br><em>fill with life</em></div></div>
+    <div class="cap scap" id="s4"><div>Remember<br><em>where you met</em> <span class="emoji">🗺️</span></div></div>
   </div>
 
   <div id="phoneWrap"><div id="phone"><div id="screen">

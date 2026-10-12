@@ -3,12 +3,14 @@
 // renderer can seek to any frame with `window.seek(seconds)`.
 
 const LANDSCAPE = document.documentElement.classList.contains('landscape');
+const SQUARE = document.documentElement.classList.contains('square');
 const S = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--S')); // phone points → video pixels
 const DURATION = 45;
 const SNAP = 7.3;              // shutter moment (viewfinder freezes here)
 const pending = [];             // image decodes the current frame must wait for
 const $ = (s, root = document) => root.querySelector(s);
 const hooks = [];
+const floatAnims = [];
 const CUES = [];                // sound-effect cues, read by the audio mixer
 const cue = (t, type, extra = {}) => CUES.push({ t, type, ...extra });
 
@@ -82,14 +84,16 @@ function build() {
 
   // ---------- floaters ----------
   const floatEm = ['🦊', '🐿️', '🦆', '🦉', '🐰', '🦋', '🐢', '🐝', '🐸', '🦔', '🐞', '🦅', '🐱', '🦝'];
-  const spots = LANDSCAPE
+  const spots = SQUARE
+    ? [[40, 300], [960, 300], [40, 560], [970, 560], [60, 820], [950, 820], [200, 980], [840, 990], [120, 1000], [900, 140], [520, 1000], [60, 120], [720, 1000], [980, 120]]
+    : LANDSCAPE
     ? [[50, 150], [1090, 110], [40, 520], [1100, 470], [60, 860], [1090, 840], [1760, 130], [1790, 470], [1770, 820], [880, 900], [560, 70], [300, 930], [1830, 960], [360, 60]]
     : [[60, 420], [930, 470], [40, 760], [960, 820], [70, 1120], [940, 1180], [30, 1460], [960, 1520], [80, 1780], [920, 1830], [210, 180], [840, 150], [500, 1790], [120, 300]];
   spots.forEach(([x, y], i) => {
     const f = html(`<div class="floater emoji" style="left:${x}px;top:${y}px;font-size:${54 + (i % 3) * 10}px">${floatEm[i]}</div>`);
     $('#floaters').appendChild(f);
-    f.animate([{ transform: 'translateY(-16px) rotate(-7deg)' }, { transform: 'translateY(16px) rotate(7deg)' }],
-      { duration: 2600 + (i % 4) * 500, delay: -i * 410, iterations: Infinity, direction: 'alternate', easing: EASE.inout });
+    floatAnims.push(f.animate([{ transform: 'translateY(-16px) rotate(-7deg)' }, { transform: 'translateY(16px) rotate(7deg)' }],
+      { duration: 2600 + (i % 4) * 500, delay: -i * 410, iterations: Infinity, direction: 'alternate', easing: EASE.inout }));
   });
   // keep the caption band clean once captions start
   A($('#floaters').children[10], [{ opacity: .5 }, { opacity: 0 }], 3.2, .5);
@@ -97,7 +101,7 @@ function build() {
   A($('#floaters').children[13], [{ opacity: .5 }, { opacity: 0 }], 3.2, .5);
   A([$('#floaters').children[10], $('#floaters').children[11], $('#floaters').children[13]], [{ opacity: 0 }, { opacity: .5 }], 38.9, .8);
   // clear the floaters that would sit on the end card's tagline and credits
-  A((LANDSCAPE ? [4, 5, 9, 11, 12, 0, 1, 3] : [3, 8, 9, 12]).map(i => $('#floaters').children[i]), [{ opacity: .5 }, { opacity: 0 }], 38.6, .6);
+  A((SQUARE ? [2, 3, 4, 5, 6, 7, 8, 10, 12] : LANDSCAPE ? [4, 5, 9, 11, 12, 0, 1, 3] : [3, 8, 9, 12]).map(i => $('#floaters').children[i]), [{ opacity: .5 }, { opacity: 0 }], 38.6, .6);
 
   // ---------- intro ----------
   const [icon, word, tag] = $('#intro').children;
@@ -539,6 +543,35 @@ window.seek = t => {
   hooks.forEach(h => h(t));
   return Promise.all(pending.splice(0));
 };
+
+// ============================================================ 15-second cut
+// Six hard-cut segments of the master timeline, [masterStart, masterEnd], with
+// their own captions (#s0–#s4). The background keeps running on short-cut time
+// so nothing behind the phone jumps at the cuts.
+const SEGMENTS = [[4.6, 8.6], [12.8, 15.0], [18.2, 20.2], [25.6, 27.6], [29.6, 31.2], [40.2, 43.4]];
+const SHORT_DURATION = SEGMENTS.reduce((d, [a, b]) => d + b - a, 0);
+function shortToMaster(t) {
+  let acc = 0;
+  for (const [a, b] of SEGMENTS) { if (t < acc + (b - a) || b === SEGMENTS.at(-1)[1]) return Math.min(b, a + t - acc); acc += b - a; }
+}
+function shortCaptions(t) {
+  let acc = 0;
+  SEGMENTS.slice(0, 5).forEach(([a, b], i) => {
+    const t0 = acc, t1 = acc + (b - a), el = $('#s' + i);
+    const inP = i === 0 ? 1 : easeOut((t - t0) / .35), outP = i === 4 ? Math.min(1, Math.max(0, (t - t1 + .25) / .25)) : (t >= t1 ? 1 : 0);
+    const on = t >= t0 && t < t1 + (i === 4 ? 0 : 0);
+    el.style.opacity = on ? Math.max(0, inP - outP) : 0;
+    el.style.transform = `translateY(${(1 - inP) * 24}px)`;
+    acc = t1;
+  });
+}
+window.seekShort = t => {
+  const done = window.seek(shortToMaster(t));
+  floatAnims.forEach(a => { a.currentTime = t * 1000; });
+  shortCaptions(t);
+  return done;
+};
+window.SHORT = { duration: SHORT_DURATION, segments: SEGMENTS };
 window.DURATION = DURATION;
 window.CUES = CUES;
 

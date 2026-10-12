@@ -8,7 +8,9 @@ import json, sys, wave
 import numpy as np
 
 SR = 44100
-DUR = 45.0
+# usage: music.py cues.json out.wav [duration]   (45 = full cut, 15 = short cut)
+DUR = float(sys.argv[3]) if len(sys.argv) > 3 else 45.0
+SHORT = DUR < 30
 N = int(SR * DUR)
 rng = np.random.default_rng(3)
 music = np.zeros((N, 2))
@@ -131,8 +133,8 @@ MEL = [
     [7, None, 6, 5, None, 4, 3, None], [2, None, 3, 1, None, 0, None, None],
 ]
 
-START = 3.45          # band kicks in with the phone
-END_MUSIC = 41.0      # final chord
+START = 0.0 if SHORT else 3.45      # band kicks in with the phone
+END_MUSIC = DUR - (2.6 if SHORT else 4.0)   # final chord rings under the end card
 bar_t = START
 bar = 0
 while bar_t < END_MUSIC - 0.01:
@@ -148,24 +150,25 @@ while bar_t < END_MUSIC - 0.01:
         for k, m in enumerate(CHORDS[ci]):
             place(music, bar_t + b * BEAT + k * .018, pluck(hz(m + 12), 1.3, .3), .07, pan=-.3)
     # melody (enters bar 2)
-    if bar >= 1:
+    if bar >= (0 if SHORT else 1):
         for k, idx in enumerate(MEL[bar % 8]):
             if idx is not None:
                 place(music, bar_t + k * BEAT / 2, pluck(hz(SCALE[idx]), 1.4, .6), .16, pan=.25)
                 place(music, bar_t + k * BEAT / 2, marimba(hz(SCALE[idx] + 12), .5), .03, pan=.25)
     # shaker on the off-beats
-    if bar >= 1:
+    if bar >= (0 if SHORT else 1):
         for k in range(8):
             g = .035 if k % 2 else .015
             place(music, bar_t + k * BEAT / 2, noise_burst(.07, .6, .04), g, pan=.4)
     bar += 1
     bar_t += BAR
 
-# intro: a soft rising arpeggio under the logo
-for k, m in enumerate([65, 69, 72, 77, 81]):
-    place(music, .25 + k * .22, bell(hz(m), 1.8), .09, pan=-.4 + k * .2)
-for m in CHORDS[0]:
-    place(music, 0.0, pad_note(hz(m), 3.8), .04)
+# intro: a soft rising arpeggio under the logo (full cut only)
+if not SHORT:
+    for k, m in enumerate([65, 69, 72, 77, 81]):
+        place(music, .25 + k * .22, bell(hz(m), 1.8), .09, pan=-.4 + k * .2)
+    for m in CHORDS[0]:
+        place(music, 0.0, pad_note(hz(m), 3.8), .04)
 
 # outro: final F chord ringing out + sparkle
 for k, m in enumerate([53, 57, 60, 65, 69, 72, 77]):
@@ -173,7 +176,7 @@ for k, m in enumerate([53, 57, 60, 65, 69, 72, 77]):
 for m in [53, 57, 60]:
     place(music, END_MUSIC - BAR, pad_note(hz(m), 6.5), .05)
 for k, m in enumerate([77, 81, 84, 89]):
-    place(music, 39.0 + k * .12, bell(hz(m), 2.0), .06, pan=.2)
+    place(music, (DUR - 3.0 if SHORT else 39.0) + k * .12, bell(hz(m), 2.0), .06, pan=.2)
 
 # ---------------------------------------------------------------- sfx
 cues = json.load(open(sys.argv[1] if len(sys.argv) > 1 else 'cues.json'))
