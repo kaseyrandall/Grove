@@ -23,7 +23,7 @@ licenses require keeping the credit line on the end card (or in the post caption
 
 | Time | Caption | On screen |
 |------|---------|-----------|
-| 0–3.4s | — | App icon, "Grove", tagline |
+| 0–3.4s | — | App icon, "Grove", "Snap a friend. Grow your grove." |
 | 3.4–8.5s | Spot a friend out in the wild | Camera: real footage of a fox kit turning to look at you, tap to focus, **Snap!** |
 | 8.7–12.8s | Snap it, then name it yourself | Mystery Friend + animal confetti → *Choose your friend* → search "fox" → pick Fox |
 | 13–16.6s | First find? Double sparks ✨ | Fox · 💜 Seldom seen · Woods · **+120 sparks · 2× first find!** · 🎖 Lucky Day |
@@ -31,14 +31,15 @@ licenses require keeping the credit line on the end card (or in the post caption
 | 22.4–28.1s | Keep exploring. Watch it fill with life | Six more friends pop into their zones, ending with a 💛 Almost mythical eagle |
 | 28.3–32.8s | Remember where you met 🗺️ | Discovery Map: 18 rarity-colored pins drop in |
 | 33–38.4s | Keep your streak alive 🔥 | Journal: field guide, streak ticks to 12, level/sparks, collection by rarity |
-| 38.5–45s | — | End card: icon, tagline, "Live camera only · You name every friend · No accounts", App Store badge, credits |
+| 38.5–45s | — | End card: icon, tagline, "60+ friends to find" + "No account, no ads, no tracking", App Store badge (+ QR code in 16:9), credits |
 
 ## 15-second cut
 
 Six hard-cut segments of the full timeline (`SEGMENTS` in `timeline.js`) with their own,
 punchier captions (`#s0`–`#s4` in `index.html`): spot the fox → snap → *Name it. Earn
 sparks* (+120, 2× first find) → *It comes home to your Grove* → *Watch it fill with life*
-(montage, mythical eagle) → map → end card with the App Store badge. The background keeps
+(montage, mythical eagle) → map → end card with the App Store badge and a single value
+prop, "No account · no ads · no tracking". The background keeps
 running across cuts; sound effects inside each segment are carried over, with a swish at
 each cut, and `music.py … 15` scores it to length.
 
@@ -71,7 +72,12 @@ node render.mjs --landscape --still 14.9 wide.png
 
 ## Editing
 
-- **Copy / captions / end card:** `index.html` (`#captions`, `#outro`).
+- **Copy / captions / end card:** `index.html` (`#captions`, `#outro`). The tagline and value
+  props match grovegame.app: "Snap a friend. Grow your grove." · "60+ friends to find" ·
+  "No account, no ads, no tracking" (the 15 s cut shows only the last, via `.chip.shortonly`).
+- **QR code:** `assets/app-store-qr.svg` → `https://apps.apple.com/app/id6807932841` (redirects
+  to the listing in every storefront). Shown on 16:9 end cards only. Regenerate with any QR
+  tool (error correction M) if the link changes, and check it decodes from a rendered frame.
 - **1:1 layout:** the `.square` CSS block in `index.html` + `SQUARE` floater positions.
 - **16:9 layout:** the `.landscape` CSS block in `index.html` (phone on the right, captions
   left-aligned on the left, chips in a row on the end card) plus the `LANDSCAPE` floater

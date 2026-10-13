@@ -39,6 +39,10 @@ From research-grade [iNaturalist](https://www.inaturalist.org) observations, cro
 Apple's marketing resources. Use it unmodified, keep clear space around it, and don't place it more prominently
 than the app itself. Apple, the Apple logo and App Store are trademarks of Apple Inc.
 
+## QR code
+
+`assets/app-store-qr.svg` encodes Grove's own App Store link (generated with segno).
+
 ## Everything else
 
 App icon, UI recreation, motion design and soundtrack (synthesized in `music.py`) are original to Grove.

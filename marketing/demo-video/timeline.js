@@ -528,7 +528,7 @@ function buildOutro() {
   A(tag, [{ opacity: 0, transform: 'translateY(30px)' }, { opacity: 1, transform: 'translateY(0)' }], 39.7, .7, 'soft');
   chips.style.opacity = 1;
   A(chips, [{ opacity: 0 }, { opacity: 1 }], 0, .01);
-  Array.from(chips.children).forEach((c, i) => {
+  Array.from(chips.children).filter(c => getComputedStyle(c).display !== 'none').forEach((c, i) => {
     A(c, [{ opacity: 0, transform: 'translateY(26px) scale(.9)' }, { opacity: 1, transform: 'translateY(0) scale(1)' }], 40.3 + i * .3, .6, 'bouncy');
     cue(40.3 + i * .3, 'tick');
   });

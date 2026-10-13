@@ -51,7 +51,10 @@ body {
 .chips { display: flex; flex-direction: column; align-items: center; gap: 22px; margin-top: 70px; }
 .chip { font-size: 40px; font-weight: 800; background: #fff; border-radius: 999px; padding: 18px 38px; box-shadow: 0 10px 26px rgba(74,68,88,.1); opacity: 0; }
 .foot { margin-top: 64px; }
-.foot img { display: block; height: 128px; width: auto; }
+.foot img.badge { display: block; height: 128px; width: auto; }
+.chip.shortonly, .qr { display: none; }
+.short .chip.full { display: none; }
+.short .chip.shortonly { display: block; }
 .credits { position: absolute; left: 60px; right: 60px; bottom: 36px; font-size: 17px; line-height: 1.4; font-weight: 600; color: rgba(74,68,88,.5); text-align: center; }
 
 /* phone */
@@ -217,7 +220,13 @@ body {
 .landscape .chips { flex-direction: row; gap: 18px; margin-top: 44px; }
 .landscape .chip { font-size: 30px; padding: 14px 28px; }
 .landscape .foot { margin-top: 44px; }
-.landscape .foot img { height: 104px; }
+.landscape .foot { display: flex; align-items: center; gap: 40px; }
+.landscape .foot img.badge { height: 104px; }
+/* QR to the App Store listing — 16:9 only, since that cut is watched on a screen other than your phone */
+.landscape .qr { display: flex; align-items: center; gap: 16px; }
+.landscape .qrcard { background: #fff; border-radius: 18px; padding: 15px; box-shadow: 0 8px 20px rgba(74,68,88,.12); }
+.landscape .qrcard img { display: block; width: 116px; height: 116px; }
+.landscape .qr span { font-size: 24px; font-weight: 800; color: rgba(74,68,88,.6); width: 120px; line-height: 1.15; }
 .landscape .credits { left: 160px; right: 160px; bottom: 26px; font-size: 16px; }
 
 /* ---------- 1:1 layout (index.html?square) ---------- */
@@ -237,7 +246,7 @@ body {
 .square .chips { gap: 12px; margin-top: 30px; }
 .square .chip { font-size: 28px; padding: 11px 26px; }
 .square .foot { margin-top: 30px; }
-.square .foot img { height: 90px; }
+.square .foot img.badge { height: 90px; }
 .square .credits { left: 50px; right: 50px; bottom: 16px; font-size: 14px; }
 
 /* ---------- 15-second cut ---------- */
@@ -254,7 +263,7 @@ body {
   <div id="intro" class="center-col" style="padding-bottom: 120px">
     <div class="appicon"><img src="icon.png"></div>
     <div class="wordmark">Grove</div>
-    <div class="tagline">Grow a place full of the life you've met.</div>
+    <div class="tagline">Snap a friend. Grow your grove.</div>
   </div>
 
   <div id="captions">
@@ -396,13 +405,14 @@ body {
   <div id="outro" class="center-col" style="padding-bottom: 60px">
     <div class="appicon" style="width:260px; height:260px; border-radius:58px"><img src="icon.png"></div>
     <div class="wordmark" style="font-size:150px">Grove</div>
-    <div class="tagline">Grow a place full of the life you've met.</div>
+    <div class="tagline">Snap a friend. Grow your grove.</div>
     <div class="chips">
-      <div class="chip"><span class="emoji">📸</span> Live camera only. Real moments.</div>
-      <div class="chip"><span class="emoji">🏷️</span> You name every friend</div>
-      <div class="chip"><span class="emoji">🔒</span> No accounts. Private by design.</div>
+      <div class="chip full"><span class="emoji">🦊</span> 60+ friends to find</div>
+      <div class="chip full"><span class="emoji">🔒</span> No account, no ads, no tracking</div>
+      <div class="chip shortonly"><span class="emoji">🔒</span> No account · no ads · no tracking</div>
     </div>
-    <div class="foot"><img src="assets/app-store-badge.svg" alt="Download on the App Store"></div>
+    <div class="foot"><img class="badge" src="assets/app-store-badge.svg" alt="Download on the App Store">
+      <div class="qr"><div class="qrcard"><img src="assets/app-store-qr.svg" alt=""></div><span>Scan to download</span></div></div>
     <div class="credits" id="creditsLine">Fox footage: Alexis Lours, CC BY 4.0, via Wikimedia Commons. Wildlife photos via iNaturalist, CC BY: Afsar Nayakkan, Mila C., Seth Wollney, ecovore, Hungry-Sarracenia Photo, Megan, naturewatchwidow, Lauren McLaurin, Sandy Wolkenberg, Gavin Slater, Troy B, Brooke J., nbasargin, Justin Flint. Cat &amp; mouse photos CC0. Apple, the Apple logo and App Store are trademarks of Apple Inc.</div>
   </div>
 </div>
