@@ -5,14 +5,17 @@ import SwiftData
 /// catalog `Species` (Cat, Fox…) that gives it art, rarity, and lore, but each
 /// catch is its own friend you can name, place, and release. Player stats
 /// (sparks, level, counts) are all derived from the set of `Catch` records.
+///
+/// Every stored property is optional or has a default here (not just in
+/// `init`): iCloud sync requires it. Defaults don't change the store's schema.
 @Model
 final class Catch {
     /// Stable id of the matched `Species` — this friend's *kind*.
-    var speciesID: String
-    var caughtAt: Date
-    var sparksEarned: Int
+    var speciesID: String = Species.mystery.id
+    var caughtAt: Date = Date.now
+    var sparksEarned: Int = 0
     /// True if this was the first friend of its kind the player met (spark bonus).
-    var isFirstSighting: Bool
+    var isFirstSighting: Bool = false
 
     /// A personal nickname the player gave this individual friend.
     var nickname: String?

@@ -13,23 +13,38 @@ struct GroveApp: App {
 
     init() {
         let schema = Schema(versionedSchema: GroveCurrentSchema.self)
-        let config = ModelConfiguration(schema: schema)
+        container = Self.makeContainer(schema: schema)
+        ProfileSync.shared.start()
+    }
+
+    /// The Grove's store. With the iCloud capability on, `.automatic` keeps it
+    /// in the player's private iCloud so it survives a reinstall or a new
+    /// phone; without it, it's an ordinary on-device store.
+    ///
+    /// If iCloud can't be used (say the store's format and iCloud disagree),
+    /// fall back to the same file on-device only, so nothing the player does is
+    /// lost. Only if even that fails do we open a temporary in-memory Grove,
+    /// rather than crash on launch.
+    private static func makeContainer(schema: Schema) -> ModelContainer {
         do {
-            container = try ModelContainer(for: schema,
-                                           migrationPlan: GroveMigrationPlan.self,
-                                           configurations: config)
+            let synced = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)
+            return try ModelContainer(for: schema, migrationPlan: GroveMigrationPlan.self,
+                                      configurations: synced)
         } catch {
-            // Never crash a player into a broken launch. In development we want
-            // to see the failure loudly; in a shipped build we fall back to a
-            // temporary in-memory store so the app still opens. (The store file
-            // is left untouched, so a fixed build can read it again.)
-            assertionFailure("Persistent ModelContainer failed: \(error)")
-            do {
-                let memory = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
-                container = try ModelContainer(for: schema, configurations: memory)
-            } catch {
-                fatalError("Could not create even an in-memory ModelContainer: \(error)")
-            }
+            assertionFailure("iCloud-backed ModelContainer failed: \(error)")
+        }
+        do {
+            let local = ModelConfiguration(schema: schema, cloudKitDatabase: .none)
+            return try ModelContainer(for: schema, migrationPlan: GroveMigrationPlan.self,
+                                      configurations: local)
+        } catch {
+            assertionFailure("On-device ModelContainer failed: \(error)")
+        }
+        do {
+            let memory = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+            return try ModelContainer(for: schema, configurations: memory)
+        } catch {
+            fatalError("Could not create even an in-memory ModelContainer: \(error)")
         }
     }
 
