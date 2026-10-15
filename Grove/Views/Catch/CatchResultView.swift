@@ -67,7 +67,8 @@ struct CatchResultView: View {
                 } else {
                     VStack(spacing: 0) {
                         ScrollView {
-                            VStack(spacing: 18) {
+                            // Roomy: the photo, name and cards each get a beat.
+                            VStack(spacing: 28) {
                                 headline
 
                                 // Full width, like the friend page, now the
@@ -121,10 +122,10 @@ struct CatchResultView: View {
     /// The friend's name — tap it to give them one — and, once named, its
     /// rarity. (The kind is on the Animal card below.)
     private var nameBlock: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 12) {
             RenamableName(friend: result.record, isRenaming: $isRenaming, fontSize: 30)
             if !isMystery {
-                RarityBadge(rarity: species.rarity)
+                RarityBadge(rarity: species.rarity, large: true)
             }
         }
     }

@@ -36,12 +36,15 @@ struct BouncyButtonStyle: ButtonStyle {
 /// A small pill showing a rarity, e.g. "💎 Rare".
 struct RarityBadge: View {
     let rarity: Rarity
+    /// A bigger badge for a screen's headline moment (the catch celebration).
+    var large = false
+
     var body: some View {
         Text("\(rarity.badge) \(rarity.title)")
-            .font(.system(.caption, design: .rounded, weight: .bold))
+            .font(.system(large ? .subheadline : .caption, design: .rounded, weight: .bold))
             .foregroundStyle(Theme.ink)
-            .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.horizontal, large ? 16 : 12)
+            .padding(.vertical, large ? 8 : 6)
             .background(Capsule().fill(rarity.tint))
     }
 }
