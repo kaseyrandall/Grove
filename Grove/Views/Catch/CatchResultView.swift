@@ -28,6 +28,13 @@ struct CatchResultView: View {
     /// Drives the push to the full, searchable catalog.
     @State private var showPicker = false
 
+    /// The open Duo in landscape: the photo stays on the left page while you
+    /// choose who it is (and where it lives) on the right.
+    @Environment(\.groveIsSpread) private var isSpread
+    @Environment(\.groveFoldX) private var foldX
+    /// The spread's inline field-guide search.
+    @State private var query = ""
+
     init(result: CatchResult, onDone: @escaping () -> Void = {}) {
         self.result = result
         self.onDone = onDone
@@ -48,41 +55,35 @@ struct CatchResultView: View {
 
                 Confetti(themeEmoji: isMystery ? nil : species.emoji)
 
-                VStack(spacing: 0) {
-                    ScrollView {
-                        VStack(spacing: 18) {
-                            Text(isFirst ? "A new friend found your Grove!" : "Another friend found your Grove!")
-                                .font(.system(.headline, design: .rounded, weight: .bold))
-                                .foregroundStyle(Theme.ink.opacity(0.7))
-                                .multilineTextAlignment(.center)
+                if isSpread {
+                    spreadLayout
+                } else {
+                    VStack(spacing: 0) {
+                        ScrollView {
+                            VStack(spacing: 18) {
+                                headline
 
-                            photo
+                                photo(width: 260)
 
-                            VStack(spacing: 8) {
-                                Text(species.name)
-                                    .font(.system(size: 30, weight: .heavy, design: .rounded))
-                                    .foregroundStyle(Theme.ink)
-                                if !isMystery {
-                                    RarityBadge(rarity: species.rarity)
+                                nameBlock
+
+                                identifySection
+
+                                zonePicker
+
+                                sparksCard
+
+                                if !achievements.isEmpty {
+                                    achievementsUnlocked
                                 }
                             }
-
-                            identifySection
-
-                            zonePicker
-
-                            sparksCard
-
-                            if !achievements.isEmpty {
-                                achievementsUnlocked
-                            }
+                            .padding()
                         }
-                        .padding()
-                    }
 
-                    actionButtons
-                        .padding([.horizontal, .bottom])
-                        .padding(.top, 4)
+                        actionButtons
+                            .padding([.horizontal, .bottom])
+                            .padding(.top, 4)
+                    }
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
@@ -97,6 +98,142 @@ struct CatchResultView: View {
         .onAppear {
             withAnimation(.spring(response: 0.5, dampingFraction: 0.55)) {
                 popped = true
+            }
+        }
+    }
+
+    private var headline: some View {
+        Text(isFirst ? "A new friend found your Grove!" : "Another friend found your Grove!")
+            .font(.system(.headline, design: .rounded, weight: .bold))
+            .foregroundStyle(Theme.ink.opacity(0.7))
+            .multilineTextAlignment(.center)
+    }
+
+    private var nameBlock: some View {
+        VStack(spacing: 8) {
+            Text(species.name)
+                .font(.system(size: 30, weight: .heavy, design: .rounded))
+                .foregroundStyle(Theme.ink)
+            if !isMystery {
+                RarityBadge(rarity: species.rarity)
+            }
+        }
+    }
+
+    // MARK: Spread (the open Duo in landscape)
+
+    /// The photo, name, sparks and any new badges on the left page; choosing
+    /// who it is — right there in the field guide — and where it lives on the
+    /// right, with Done at the bottom.
+    private var spreadLayout: some View {
+        GeometryReader { geo in
+            let pages = DuoSpread.pageWidths(in: geo.frame(in: .global), foldX: foldX,
+                                             leading: 24, trailing: 24)
+            HStack(alignment: .top, spacing: DuoSpread.foldGutter * 2) {
+                ScrollView {
+                    VStack(spacing: 18) {
+                        headline
+                        photo(width: min(pages.leading, 420) - 12)
+                        nameBlock
+                        sparksCard
+                        if !achievements.isEmpty {
+                            achievementsUnlocked
+                        }
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 20)
+                }
+                .frame(width: pages.leading)
+
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(isMystery ? "What did you find?" : "Not a \(species.name)? Choose another")
+                        .font(.system(.title3, design: .rounded, weight: .bold))
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.8)
+                    searchField
+                    ScrollView { inlinePicker }
+                    spreadZonePicker
+                    actionButtons
+                }
+                .padding(.vertical, 20)
+                .frame(width: pages.trailing)
+            }
+            .padding(.horizontal, 24)
+            .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
+        }
+    }
+
+    private var searchField: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "magnifyingglass")
+                .foregroundStyle(Theme.ink.opacity(0.4))
+            TextField("Search the field guide", text: $query)
+                .font(.system(.body, design: .rounded))
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(.white))
+    }
+
+    /// The field guide, right on the page: tap a friend to name your find.
+    @ViewBuilder private var inlinePicker: some View {
+        let results = CreatureCatalog.matching(query)
+        if results.isEmpty {
+            Text("No animals match “\(query.trimmingCharacters(in: .whitespaces))”.")
+                .font(.system(.subheadline, design: .rounded))
+                .foregroundStyle(Theme.ink.opacity(0.5))
+                .frame(maxWidth: .infinity)
+                .padding(.top, 30)
+        } else {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 76), spacing: 8)], spacing: 8) {
+                ForEach(results) { candidate in
+                    let chosen = candidate.id == species.id
+                    Button {
+                        guard !chosen else { return }
+                        correct(to: candidate)
+                    } label: {
+                        VStack(spacing: 4) {
+                            Text(candidate.emoji).font(.system(size: 28))
+                            Text(candidate.name)
+                                .font(.system(.caption, design: .rounded, weight: .semibold))
+                                .foregroundStyle(Theme.ink)
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.75)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .padding(.horizontal, 4)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(chosen ? Theme.accent.opacity(0.14) : .white)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .stroke(chosen ? Theme.accent : Theme.ink.opacity(0.08),
+                                        lineWidth: chosen ? 2.5 : 1)
+                        )
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityAddTraits(chosen ? .isSelected : [])
+                }
+            }
+            .padding(2)
+        }
+    }
+
+    /// The zones as a wrapping grid (there's room on the spread for all eight).
+    private var spreadZonePicker: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Found in your…")
+                .font(.system(.caption, design: .rounded, weight: .semibold))
+                .foregroundStyle(Theme.ink.opacity(0.55))
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 8)], spacing: 8) {
+                ForEach(Habitat.ordered) { habitat in
+                    zoneChip(habitat)
+                }
             }
         }
     }
@@ -136,9 +273,9 @@ struct CatchResultView: View {
 
     // MARK: Photo
 
-    private var photo: some View {
+    private func photo(width: CGFloat) -> some View {
         FriendPhoto(image: result.image, framing: result.record.framing)
-            .frame(width: 260, height: 260 / Theme.photoAspectRatio) // shared 4:3 shape
+            .frame(width: width, height: width / Theme.photoAspectRatio) // shared 4:3 shape
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
@@ -273,24 +410,28 @@ struct CatchResultView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
                     ForEach(Habitat.ordered) { habitat in
-                        Button { setZone(habitat) } label: {
-                            Text("\(habitat.emoji) \(habitat.shortName)")
-                                .font(.system(.caption, design: .rounded, weight: .semibold))
-                                .foregroundStyle(Theme.ink)
-                                .padding(.horizontal, 12)
-                                .padding(.vertical, 8)
-                                .background(
-                                    Capsule().fill(zone == habitat ? habitat.gradient
-                                                   : LinearGradient(colors: [.white, .white], startPoint: .top, endPoint: .bottom))
-                                )
-                                .overlay(Capsule().stroke(zone == habitat ? Theme.accent : Theme.ink.opacity(0.1), lineWidth: 1.5))
-                        }
-                        .buttonStyle(.plain)
+                        zoneChip(habitat)
                     }
                 }
                 .padding(.horizontal, 4)
             }
         }
+    }
+
+    private func zoneChip(_ habitat: Habitat) -> some View {
+        Button { setZone(habitat) } label: {
+            Text("\(habitat.emoji) \(habitat.shortName)")
+                .font(.system(.caption, design: .rounded, weight: .semibold))
+                .foregroundStyle(Theme.ink)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 8)
+                .background(
+                    Capsule().fill(zone == habitat ? habitat.gradient
+                                   : LinearGradient(colors: [.white, .white], startPoint: .top, endPoint: .bottom))
+                )
+                .overlay(Capsule().stroke(zone == habitat ? Theme.accent : Theme.ink.opacity(0.1), lineWidth: 1.5))
+        }
+        .buttonStyle(.plain)
     }
 
     private func setZone(_ habitat: Habitat) {

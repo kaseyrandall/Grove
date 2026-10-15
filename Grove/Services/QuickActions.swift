@@ -47,8 +47,9 @@ final class QuickActionRouter: ObservableObject {
     }
 }
 
-/// Minimal app delegate: registers the long-press menu and installs our scene
-/// delegate so warm-launch quick actions have somewhere to land.
+/// Minimal app delegate: registers the long-press menu, installs our scene
+/// delegate so warm-launch quick actions have somewhere to land, and keeps
+/// Grove portrait-only everywhere except the open iPhone Duo.
 final class AppDelegate: NSObject, UIApplicationDelegate {
     func application(
         _ application: UIApplication,
@@ -72,11 +73,37 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         config.delegateClass = SceneDelegate.self
         return config
     }
+
+    /// Info.plist allows landscape so the open iPhone Duo can lay Grove out as
+    /// a two-page spread; every smaller screen (other iPhones, the Duo's cover
+    /// display) stays portrait-only, as before.
+    func application(
+        _ application: UIApplication,
+        supportedInterfaceOrientationsFor window: UIWindow?
+    ) -> UIInterfaceOrientationMask {
+        guard let screen = window?.windowScene?.screen,
+              DuoSpread.allowsLandscape(screenSize: screen.bounds.size) else {
+            return .portrait
+        }
+        return .allButUpsideDown
+    }
 }
 
-/// Scene delegate whose only job is catching *warm* quick actions. It never
-/// touches the window — SwiftUI still owns and renders that.
+/// Scene delegate that catches *warm* quick actions and re-checks the allowed
+/// orientations when the scene moves between the Duo's displays. It never
+/// touches the window's content — SwiftUI still owns and renders that.
 final class SceneDelegate: NSObject, UIWindowSceneDelegate {
+    func windowScene(
+        _ windowScene: UIWindowScene,
+        didUpdate previousCoordinateSpace: UICoordinateSpace,
+        interfaceOrientation previousInterfaceOrientation: UIInterfaceOrientation,
+        traitCollection previousTraitCollection: UITraitCollection
+    ) {
+        // Opening or closing the Duo changes the screen under the scene; ask
+        // UIKit to query `supportedInterfaceOrientationsFor` again.
+        windowScene.keyWindow?.rootViewController?.setNeedsUpdateOfSupportedInterfaceOrientations()
+    }
+
     func windowScene(
         _ windowScene: UIWindowScene,
         performActionFor shortcutItem: UIApplicationShortcutItem,

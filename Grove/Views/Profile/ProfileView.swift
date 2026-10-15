@@ -12,6 +12,12 @@ struct ProfileView: View {
     @AppStorage("profileColorHex") private var profileColorHex = ProfileLookPicker.defaultColor
     @State private var showLookPicker = false
 
+    /// The open Duo in landscape: the menu on the left page, the chosen
+    /// section on the right.
+    @Environment(\.groveIsSpread) private var isSpread
+    @Environment(\.groveFoldX) private var foldX
+    @State private var section: ProfileSection = .achievements
+
     private var stats: PlayerStats { PlayerStats(catches: catches) }
 
     /// Marketing version (e.g. "1.0"), read from the bundle so it never goes stale.
@@ -24,30 +30,152 @@ struct ProfileView: View {
             ZStack {
                 Theme.background.ignoresSafeArea()
 
+                if isSpread {
+                    spreadLayout
+                } else {
+                    ScrollView {
+                        VStack(spacing: 20) {
+                            headerCard
+                            achievementsCard
+                            menuCard
+                            privacyCard
+                            #if DEBUG
+                            arenaCard
+                            developerCard
+                            #endif
+                            versionLabel
+                        }
+                        .padding()
+                    }
+                }
+            }
+            .clearsGroveTabBar()
+            .navigationTitle("Profile")
+            // The spread draws its own titles on each page.
+            .toolbar(isSpread ? .hidden : .automatic, for: .navigationBar)
+            #if DEBUG
+            // Test hooks: `-GroveProfileSection settings|about` opens that
+            // section; `-GroveOpenLook` opens Choose your look.
+            .onAppear {
+                let args = ProcessInfo.processInfo.arguments
+                if args.contains("-GroveOpenLook") { showLookPicker = true }
+                if let i = args.firstIndex(of: "-GroveProfileSection"), i + 1 < args.count {
+                    section = args[i + 1] == "settings" ? .settings : args[i + 1] == "about" ? .about : .achievements
+                }
+            }
+            #endif
+            .groveSheet(isPresented: $showLookPicker) {
+                ProfileLookPicker(emoji: $profileEmoji, colorHex: $profileColorHex)
+            }
+        }
+    }
+
+    private var versionLabel: some View {
+        Text("Grove \(appVersion)")
+            .font(.system(.caption2, design: .rounded))
+            .foregroundStyle(Theme.ink.opacity(0.35))
+            .padding(.top, 4)
+    }
+
+    // MARK: Spread (the open Duo in landscape)
+
+    /// Your profile and a menu on the left page; the chosen section opens on
+    /// the right — the list-and-detail layout Apple uses for Mail on the Duo.
+    /// Each page scrolls on its own.
+    private var spreadLayout: some View {
+        GeometryReader { geo in
+            let pages = DuoSpread.pageWidths(in: geo.frame(in: .global), foldX: foldX,
+                                             leading: 16, trailing: 16)
+            HStack(alignment: .top, spacing: DuoSpread.foldGutter * 2) {
                 ScrollView {
-                    VStack(spacing: 20) {
+                    VStack(alignment: .leading, spacing: 20) {
+                        spreadTitle("Profile")
                         headerCard
-                        achievementsCard
-                        menuCard
+                        sectionMenu
                         privacyCard
                         #if DEBUG
                         arenaCard
                         developerCard
                         #endif
-                        Text("Grove \(appVersion)")
-                            .font(.system(.caption2, design: .rounded))
-                            .foregroundStyle(Theme.ink.opacity(0.35))
-                            .padding(.top, 4)
+                        versionLabel
+                            .frame(maxWidth: .infinity)
                     }
-                    .padding()
-                    .padding(.bottom, Theme.tabBarClearance)
+                    .padding(.vertical)
                 }
+                .frame(width: pages.leading)
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        spreadTitle(section.title)
+                        switch section {
+                        case .achievements: AchievementsContent()
+                        case .settings:     SettingsContent(showsAbout: false)
+                        case .about:        AboutContent()
+                        }
+                    }
+                    .padding(.vertical)
+                }
+                .frame(width: pages.trailing)
             }
-            .navigationTitle("Profile")
-            .sheet(isPresented: $showLookPicker) {
-                ProfileLookPicker(emoji: $profileEmoji, colorHex: $profileColorHex)
-            }
+            .padding(.horizontal, 16)
+            .frame(width: geo.size.width, alignment: .topLeading)
         }
+    }
+
+    private func spreadTitle(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 30, weight: .heavy, design: .rounded))
+            .foregroundStyle(Theme.ink)
+    }
+
+    /// The left page's menu: picking a row opens that section on the right.
+    private var sectionMenu: some View {
+        let unlocked = AchievementCatalog.all.filter { $0.isUnlocked(stats) }.count
+        return VStack(spacing: 2) {
+            sectionRow(.achievements, icon: "medal.fill",
+                       subtitle: "\(unlocked) of \(AchievementCatalog.all.count) unlocked")
+            sectionRow(.settings, icon: "gearshape.fill", subtitle: nil)
+            sectionRow(.about, icon: "leaf.fill", subtitle: nil)
+        }
+        .padding(8)
+        .softCard()
+    }
+
+    private func sectionRow(_ row: ProfileSection, icon: String, subtitle: String?) -> some View {
+        let selected = section == row
+        return Button {
+            withAnimation(.easeInOut(duration: 0.2)) { section = row }
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: icon)
+                    .font(.system(size: 18))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(row.menuTitle)
+                        .font(.system(.body, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                    if let subtitle {
+                        Text(subtitle)
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundStyle(Theme.ink.opacity(0.6))
+                    }
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(selected ? Theme.accent : Theme.ink.opacity(0.25))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 12)
+            .background(
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(selected ? Theme.accent.opacity(0.12) : .clear)
+            )
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(selected ? .isSelected : [])
     }
 
     // MARK: Header
@@ -275,4 +403,27 @@ struct ProfileView: View {
         .modelContainer(for: Catch.self, inMemory: true)
         .tint(Theme.accent)
         .fontDesign(.rounded)
+}
+
+/// The sections the Profile spread can show on its right page.
+private enum ProfileSection {
+    case achievements, settings, about
+
+    /// The row's name in the menu.
+    var menuTitle: String {
+        switch self {
+        case .achievements: return "Achievements"
+        case .settings:     return "Settings & Preferences"
+        case .about:        return "About Grove"
+        }
+    }
+
+    /// The right page's title.
+    var title: String {
+        switch self {
+        case .achievements: return "Achievements"
+        case .settings:     return "Settings"
+        case .about:        return "About"
+        }
+    }
 }

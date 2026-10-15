@@ -27,28 +27,36 @@ struct GuideEntryView: View {
     private var isMystery: Bool { species.id == Species.mystery.id }
     private var heroImage: UIImage? { friend.photoData.flatMap(UIImage.init(data:)) }
 
+    /// The open Duo in landscape: the photo on the left page, the details on
+    /// the right.
+    @Environment(\.groveIsSpread) private var isSpread
+    @Environment(\.groveFoldX) private var foldX
+
     var body: some View {
         ZStack {
             Theme.background.ignoresSafeArea()
 
-            ScrollView {
-                VStack(spacing: 18) {
-                    hero
-                    nameBlock
-                    metaRow
-                    infoCard
-                    whereYouMetCard
-                    #if DEBUG
-                    arenaSection
-                    #endif
+            if isSpread {
+                spreadLayout
+            } else {
+                ScrollView {
+                    VStack(spacing: 18) {
+                        hero
+                        nameBlock
+                        metaRow
+                        infoCard
+                        whereYouMetCard
+                        #if DEBUG
+                        arenaSection
+                        #endif
+                    }
+                    .padding()
+                    // Tapping anywhere else finishes a rename.
+                    .contentShape(Rectangle())
+                    .onTapGesture { if isRenaming { commitRename() } }
                 }
-                .padding()
-                .padding(.bottom, Theme.tabBarClearance)
-                // Tapping anywhere else finishes a rename.
-                .contentShape(Rectangle())
-                .onTapGesture { if isRenaming { commitRename() } }
+                .scrollDismissesKeyboard(.immediately)
             }
-            .scrollDismissesKeyboard(.immediately)
         }
         .navigationTitle("\(species.emoji) \(species.name)")
         .navigationBarTitleDisplayMode(.inline)
@@ -76,7 +84,13 @@ struct GuideEntryView: View {
                 Button("Edit") { showEdit = true }
             }
         }
-        .sheet(isPresented: $showEdit) {
+        #if DEBUG
+        // Test hook: `-GroveOpenEdit` opens Edit on the first friend page shown.
+        .onAppear {
+            if ProcessInfo.processInfo.arguments.contains("-GroveOpenEdit") { showEdit = true }
+        }
+        #endif
+        .groveSheet(isPresented: $showEdit) {
             EditFriendView(friend: friend, onRelease: { wasReleased = true })
         }
         #if DEBUG
@@ -92,6 +106,42 @@ struct GuideEntryView: View {
                 try? context.save()
                 dismiss()
             }
+        }
+    }
+
+    // MARK: Spread (the open Duo in landscape)
+
+    /// The photo and name on the left page; the details and the map of where
+    /// you met on the right. Each page scrolls on its own.
+    private var spreadLayout: some View {
+        GeometryReader { geo in
+            let pages = DuoSpread.pageWidths(in: geo.frame(in: .global), foldX: foldX,
+                                             leading: 16, trailing: 16)
+            HStack(alignment: .top, spacing: DuoSpread.foldGutter * 2) {
+                ScrollView {
+                    VStack(spacing: 18) {
+                        hero
+                        nameBlock
+                    }
+                    .padding(.vertical)
+                }
+                .frame(width: pages.leading)
+
+                ScrollView {
+                    VStack(spacing: 18) {
+                        metaRow
+                        infoCard
+                        whereYouMetCard
+                        #if DEBUG
+                        arenaSection
+                        #endif
+                    }
+                    .padding(.vertical)
+                }
+                .frame(width: pages.trailing)
+            }
+            .padding(.horizontal, 16)
+            .frame(width: geo.size.width, alignment: .topLeading)
         }
     }
 

@@ -4,6 +4,27 @@ import SwiftData
 /// Preferences and app options. Kept intentionally small for now; grows as the
 /// app does (accounts, notifications, etc.).
 struct SettingsView: View {
+    var body: some View {
+        ZStack {
+            Theme.background.ignoresSafeArea()
+
+            ScrollView {
+                SettingsContent()
+                    .padding()
+            }
+        }
+        .navigationTitle("Settings")
+        .navigationBarTitleDisplayMode(.inline)
+        .groveTabBarHidden()
+    }
+}
+
+/// The settings themselves, shared by the Settings page and the Profile
+/// spread on the open iPhone Duo (where About has its own menu row, so its
+/// link here is left out).
+struct SettingsContent: View {
+    var showsAbout = true
+
     @AppStorage("hasCompletedOnboarding") private var hasOnboarded = false
     @AppStorage("hasSeenCatchCoachMark") private var hasSeenSnapCoach = false
     @AppStorage("hasSeenMeetCoach") private var hasSeenMeetCoach = false
@@ -19,23 +40,12 @@ struct SettingsView: View {
     @State private var showEraseConfirm = false
 
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
-
-            ScrollView {
-                VStack(spacing: 20) {
-                    preferencesCard
-                    introCard
-                    aboutCard
-                    dangerZone
-                }
-                .padding()
-                .padding(.bottom, Theme.tabBarClearance)
-            }
+        VStack(spacing: 20) {
+            preferencesCard
+            introCard
+            if showsAbout { aboutCard }
+            dangerZone
         }
-        .navigationTitle("Settings")
-        .navigationBarTitleDisplayMode(.inline)
-        .groveTabBarHidden()
         .alert("Intro reset", isPresented: $showReplayConfirm) {
             Button("OK", role: .cancel) {}
         } message: {

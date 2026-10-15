@@ -37,54 +37,65 @@ struct GroveView: View {
     private var friendCount: Int { catches.count }
     private var shown: Bool { seenIntro || revealed }
 
+    /// The open Duo in landscape: the Grove lays out as a two-page spread.
+    @Environment(\.groveIsSpread) private var isSpread
+    @Environment(\.groveFoldX) private var foldX
+    #if DEBUG
+    @State private var debugFriend: Catch?
+    #endif
+
     var body: some View {
         NavigationStack {
             ZStack {
                 Theme.background.ignoresSafeArea()
 
-                ScrollView {
-                    header
-                        .padding(.horizontal)
-                        .padding(.top, 4)
-                        .opacity(shown ? 1 : 0)
-                        .offset(y: shown ? 0 : -10)
-                        .animation(.spring(response: 0.5, dampingFraction: 0.8), value: shown)
+                if isSpread {
+                    spreadLayout
+                } else {
+                    ScrollView {
+                        header
+                            .padding(.horizontal)
+                            .padding(.top, 4)
+                            .opacity(shown ? 1 : 0)
+                            .offset(y: shown ? 0 : -10)
+                            .animation(.spring(response: 0.5, dampingFraction: 0.8), value: shown)
 
-                    if !challengeDismissed {
-                        dailyChallengeCard
-                            .coachTarget(.dailyGoal)
+                        if !challengeDismissed {
+                            dailyChallengeCard
+                                .coachTarget(.dailyGoal)
+                                .padding(.horizontal)
+                                .padding(.top, 12)
+                                .opacity(shown ? 1 : 0)
+                                .offset(y: shown ? 0 : -6)
+                                .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.05), value: shown)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+
+                        #if DEBUG
+                        arenaSignpost
                             .padding(.horizontal)
                             .padding(.top, 12)
-                            .opacity(shown ? 1 : 0)
-                            .offset(y: shown ? 0 : -6)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.05), value: shown)
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                    }
+                        #endif
 
-                    if catches.isEmpty {
-                        firstFriendCard
-                            .padding(.horizontal)
-                            .padding(.top, 12)
-                            .opacity(shown ? 1 : 0)
-                            .offset(y: shown ? 0 : -6)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.08), value: shown)
-                            .transition(.opacity.combined(with: .scale(scale: 0.96)))
-                    }
+                        if catches.isEmpty {
+                            firstFriendCard
+                                .padding(.horizontal)
+                                .padding(.top, 12)
+                                .opacity(shown ? 1 : 0)
+                                .offset(y: shown ? 0 : -6)
+                                .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.08), value: shown)
+                                .transition(.opacity.combined(with: .scale(scale: 0.96)))
+                        }
 
-                    #if DEBUG
-                    arenaSignpost
-                        .padding(.horizontal)
-                        .padding(.top, 12)
-                    #endif
-
-                    HStack(alignment: .top, spacing: 12) {
-                        masonryColumn(masonry.left)
-                        masonryColumn(masonry.right)
+                        HStack(alignment: .top, spacing: 12) {
+                            masonryColumn(masonry.left)
+                            masonryColumn(masonry.right)
+                        }
+                        .padding()
                     }
-                    .padding()
-                    .padding(.bottom, Theme.tabBarClearance)
                 }
             }
+            .clearsGroveTabBar()
             // Overlaid (not a real toolbar item) so it can transition in and
             // out gracefully instead of popping. Attached to the root content —
             // not the whole NavigationStack — so it shows ONLY on the Grove and
@@ -98,6 +109,17 @@ struct GroveView: View {
                 }
             }
             .navigationTitle("Your Grove")
+            // The spread draws its own title on the left page.
+            .toolbar(isSpread ? .hidden : .automatic, for: .navigationBar)
+            #if DEBUG
+            // Test hook: `-GroveOpenFriend` opens your rarest friend's page on launch.
+            .navigationDestination(item: $debugFriend) { GuideEntryView(friend: $0) }
+            .task {
+                guard ProcessInfo.processInfo.arguments.contains("-GroveOpenFriend") else { return }
+                try? await Task.sleep(for: .milliseconds(600)) // let sample data land first
+                debugFriend = catches.max { $0.species.rarity < $1.species.rarity }
+            }
+            #endif
             .onAppear {
                 challengeDismissed = (challengeDismissedDay == todayKey)
                 guard !seenIntro else { return }
@@ -107,6 +129,105 @@ struct GroveView: View {
             }
         }
     }
+
+    // MARK: Spread (the open Duo in landscape)
+
+    /// The whole Grove at a glance: the title on the left page, today's
+    /// challenge on the right, then all eight zones in two rows of four — two
+    /// columns per page, so the fold always falls between cards.
+    private var spreadLayout: some View {
+        // Measure the space the page is given (not the scroll view, whose size
+        // follows its content) so the pages can be fitted around the fold.
+        GeometryReader { geo in
+            spreadContent(frame: geo.frame(in: .global))
+        }
+    }
+
+    private func spreadContent(frame: CGRect) -> some View {
+        let outerLeading: CGFloat = 24, outerTrailing: CGFloat = 16
+        let topPadding: CGFloat = 26, bottomPadding: CGFloat = 16
+        let headerHeight: CGFloat = 96, spacing: CGFloat = 16
+        let pages = DuoSpread.pageWidths(in: frame, foldX: foldX,
+                                         leading: outerLeading, trailing: outerTrailing)
+        // Two rows that fill the screen; a busy zone can still grow its row.
+        let rowHeight = max(180, (frame.height - topPadding - bottomPadding
+                                  - headerHeight - spacing * 2) / 2)
+        let zones = spreadZones
+
+        return ScrollView {
+            HStack(alignment: .top, spacing: DuoSpread.foldGutter * 2) {
+                VStack(alignment: .leading, spacing: spacing) {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Your Grove")
+                            .font(.system(size: 34, weight: .heavy, design: .rounded))
+                            .foregroundStyle(Theme.ink)
+                        header
+                    }
+                    .frame(height: headerHeight, alignment: .topLeading)
+                    .opacity(shown ? 1 : 0)
+                    .offset(y: shown ? 0 : -10)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.8), value: shown)
+
+                    spreadZoneGrid(zones.left, rowHeight: rowHeight)
+                }
+                .frame(width: pages.leading)
+
+                VStack(spacing: spacing) {
+                    ZStack(alignment: .top) {
+                        if !challengeDismissed {
+                            dailyChallengeCard
+                                .coachTarget(.dailyGoal)
+                                .opacity(shown ? 1 : 0)
+                                .offset(y: shown ? 0 : -6)
+                                .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.05), value: shown)
+                                .transition(.move(edge: .top).combined(with: .opacity))
+                        }
+                    }
+                    .frame(height: headerHeight, alignment: .top)
+
+                    spreadZoneGrid(zones.right, rowHeight: rowHeight)
+                }
+                .frame(width: pages.trailing)
+            }
+            .padding(.leading, outerLeading)
+            .padding(.trailing, outerTrailing)
+            .padding(.top, topPadding)
+            .padding(.bottom, bottomPadding)
+            .frame(width: frame.width, alignment: .topLeading)
+        }
+    }
+
+    /// The zones read row by row across all four columns: the first two of
+    /// each row on the left page, the next two on the right.
+    private var spreadZones: (left: [(index: Int, zone: Habitat)], right: [(index: Int, zone: Habitat)]) {
+        let zones = Habitat.ordered.enumerated().map { (index: $0.offset, zone: $0.element) }
+        return (zones.filter { $0.index % 4 < 2 }, zones.filter { $0.index % 4 >= 2 })
+    }
+
+    /// One page's zones, two per row; cards in a row share its height.
+    private func spreadZoneGrid(_ items: [(index: Int, zone: Habitat)], rowHeight: CGFloat) -> some View {
+        let rows = stride(from: 0, to: items.count, by: 2).map { Array(items[$0..<min($0 + 2, items.count)]) }
+        return Grid(horizontalSpacing: 16, verticalSpacing: 16) {
+            ForEach(rows, id: \.first!.zone) { row in
+                GridRow {
+                    ForEach(row, id: \.zone) { item in
+                        ZoneCard(zone: item.zone, catches: catches, onSnap: onSnap, fillsHeight: true)
+                            .frame(minHeight: rowHeight)
+                            .frame(maxHeight: .infinity)
+                            .opacity(shown ? 1 : 0)
+                            .offset(y: shown ? 0 : 26)
+                            .animation(
+                                .spring(response: 0.55, dampingFraction: 0.82)
+                                .delay(0.1 + Double(item.index) * 0.07),
+                                value: shown
+                            )
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: Portrait masonry
 
     /// Split the zones into two independently-flowing columns, kept as close in
     /// height as possible. We assign the tallest zones first, each into whichever
@@ -360,6 +481,8 @@ struct ZoneCard: View {
     let catches: [Catch]
     /// Jumps to the camera when an empty zone is tapped.
     var onSnap: (() -> Void)? = nil
+    /// Stretch to fill the space offered (the spread's equal-height rows).
+    var fillsHeight = false
 
     /// Shared with RootView by key — set when the player opens a friend, so the
     /// "meet your friend" coach mark retires on use, not only on bubble-tap.
@@ -392,6 +515,7 @@ struct ZoneCard: View {
 
             if residents.isEmpty {
                 emptyInvite
+                    .frame(maxHeight: fillsHeight ? .infinity : nil)
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 52), spacing: 8)], spacing: 10) {
                     ForEach(Array(residents.enumerated()), id: \.element.persistentModelID) { index, friend in
@@ -410,6 +534,9 @@ struct ZoneCard: View {
                 .padding(.vertical, 6)
             }
         }
+        .frame(maxWidth: fillsHeight ? .infinity : nil,
+               maxHeight: fillsHeight ? .infinity : nil,
+               alignment: .topLeading)
         .padding(14)
         .background(
             RoundedRectangle(cornerRadius: 24, style: .continuous)

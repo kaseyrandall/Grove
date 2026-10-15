@@ -5,6 +5,12 @@ import SwiftData
 /// collection stats — all derived from their `Catch` history via `PlayerStats`.
 struct JournalView: View {
     @Query private var catches: [Catch]
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @Environment(\.groveIsSpread) private var isSpread
+    @Environment(\.groveFoldX) private var foldX
+    #if DEBUG
+    @State private var debugOpenGuide = false
+    #endif
 
     private var stats: PlayerStats { PlayerStats(catches: catches) }
 
@@ -13,20 +19,67 @@ struct JournalView: View {
             ZStack {
                 Theme.background.ignoresSafeArea()
 
-                ScrollView {
-                    VStack(spacing: 20) {
-                        streakCard
-                        levelCard
-                        statsRow
-                        fieldGuideCard
-                        rarityCard
+                if isSpread {
+                    // The open Duo in landscape: progress on the left page,
+                    // collection on the right, kept clear of the fold.
+                    GeometryReader { geo in
+                        let pages = DuoSpread.pageWidths(in: geo.frame(in: .global), foldX: foldX,
+                                                         leading: 16, trailing: 16)
+                        ScrollView {
+                            HStack(alignment: .top, spacing: DuoSpread.foldGutter * 2) {
+                                VStack(spacing: 20) { progressCards }
+                                    .frame(width: pages.leading)
+                                VStack(spacing: 20) { collectionCards }
+                                    .frame(width: pages.trailing)
+                            }
+                            .padding()
+                            .frame(width: geo.size.width, alignment: .topLeading)
+                        }
                     }
-                    .padding()
-                    .padding(.bottom, Theme.tabBarClearance)
+                } else {
+                    ScrollView {
+                        // Other wide displays (e.g. the open Duo turned upright)
+                        // reflow the single column into two: progress on the
+                        // left, collection on the right.
+                        if sizeClass == .regular {
+                            HStack(alignment: .top, spacing: 20) {
+                                VStack(spacing: 20) { progressCards }
+                                VStack(spacing: 20) { collectionCards }
+                            }
+                            .padding()
+                        } else {
+                            VStack(spacing: 20) {
+                                progressCards
+                                collectionCards
+                            }
+                            .padding()
+                        }
+                    }
                 }
             }
+            .clearsGroveTabBar()
             .navigationTitle("Journal")
+            #if DEBUG
+            // Test hook: `-GroveOpenFieldGuide` opens the Field Guide on launch.
+            .navigationDestination(isPresented: $debugOpenGuide) { FieldGuideView() }
+            .onAppear {
+                if ProcessInfo.processInfo.arguments.contains("-GroveOpenFieldGuide") { debugOpenGuide = true }
+            }
+            #endif
         }
+    }
+
+    /// Streak, level, and headline numbers.
+    @ViewBuilder private var progressCards: some View {
+        streakCard
+        levelCard
+        statsRow
+    }
+
+    /// Field Guide entry and the rarity breakdown.
+    @ViewBuilder private var collectionCards: some View {
+        fieldGuideCard
+        rarityCard
     }
 
     // MARK: Field Guide

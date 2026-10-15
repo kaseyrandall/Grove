@@ -4,6 +4,24 @@ import SwiftData
 /// A grid of every achievement, showing unlocked badges in full color and
 /// locked ones dimmed with a live progress bar — the "so close!" hook.
 struct AchievementsView: View {
+    var body: some View {
+        ZStack {
+            Theme.background.ignoresSafeArea()
+
+            ScrollView {
+                AchievementsContent()
+                    .padding()
+            }
+        }
+        .navigationTitle("Achievements")
+        .navigationBarTitleDisplayMode(.inline)
+        .groveTabBarHidden()
+    }
+}
+
+/// The badge summary and grid, shared by the Achievements page and the
+/// Profile spread on the open iPhone Duo.
+struct AchievementsContent: View {
     @Query private var catches: [Catch]
 
     private var stats: PlayerStats { PlayerStats(catches: catches) }
@@ -11,26 +29,15 @@ struct AchievementsView: View {
     private let columns = [GridItem(.adaptive(minimum: 150), spacing: 16)]
 
     var body: some View {
-        ZStack {
-            Theme.background.ignoresSafeArea()
+        VStack(spacing: 16) {
+            summary
 
-            ScrollView {
-                summary
-                    .padding(.horizontal)
-                    .padding(.top, 8)
-
-                LazyVGrid(columns: columns, spacing: 16) {
-                    ForEach(AchievementCatalog.all) { achievement in
-                        AchievementCard(achievement: achievement, stats: stats)
-                    }
+            LazyVGrid(columns: columns, spacing: 16) {
+                ForEach(AchievementCatalog.all) { achievement in
+                    AchievementCard(achievement: achievement, stats: stats)
                 }
-                .padding()
-                .padding(.bottom, Theme.tabBarClearance)
             }
         }
-        .navigationTitle("Achievements")
-        .navigationBarTitleDisplayMode(.inline)
-        .groveTabBarHidden()
     }
 
     private var summary: some View {

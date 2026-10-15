@@ -28,6 +28,8 @@ struct CatchView: View {
     @State private var uploadIssue: UploadIssue?
     @State private var libraryItem: PhotosPickerItem?
     @State private var result: CatchResult?
+    /// The open Duo in landscape (the celebration opens full screen there).
+    @Environment(\.groveIsSpread) private var isSpread
     @State private var showOptions = false
     @State private var flashOpacity: Double = 0
     @State private var focusPoint: CGPoint?
@@ -88,7 +90,7 @@ struct CatchView: View {
             camera.stop()
             location.stop()
         }
-        .sheet(item: $result, onDismiss: { isIdentifying = false }) { result in
+        .sheet(item: isSpread ? .constant(nil) : $result, onDismiss: { isIdentifying = false }) { result in
             CatchResultView(result: result, onDone: {
                 self.result = nil
                 onFinished()
@@ -96,6 +98,27 @@ struct CatchView: View {
             .presentationDetents([.large])
             .presentationDragIndicator(.visible)
         }
+        // On the open Duo the celebration takes the whole screen as a two-page
+        // spread (a sheet would be a small centered card there).
+        .fullScreenCover(item: isSpread ? $result : .constant(nil), onDismiss: { isIdentifying = false }) { result in
+            CatchResultView(result: result, onDone: {
+                self.result = nil
+                onFinished()
+            })
+        }
+        #if DEBUG
+        // Test hook: `-GroveShowCatchResult` shows the celebration for one of
+        // your sample friends, as a not-yet-named Mystery Friend.
+        .task {
+            guard ProcessInfo.processInfo.arguments.contains("-GroveShowCatchResult") else { return }
+            try? await Task.sleep(for: .milliseconds(800))
+            if let friend = allCatches.first(where: { $0.photoData != nil }),
+               let data = friend.photoData, let image = UIImage(data: data) {
+                result = CatchResult(record: friend, species: .mystery, sparks: Progression.snapSparks,
+                                     isFirstSighting: false, image: image, newAchievements: [])
+            }
+        }
+        #endif
         .sheet(isPresented: $showOptions) {
             CameraOptionsSheet(
                 flashMode: $camera.flashMode,

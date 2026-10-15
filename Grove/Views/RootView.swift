@@ -13,9 +13,29 @@ struct RootView: View {
     @AppStorage("hasSeenGoalCoach") private var hasSeenGoalCoach = false
     @AppStorage("notificationsEnabled") private var notificationsEnabled = true
     @Environment(\.scenePhase) private var scenePhase
+    #if DEBUG
+    @Environment(\.modelContext) private var context
+    #endif
     @ObservedObject private var quickActions = QuickActionRouter.shared
     @State private var selection: RootTab = .grove
     @State private var tabBarVisible = true
+    /// The floating bar's measured size. Its height (or width, when it stands on
+    /// the side) is handed to the pages as extra safe area, so content clears
+    /// the bar on any display size instead of each page padding a hardcoded guess.
+    @State private var tabBarSize: CGSize = .zero
+    /// The whole window, safe areas included — decides spread mode and the fold.
+    @State private var windowSize: CGSize = .zero
+    /// The system's safe-area insets (on a spread, the side strip the status bar lives in).
+    @State private var systemInsets = EdgeInsets()
+
+    /// The open Duo in landscape: pages lay out as two-page spreads.
+    private var isSpread: Bool { DuoSpread.isSpread(windowSize: windowSize) }
+    /// Room the bar takes from the pages, along whichever edge it sits on. On a
+    /// spread it mostly lives in the system's side strip, which the pages already
+    /// avoid, so only the part poking out of that strip counts.
+    private var tabBarInset: CGFloat {
+        isSpread ? max(0, tabBarSize.width - systemInsets.trailing) : tabBarSize.height
+    }
     @Query private var catches: [Catch]
 
     /// The one coach mark to show right now, if any. All three live on the Grove
@@ -32,7 +52,7 @@ struct RootView: View {
         // Content and the floating bar share a ZStack so both can register coach
         // anchors that reduce to a common parent (an `.overlay`'s preferences
         // wouldn't propagate to the reader below).
-        ZStack(alignment: .bottom) {
+        ZStack(alignment: isSpread ? .trailing : .bottom) {
             Group {
                 switch selection {
                 case .grove:    GroveView(onSnap: {
@@ -53,17 +73,36 @@ struct RootView: View {
             .onPreferenceChange(TabBarVisibilityKey.self) { visible in
                 withAnimation(.easeInOut(duration: 0.25)) { tabBarVisible = visible }
             }
+            // Each tab's root page reserves this much bottom safe area (see
+            // `clearsGroveTabBar()`) so its content clears the bar; backgrounds
+            // and the map still run underneath. Zero while a pushed page hides it.
+            .environment(\.groveTabBarInset, tabBarVisible ? tabBarInset : 0)
+            .environment(\.groveIsSpread, isSpread)
+            .environment(\.groveFoldX, windowSize.width / 2)
 
-            // The bar floats over content; each scrollable page adds
-            // `Theme.tabBarClearance` bottom padding so its content clears it.
+            // The bar floats over content, which clears it via the inset above.
             GroveTabBar(
                 selection: $selection,
+                vertical: isSpread,
                 onCatch: { withAnimation(.easeInOut(duration: 0.22)) { selection = .catchTab } }
             )
-            .offset(y: tabBarVisible ? 0 : 160)
+            .onGeometryChange(for: CGSize.self) { $0.size } action: { tabBarSize = $0 }
+            // On a spread the bar shares the system's side column with the
+            // status bar (Apple's layout for the open Duo): it runs into that
+            // strip, below the status bar, rather than standing beside it.
+            .padding(.top, isSpread ? DuoSpread.statusBarClearance : 0)
+            .ignoresSafeArea(.container, edges: isSpread ? .trailing : [])
+            .offset(x: tabBarVisible || !isSpread ? 0 : 160,
+                    y: tabBarVisible || isSpread ? 0 : 160)
             .opacity(tabBarVisible ? 1 : 0)
             .allowsHitTesting(tabBarVisible)
         }
+        .onGeometryChange(for: CGSize.self) { proxy in
+            let insets = proxy.safeAreaInsets
+            return CGSize(width: proxy.size.width + insets.leading + insets.trailing,
+                          height: proxy.size.height + insets.top + insets.bottom)
+        } action: { windowSize = $0 }
+        .onGeometryChange(for: EdgeInsets.self) { $0.safeAreaInsets } action: { systemInsets = $0 }
         // The active coach mark, pointed at whatever target tagged itself. Only
         // the bubble is opaque, so the rest of the UI stays fully interactive.
         .overlayPreferenceValue(CoachAnchorKey.self) { anchors in
@@ -100,14 +139,42 @@ struct RootView: View {
         }
         .onChange(of: quickActions.pending) { _, _ in handleQuickAction() }
         .onAppear { handleQuickAction() } // catch a cold-launch shortcut
+        #if DEBUG
+        .onAppear { applyDebugLaunchArguments() }
+        #endif
         .fullScreenCover(isPresented: onboardingBinding) {
             OnboardingView { hasOnboarded = true }
+                // Presented from here, outside the tab content, so hand the
+                // spread layout down explicitly.
+                .environment(\.groveIsSpread, isSpread)
+                .environment(\.groveFoldX, windowSize.width / 2)
         }
     }
 
     /// Consume a pending Home Screen quick action. "Snap a friend" jumps to the
     /// camera — but only once the player is past onboarding; otherwise we clear
     /// it so it can't fire behind the intro.
+    #if DEBUG
+    /// Test hooks so screens can be checked without tapping (e.g. from the
+    /// command line): `-GroveSeedSample` fills in the sample Grove, and
+    /// `-GroveTab map|catch|journal|profile` opens that tab.
+    private func applyDebugLaunchArguments() {
+        let args = ProcessInfo.processInfo.arguments
+        if args.contains("-GroveSeedSample"), !SeedData.isPresent(in: catches) {
+            SeedData.fill(context: context)
+        }
+        if let i = args.firstIndex(of: "-GroveTab"), i + 1 < args.count {
+            switch args[i + 1] {
+            case "map":     selection = .map
+            case "catch":   selection = .catchTab
+            case "journal": selection = .journal
+            case "profile": selection = .profile
+            default:        break
+            }
+        }
+    }
+    #endif
+
     private func handleQuickAction() {
         guard let action = quickActions.pending else { return }
         quickActions.pending = nil
@@ -131,7 +198,7 @@ struct RootView: View {
         guard step != .snap else { return true }
         guard rect.height > 0 else { return false }
         let top: CGFloat = 90
-        let bottom = size.height - Theme.tabBarClearance
+        let bottom = size.height - (isSpread ? 0 : tabBarSize.height)
         return rect.midY > top && rect.midY < bottom
     }
 
