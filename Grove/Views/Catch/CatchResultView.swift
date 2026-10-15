@@ -497,8 +497,9 @@ struct CatchResultView: View {
 
     // MARK: Achievements
 
-    /// New badges as cards in the same style as the Animal / Lives in /
-    /// Sparks row, three to a row, each popping in after the last.
+    /// New badges, three to a row, each popping in after the last. Flat (no
+    /// card) on purpose: they aren't tappable, so they mustn't look like the
+    /// Animal and Lives in cards.
     private var achievementsUnlocked: some View {
         VStack(spacing: 12) {
             Text(achievements.count == 1 ? "🎖 New Achievement!" : "🎖 New Achievements!")
@@ -508,14 +509,17 @@ struct CatchResultView: View {
                       spacing: 10) {
                 ForEach(Array(achievements.enumerated()), id: \.element.id) { index, achievement in
                     VStack(spacing: 6) {
-                        Text(achievement.emoji).font(.system(size: 30))
+                        Text(achievement.emoji)
+                            .font(.system(size: 30))
+                            .frame(width: 56, height: 56)
+                            .background(Circle().fill(.white.opacity(0.55)))
                         Text(achievement.title)
                             .font(.system(.subheadline, design: .rounded, weight: .bold))
                             .foregroundStyle(Theme.ink)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
                     }
-                    .modifier(TileCard())
+                    .frame(maxWidth: .infinity)
                     .scaleEffect(popped ? 1 : 0.6)
                     .opacity(popped ? 1 : 0)
                     .animation(.spring(response: 0.5, dampingFraction: 0.6)

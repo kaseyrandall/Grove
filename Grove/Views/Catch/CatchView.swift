@@ -114,13 +114,22 @@ struct CatchView: View {
             try? await Task.sleep(for: .milliseconds(800))
             if let friend = allCatches.first(where: { $0.photoData != nil }),
                let data = friend.photoData, let image = UIImage(data: data) {
-                // `-GroveSampleAchievements` adds a few unlocked badges, to see
-                // the celebration with its achievements card.
-                let samples = ProcessInfo.processInfo.arguments.contains("-GroveSampleAchievements")
-                    ? AchievementCatalog.all.filter { ["first_catch", "rare_find", "early_bird"].contains($0.id) }
-                    : []
-                result = CatchResult(record: friend, species: .mystery, sparks: Progression.snapSparks,
-                                     isFirstSighting: false, image: image, newAchievements: samples)
+                // `-GroveSampleAchievements <n>` adds n sample badges (3 if no
+                // number); `-GroveCatchNamed` shows the friend as already named
+                // (its kind, sparks and first-find from the store) instead of
+                // as a Mystery Friend.
+                let args = ProcessInfo.processInfo.arguments
+                var samples: [Achievement] = []
+                if let i = args.firstIndex(of: "-GroveSampleAchievements") {
+                    let n = (i + 1 < args.count ? Int(args[i + 1]) : nil) ?? 3
+                    samples = Array(AchievementCatalog.all.prefix(n))
+                }
+                let named = args.contains("-GroveCatchNamed")
+                result = CatchResult(record: friend,
+                                     species: named ? friend.species : .mystery,
+                                     sparks: named ? friend.sparksEarned : Progression.snapSparks,
+                                     isFirstSighting: named && friend.isFirstSighting,
+                                     image: image, newAchievements: samples)
             }
         }
         #endif
