@@ -35,7 +35,9 @@ struct RootView: View {
         ZStack(alignment: .bottom) {
             Group {
                 switch selection {
-                case .grove:    GroveView()
+                case .grove:    GroveView(onSnap: {
+                    withAnimation(.easeInOut(duration: 0.22)) { selection = .catchTab }
+                })
                 case .map:      DiscoveryMapView()
                 case .catchTab: CatchView(onFinished: {
                     withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) { selection = .grove }

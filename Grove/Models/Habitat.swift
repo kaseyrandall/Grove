@@ -90,4 +90,24 @@ enum Habitat: String, CaseIterable, Codable, Identifiable {
     static var ordered: [Habitat] {
         allCases.sorted { $0.order < $1.order }
     }
+
+    /// A few friends a player could realistically meet here soon — what an
+    /// empty zone suggests instead of sitting blank. Drawn from the zone's
+    /// easiest-to-find rarity tiers and rotated by day, so the hints feel
+    /// fresh each visit without ever pointing a beginner at a mythical find.
+    func likelyVisitors(count: Int = 3, on date: Date = .now, calendar: Calendar = .current) -> [Species] {
+        let residents = CreatureCatalog.all.filter { $0.zone == self }
+        guard !residents.isEmpty else { return [] }
+        // The two easiest tiers this zone actually has (e.g. Wilds has no
+        // commons, so it offers its uncommons and seldom-seens).
+        let tiers = Array(Set(residents.map(\.rarity)).sorted().prefix(2))
+        let pool = residents.filter { tiers.contains($0.rarity) }
+        let day = calendar.ordinality(of: .day, in: .era, for: date) ?? 0
+        let start = day % pool.count
+        let rotated = Array(pool[start...] + pool[..<start])
+        // Emoji are shared by some kinds (several birds are 🐦), so skip
+        // repeats — three identical bubbles would read as one hint.
+        var seen = Set<String>()
+        return Array(rotated.filter { seen.insert($0.emoji).inserted }.prefix(count))
+    }
 }
