@@ -130,8 +130,12 @@ struct CatchResultView: View {
     private var nameBlock: some View {
         VStack(spacing: 12) {
             RenamableName(friend: result.record, isRenaming: $isRenaming, fontSize: 30)
-            if !isMystery {
-                RarityBadge(rarity: species.rarity, large: true)
+            // What this find is worth: plain info, not a button.
+            HStack(spacing: 8) {
+                if !isMystery {
+                    RarityBadge(rarity: species.rarity, large: true)
+                }
+                sparksBadge
             }
         }
     }
@@ -325,14 +329,12 @@ struct CatchResultView: View {
 
     // MARK: Details — animal, zone and sparks as three matching cards
 
-    /// Who it is, where it lives and what it earned, as a row of cards like
-    /// the friend page's. Naming the friend is the main job here, so while
-    /// it's a Mystery Friend the Animal card is outlined in the accent.
+    /// Who it is and where it lives: the two choices, as a pair of cards.
+    /// (What it earned sits with the rarity badge, as info rather than a card.)
     private var detailTiles: some View {
         HStack(spacing: 10) {
             animalTile
             zoneTile
-            sparksTile
         }
         // Equal heights, whether a card shows one line or two.
         .fixedSize(horizontal: false, vertical: true)
@@ -343,7 +345,7 @@ struct CatchResultView: View {
         let label = Group {
             if isMystery {
                 // Until it's named, the card is just its question.
-                promptTile("Animal", emoji: "❓", systemImage: chevron, color: Theme.accent, highlighted: true)
+                promptTile("Animal", emoji: "❓", systemImage: chevron, color: Theme.accent)
             } else {
                 tile(label: "Animal", systemImage: chevron) {
                     Text("\(species.emoji) \(species.name)")
@@ -387,18 +389,27 @@ struct CatchResultView: View {
         .buttonStyle(.plain)
     }
 
-    private var sparksTile: some View {
-        tile(label: isFirst ? "2× first find" : "Sparks",
-             labelColor: isFirst ? Theme.accent : Theme.ink.opacity(0.5)) {
-            Text("+\(sparks) ✨")
+    /// The sparks earned, beside the rarity badge: "✨ +120 · 2× first find".
+    private var sparksBadge: some View {
+        HStack(spacing: 4) {
+            Text("✨ +\(sparks)")
                 .foregroundStyle(Theme.ink)
                 .contentTransition(.numericText())
+            if isFirst {
+                Text("· 2× first find")
+                    .foregroundStyle(Theme.accent)
+            }
         }
+        .font(.system(.subheadline, design: .rounded, weight: .bold))
+        .lineLimit(1)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Capsule().fill(.white.opacity(0.7)))
     }
 
     /// A card that's only its prompt ("❓ Animal ›"), before anything is chosen.
     private func promptTile(_ title: String, emoji: String? = nil, systemImage: String?,
-                            color: Color, highlighted: Bool = false) -> some View {
+                            color: Color) -> some View {
         HStack(spacing: 4) {
             if let emoji { Text(emoji) }
             Text(title)
@@ -410,13 +421,12 @@ struct CatchResultView: View {
         .foregroundStyle(color)
         .lineLimit(1)
         .minimumScaleFactor(0.7)
-        .modifier(TileCard(highlighted: highlighted))
+        .modifier(TileCard())
     }
 
     /// One card: a bold value over a small caption, like the friend page's.
     private func tile<Value: View>(label: String,
                                    systemImage: String? = nil,
-                                   highlighted: Bool = false,
                                    labelColor: Color = Theme.ink.opacity(0.5),
                                    @ViewBuilder value: () -> Value) -> some View {
         VStack(spacing: 5) {
@@ -435,7 +445,7 @@ struct CatchResultView: View {
             .lineLimit(1)
             .minimumScaleFactor(0.7)
         }
-        .modifier(TileCard(highlighted: highlighted))
+        .modifier(TileCard())
     }
 
     // MARK: Identify — the player names their new friend
@@ -570,18 +580,12 @@ struct Confetti: View {
 
 /// The shared card behind the celebration's Animal, Lives in and Sparks cards.
 private struct TileCard: ViewModifier {
-    var highlighted = false
-
     func body(content: Content) -> some View {
         content
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .padding(.vertical, 15)
             .padding(.horizontal, 6)
             .softCard()
-            .overlay(
-                RoundedRectangle(cornerRadius: 24, style: .continuous)
-                    .stroke(Theme.accent, lineWidth: highlighted ? 2 : 0)
-            )
             .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 }
