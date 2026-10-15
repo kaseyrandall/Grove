@@ -218,15 +218,14 @@ struct GuideEntryView: View {
         }
     }
 
-    /// Names the friend's kind, with its first-of-kind bonus, and moves it to
-    /// that kind's zone.
+    /// Names the friend's kind, with its first-of-kind bonus. Where it lives
+    /// stays the player's choice (an unchosen zone follows the new kind).
     private func identify(as chosen: Species) {
         guard chosen.id != friend.speciesID else { return }
         let isFirst = !allCatches.contains { $0 !== friend && $0.speciesID == chosen.id }
         friend.speciesID = chosen.id
         friend.isFirstSighting = isFirst
         friend.sparksEarned = Progression.sparks(for: chosen, isFirstSighting: isFirst)
-        friend.zoneOverride = nil
         try? context.save()
     }
 

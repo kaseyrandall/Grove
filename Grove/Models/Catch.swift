@@ -20,8 +20,10 @@ final class Catch {
     /// A personal nickname the player gave this individual friend.
     var nickname: String?
 
-    /// A `Habitat.rawValue` when the player has moved this friend to a different
-    /// Grove zone; nil means "live in the kind's default zone".
+    /// A `Habitat.rawValue` once the player has chosen where this friend lives
+    /// (any zone: a fox can live at Home). nil means they haven't chosen, so it
+    /// falls back to its kind's usual zone. Changing the animal never moves a
+    /// friend whose zone was chosen.
     var zoneOverrideRaw: String?
 
     /// The player's photo. `.externalStorage` keeps large blobs out of the
@@ -72,7 +74,7 @@ final class Catch {
         CreatureCatalog.species(for: speciesID) ?? .mystery
     }
 
-    /// The player's chosen zone for this friend, if any.
+    /// The zone the player chose for this friend, if they have.
     var zoneOverride: Habitat? {
         get { zoneOverrideRaw.flatMap(Habitat.init(rawValue:)) }
         set { zoneOverrideRaw = newValue?.rawValue }

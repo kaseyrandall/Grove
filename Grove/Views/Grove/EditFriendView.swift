@@ -23,6 +23,8 @@ struct EditFriendView: View {
     /// The photo crop as edited here; applied on Save.
     @State private var framing: PhotoFraming?
     @State private var showCrop = false
+    /// True once the player taps a zone here.
+    @State private var zoneTouched = false
     @State private var zone: Habitat
     @State private var showReleaseConfirm = false
 
@@ -170,6 +172,7 @@ struct EditFriendView: View {
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
                 ForEach(Habitat.ordered) { habitat in
                     Button {
+                        zoneTouched = true
                         withAnimation { zone = habitat }
                     } label: {
                         HStack(spacing: 6) {
@@ -225,7 +228,8 @@ struct EditFriendView: View {
     private func select(_ candidate: Species) {
         withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
             species = candidate
-            zone = candidate.zone
+            // Only a friend whose zone was never chosen follows its animal.
+            if !zoneTouched && friend.zoneOverride == nil { zone = candidate.zone }
         }
     }
 
@@ -240,7 +244,7 @@ struct EditFriendView: View {
         }
 
         friend.framing = framing
-        friend.zoneOverride = (zone == species.zone) ? nil : zone
+        if zoneTouched { friend.zoneOverride = zone } // a choice, even if it's the usual zone
 
         try? context.save()
         close()

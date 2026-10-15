@@ -19,11 +19,11 @@ struct CatchResultView: View {
     @State private var sparks: Int
     @State private var isFirst: Bool
     @State private var zone: Habitat
-    /// True once the player has picked a zone themselves. Until then a
-    /// Mystery Friend shows no zone selected (its stand-in zone means nothing),
-    /// and naming the friend moves it to that kind's zone.
-    @State private var zoneChosen = false
-    private var showsZoneSelection: Bool { zoneChosen || !isMystery }
+    /// Where a friend lives is the player's choice, not the animal's: until
+    /// they pick, Lives in reads "Pick one" (naming the animal doesn't pick
+    /// for them). An unpicked friend falls back to its kind's usual zone.
+    @State private var zoneChosen: Bool
+    private var showsZoneSelection: Bool { zoneChosen }
     /// Badges to celebrate. Starts from what the snap unlocked, and grows when
     /// naming the friend unlocks a species/rarity/zone badge in place.
     @State private var achievements: [Achievement]
@@ -49,6 +49,7 @@ struct CatchResultView: View {
         _sparks = State(initialValue: result.sparks)
         _isFirst = State(initialValue: result.isFirstSighting)
         _zone = State(initialValue: result.record.effectiveZone)
+        _zoneChosen = State(initialValue: result.record.zoneOverride != nil)
         _achievements = State(initialValue: result.newAchievements)
     }
 
@@ -436,10 +437,7 @@ struct CatchResultView: View {
         result.record.speciesID = chosen.id
         result.record.isFirstSighting = first
         result.record.sparksEarned = newSparks
-        // Keep a zone the player already picked; otherwise it moves to the
-        // identified kind's zone.
-        let newZone = zoneChosen ? zone : chosen.zone
-        result.record.zoneOverride = (newZone == chosen.zone) ? nil : newZone
+        // The zone stays the player's call: naming the animal never picks it.
         try? context.save()
 
         let after = PlayerStats(catches: others) // same records, now re-identified
@@ -453,7 +451,7 @@ struct CatchResultView: View {
             species = chosen
             sparks = newSparks
             isFirst = first
-            zone = newZone
+            zone = result.record.effectiveZone
             achievements.append(contentsOf: freshlyUnlocked)
         }
     }
@@ -465,7 +463,7 @@ struct CatchResultView: View {
     private func setZone(_ habitat: Habitat) {
         zoneChosen = true
         withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { zone = habitat }
-        result.record.zoneOverride = (habitat == species.zone) ? nil : habitat
+        result.record.zoneOverride = habitat // a choice, even if it's the usual zone
         try? context.save()
     }
 
