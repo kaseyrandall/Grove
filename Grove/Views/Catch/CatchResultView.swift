@@ -343,7 +343,7 @@ struct CatchResultView: View {
         let label = Group {
             if isMystery {
                 // Until it's named, the card is just its question.
-                promptTile("Animal", systemImage: chevron, color: Theme.accent, highlighted: true)
+                promptTile("Animal", emoji: "❓", systemImage: chevron, color: Theme.accent, highlighted: true)
             } else {
                 tile(label: "Animal", systemImage: chevron) {
                     Text("\(species.emoji) \(species.name)")
@@ -379,7 +379,9 @@ struct CatchResultView: View {
                         .foregroundStyle(Theme.ink)
                 }
             } else {
-                promptTile("Lives in", systemImage: "chevron.right", color: Theme.ink)
+                // The first zone's emoji (Home) hints at the list behind it.
+                promptTile("Lives in", emoji: Habitat.ordered.first?.emoji,
+                           systemImage: "chevron.right", color: Theme.ink)
             }
         }
         .buttonStyle(.plain)
@@ -394,10 +396,11 @@ struct CatchResultView: View {
         }
     }
 
-    /// A card that's only its prompt ("Animal ›"), before anything is chosen.
-    private func promptTile(_ title: String, systemImage: String?, color: Color,
-                            highlighted: Bool = false) -> some View {
+    /// A card that's only its prompt ("❓ Animal ›"), before anything is chosen.
+    private func promptTile(_ title: String, emoji: String? = nil, systemImage: String?,
+                            color: Color, highlighted: Bool = false) -> some View {
         HStack(spacing: 4) {
+            if let emoji { Text(emoji) }
             Text(title)
             if let systemImage {
                 Image(systemName: systemImage).font(.system(size: 12, weight: .heavy))
