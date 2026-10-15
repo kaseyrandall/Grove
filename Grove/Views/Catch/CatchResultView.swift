@@ -232,9 +232,10 @@ struct CatchResultView: View {
     /// The zones as a wrapping grid (there's room on the spread for all eight).
     private var spreadZonePicker: some View {
         VStack(alignment: .leading, spacing: 8) {
+            // Same weight as "What did you find?" above it on this page.
             Text("Found in your…")
-                .font(.system(.caption, design: .rounded, weight: .semibold))
-                .foregroundStyle(Theme.ink.opacity(0.55))
+                .font(.system(.title3, design: .rounded, weight: .bold))
+                .foregroundStyle(Theme.ink)
             LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 8)], spacing: 8) {
                 ForEach(Habitat.ordered) { habitat in
                     zoneChip(habitat)
@@ -413,9 +414,10 @@ struct CatchResultView: View {
 
     private var zonePicker: some View {
         VStack(spacing: 8) {
+            // Matches "What did you find?": both are questions to answer.
             Text("Found in your…")
-                .font(.system(.caption, design: .rounded, weight: .semibold))
-                .foregroundStyle(Theme.ink.opacity(0.55))
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .foregroundStyle(Theme.ink.opacity(0.7))
 
             // Scrolls so the chosen zone is in view, even when it's far right.
             ScrollViewReader { proxy in
