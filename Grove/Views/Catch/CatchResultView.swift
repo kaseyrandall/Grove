@@ -334,14 +334,22 @@ struct CatchResultView: View {
             zoneTile
             sparksTile
         }
+        // Equal heights, whether a card shows one line or two.
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     @ViewBuilder private var animalTile: some View {
-        let label = tile(label: "Animal",
-                         systemImage: isSpread ? nil : "chevron.right",
-                         highlighted: isMystery) {
-            Text(isMystery ? "❓ Choose" : "\(species.emoji) \(species.name)")
-                .foregroundStyle(isMystery ? Theme.accent : Theme.ink)
+        let chevron = isSpread ? nil : "chevron.right"
+        let label = Group {
+            if isMystery {
+                // Until it's named, the card is just its question.
+                promptTile("Animal", systemImage: chevron, color: Theme.accent, highlighted: true)
+            } else {
+                tile(label: "Animal", systemImage: chevron) {
+                    Text("\(species.emoji) \(species.name)")
+                        .foregroundStyle(Theme.ink)
+                }
+            }
         }
         if isSpread {
             // The field guide is open on the right page already.
@@ -365,14 +373,13 @@ struct CatchResultView: View {
                 }
             }
         } label: {
-            tile(label: "Lives in", systemImage: "chevron.down") {
-                if showsZoneSelection {
+            if showsZoneSelection {
+                tile(label: "Lives in", systemImage: "chevron.right") {
                     Text("\(zone.emoji) \(zone.shortName)")
                         .foregroundStyle(Theme.ink)
-                } else {
-                    Text("Pick one")
-                        .foregroundStyle(Theme.ink.opacity(0.45))
                 }
+            } else {
+                promptTile("Lives in", systemImage: "chevron.right", color: Theme.ink)
             }
         }
         .buttonStyle(.plain)
@@ -385,6 +392,22 @@ struct CatchResultView: View {
                 .foregroundStyle(Theme.ink)
                 .contentTransition(.numericText())
         }
+    }
+
+    /// A card that's only its prompt ("Animal ›"), before anything is chosen.
+    private func promptTile(_ title: String, systemImage: String?, color: Color,
+                            highlighted: Bool = false) -> some View {
+        HStack(spacing: 4) {
+            Text(title)
+            if let systemImage {
+                Image(systemName: systemImage).font(.system(size: 12, weight: .heavy))
+            }
+        }
+        .font(.system(.headline, design: .rounded, weight: .bold))
+        .foregroundStyle(color)
+        .lineLimit(1)
+        .minimumScaleFactor(0.7)
+        .modifier(TileCard(highlighted: highlighted))
     }
 
     /// One card: a bold value over a small caption, like the friend page's.
@@ -409,15 +432,7 @@ struct CatchResultView: View {
             .lineLimit(1)
             .minimumScaleFactor(0.7)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 15)
-        .padding(.horizontal, 6)
-        .softCard()
-        .overlay(
-            RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .stroke(Theme.accent, lineWidth: highlighted ? 2 : 0)
-        )
-        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .modifier(TileCard(highlighted: highlighted))
     }
 
     // MARK: Identify — the player names their new friend
@@ -536,5 +551,23 @@ struct Confetti: View {
         }
         .allowsHitTesting(false)
         .ignoresSafeArea()
+    }
+}
+
+/// The shared card behind the celebration's Animal, Lives in and Sparks cards.
+private struct TileCard: ViewModifier {
+    var highlighted = false
+
+    func body(content: Content) -> some View {
+        content
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .padding(.vertical, 15)
+            .padding(.horizontal, 6)
+            .softCard()
+            .overlay(
+                RoundedRectangle(cornerRadius: 24, style: .continuous)
+                    .stroke(Theme.accent, lineWidth: highlighted ? 2 : 0)
+            )
+            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 }
