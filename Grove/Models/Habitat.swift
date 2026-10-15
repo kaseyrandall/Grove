@@ -90,4 +90,50 @@ enum Habitat: String, CaseIterable, Codable, Identifiable {
     static var ordered: [Habitat] {
         allCases.sorted { $0.order < $1.order }
     }
+
+    /// Friends that read instantly as *this* zone — the empty-zone hints draw
+    /// only from these, so the bubbles always match the zone's title (no goat
+    /// in the Garden, no peacock in the Treetops). Hand-picked from the
+    /// catalog, easiest finds first.
+    private var hintSpeciesIDs: [String] {
+        switch self {
+        case .home:   return ["housecat", "dog"]
+        case .garden: return ["squirrel", "bird", "robin", "pigeon", "crow", "mouse"]
+        case .pond:   return ["duck", "fish", "turtle", "frog"]
+        case .coast:  return ["crab", "seal", "octopus"]
+        case .meadow: return ["bee", "butterfly", "ladybug", "rabbit", "grasshopper", "snail"]
+        case .woods:  return ["fox", "hedgehog", "raccoon", "deer", "owl"]
+        case .sky:    return ["hummingbird", "parrot", "eagle"]
+        case .wilds:  return ["monkey", "zebra", "lion", "elephant", "giraffe", "lizard"]
+        }
+    }
+
+    /// Where to look for this zone's friends, shown under an empty zone's hints.
+    var lookHint: String {
+        switch self {
+        case .home:   return "Try your home, porch & windowsills"
+        case .garden: return "Try hedges, lawns & bird feeders"
+        case .pond:   return "Try ponds, streams & reedy banks"
+        case .coast:  return "Try beaches & rock pools"
+        case .meadow: return "Try flower beds & tall grass"
+        case .woods:  return "Try woodland paths at dusk"
+        case .sky:    return "Look up: branches & treetops"
+        case .wilds:  return "Try zoos, safaris & far-off trips"
+        }
+    }
+
+    /// A few friends who might visit this zone — what an empty zone suggests
+    /// instead of sitting blank. Rotated by day so the hints feel fresh each
+    /// visit.
+    func likelyVisitors(count: Int = 3, on date: Date = .now, calendar: Calendar = .current) -> [Species] {
+        let pool = hintSpeciesIDs.compactMap { id in CreatureCatalog.all.first { $0.id == id } }
+        guard !pool.isEmpty else { return [] }
+        let day = calendar.ordinality(of: .day, in: .era, for: date) ?? 0
+        let start = day % pool.count
+        let rotated = Array(pool[start...] + pool[..<start])
+        // Emoji are shared by some kinds (several birds are 🐦), so skip
+        // repeats — three identical bubbles would read as one hint.
+        var seen = Set<String>()
+        return Array(rotated.filter { seen.insert($0.emoji).inserted }.prefix(count))
+    }
 }
