@@ -17,9 +17,8 @@ struct GuideEntryView: View {
     /// Drives the push to the catalog, to say who a Mystery Friend is.
     @State private var showIdentify = false
     /// Renaming happens right on the name: tap it, type, done.
+    /// Renaming happens right on the name (see `RenamableName`).
     @State private var isRenaming = false
-    @State private var draftName = ""
-    @FocusState private var nameFocused: Bool
     @Query private var allCatches: [Catch]
 
     private var species: Species { friend.species }
@@ -53,7 +52,7 @@ struct GuideEntryView: View {
                     .padding()
                     // Tapping anywhere else finishes a rename.
                     .contentShape(Rectangle())
-                    .onTapGesture { if isRenaming { commitRename() } }
+                    .onTapGesture { isRenaming = false }
                 }
                 .scrollDismissesKeyboard(.immediately)
             }
@@ -196,40 +195,8 @@ struct GuideEntryView: View {
         VStack(spacing: 4) {
             // The friend's own name leads — their nickname if they have one,
             // otherwise their kind. The kind always shows in the nav bar, so we
-            // don't repeat it here.
-            // Tap the name (or its pencil) to rename right here — no sheet.
-            if isRenaming {
-                TextField(species.name, text: $draftName)
-                    .font(.system(size: 26, weight: .heavy, design: .rounded))
-                    .foregroundStyle(Theme.ink)
-                    .multilineTextAlignment(.center)
-                    .submitLabel(.done)
-                    .focused($nameFocused)
-                    .onSubmit { commitRename() }
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 16)
-                    .background(Capsule().fill(.white))
-                    .overlay(Capsule().stroke(Theme.accent, lineWidth: 2))
-                    .padding(.horizontal, 24)
-            } else {
-                Button { startRename() } label: {
-                    HStack(spacing: 8) {
-                        Text(friend.displayName)
-                            .font(.system(size: 26, weight: .heavy, design: .rounded))
-                            .foregroundStyle(Theme.ink)
-                            .multilineTextAlignment(.center)
-                        Image(systemName: "pencil")
-                            .font(.system(size: 14, weight: .bold))
-                            .foregroundStyle(Theme.accent)
-                            .frame(width: 28, height: 28)
-                            .background(Circle().fill(.white))
-                            .shadow(color: Theme.ink.opacity(0.08), radius: 3, y: 1)
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(friend.displayName), rename")
-            }
+            // don't repeat it here. Tap it (or its pencil) to rename.
+            RenamableName(friend: friend, isRenaming: $isRenaming)
 
             if isMystery {
                 // Straight to the catalog — one tap to pick who this is.
@@ -249,10 +216,6 @@ struct GuideEntryView: View {
                 .padding(.top, 6)
             }
         }
-        .onChange(of: nameFocused) { _, focused in
-            // Tapping away saves too.
-            if !focused && isRenaming { commitRename() }
-        }
     }
 
     /// Names the friend's kind, with its first-of-kind bonus, and moves it to
@@ -265,21 +228,6 @@ struct GuideEntryView: View {
         friend.sparksEarned = Progression.sparks(for: chosen, isFirstSighting: isFirst)
         friend.zoneOverride = nil
         try? context.save()
-    }
-
-    private func startRename() {
-        draftName = friend.nickname ?? ""
-        isRenaming = true
-        nameFocused = true
-    }
-
-    /// Saves the typed name as the nickname; an empty name goes back to the kind.
-    private func commitRename() {
-        let trimmed = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
-        friend.nickname = trimmed.isEmpty ? nil : trimmed
-        try? context.save()
-        isRenaming = false
-        nameFocused = false
     }
 
     // MARK: Meta

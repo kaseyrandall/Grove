@@ -32,6 +32,8 @@ struct CatchResultView: View {
     @State private var showCrop = false
     /// Drives the push to the full, searchable catalog.
     @State private var showPicker = false
+    /// Renaming happens right on the name (see `RenamableName`).
+    @State private var isRenaming = false
 
     /// The open Duo in landscape: the photo stays on the left page while you
     /// choose who it is (and where it lives) on the right.
@@ -83,7 +85,11 @@ struct CatchResultView: View {
                                 }
                             }
                             .padding()
+                            // Tapping anywhere else finishes a rename.
+                            .contentShape(Rectangle())
+                            .onTapGesture { isRenaming = false }
                         }
+                        .scrollDismissesKeyboard(.immediately)
 
                         actionButtons
                             .padding([.horizontal, .bottom])
@@ -114,13 +120,20 @@ struct CatchResultView: View {
             .multilineTextAlignment(.center)
     }
 
+    /// The friend's name — tap it to give them one — and, once named, the
+    /// kind under a nickname plus its rarity.
     private var nameBlock: some View {
         VStack(spacing: 8) {
-            Text(species.name)
-                .font(.system(size: 30, weight: .heavy, design: .rounded))
-                .foregroundStyle(Theme.ink)
+            RenamableName(friend: result.record, isRenaming: $isRenaming, fontSize: 30)
             if !isMystery {
-                RarityBadge(rarity: species.rarity)
+                HStack(spacing: 8) {
+                    if result.record.nickname != nil {
+                        Text("\(species.emoji) \(species.name)")
+                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                            .foregroundStyle(Theme.ink.opacity(0.6))
+                    }
+                    RarityBadge(rarity: species.rarity)
+                }
             }
         }
     }
@@ -147,7 +160,10 @@ struct CatchResultView: View {
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 20)
+                    .contentShape(Rectangle())
+                    .onTapGesture { isRenaming = false }
                 }
+                .scrollDismissesKeyboard(.immediately)
                 .frame(width: pages.leading)
 
                 VStack(alignment: .leading, spacing: 14) {
