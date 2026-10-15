@@ -87,9 +87,15 @@ struct GroveView: View {
                                 .transition(.opacity.combined(with: .scale(scale: 0.96)))
                         }
 
-                        HStack(alignment: .top, spacing: 12) {
-                            masonryColumn(masonry.left)
-                            masonryColumn(masonry.right)
+                        VStack(spacing: 12) {
+                            // A busy zone gets the full width to itself.
+                            ForEach(wideZones, id: \.zone) { item in
+                                animatedZoneCard(item)
+                            }
+                            HStack(alignment: .top, spacing: 12) {
+                                masonryColumn(masonry.left)
+                                masonryColumn(masonry.right)
+                            }
                         }
                         .padding()
                     }
@@ -237,7 +243,10 @@ struct GroveView: View {
     /// zone order. Unlike a `LazyVGrid`, this packs a tall, busy zone beside a
     /// short one without a locked-row gap, and stays balanced as zones fill up.
     private var masonry: (left: [(index: Int, zone: Habitat)], right: [(index: Int, zone: Habitat)]) {
-        let zones = Habitat.ordered.enumerated().map { (index: $0.offset, zone: $0.element) }
+        let wide = Set(wideZones.map(\.zone))
+        let zones = Habitat.ordered.enumerated()
+            .map { (index: $0.offset, zone: $0.element) }
+            .filter { !wide.contains($0.zone) }
         var left: [(index: Int, zone: Habitat)] = []
         var right: [(index: Int, zone: Habitat)] = []
         var leftWeight = 0.0, rightWeight = 0.0
@@ -267,20 +276,36 @@ struct GroveView: View {
         return base + rows * 66                             // + each avatar row
     }
 
+    /// Zones with this many friends or more span the full width (above the
+    /// two columns), so a busy zone isn't a long, narrow strip.
+    static let wideZoneThreshold = 8
+
+    private var wideZones: [(index: Int, zone: Habitat)] {
+        Habitat.ordered.enumerated()
+            .map { (index: $0.offset, zone: $0.element) }
+            .filter { item in
+                catches.filter { $0.effectiveZone == item.zone }.count >= Self.wideZoneThreshold
+            }
+    }
+
     private func masonryColumn(_ items: [(index: Int, zone: Habitat)]) -> some View {
         VStack(spacing: 12) {
             ForEach(items, id: \.zone) { item in
-                ZoneCard(zone: item.zone, catches: catches)
-                    .opacity(shown ? 1 : 0)
-                    .offset(y: shown ? 0 : 26)
-                    .animation(
-                        .spring(response: 0.55, dampingFraction: 0.82)
-                        .delay(0.1 + Double(item.index) * 0.07),
-                        value: shown
-                    )
+                animatedZoneCard(item)
             }
         }
         .frame(maxWidth: .infinity, alignment: .top)
+    }
+
+    private func animatedZoneCard(_ item: (index: Int, zone: Habitat)) -> some View {
+        ZoneCard(zone: item.zone, catches: catches)
+            .opacity(shown ? 1 : 0)
+            .offset(y: shown ? 0 : 26)
+            .animation(
+                .spring(response: 0.55, dampingFraction: 0.82)
+                .delay(0.1 + Double(item.index) * 0.07),
+                value: shown
+            )
     }
 
     #if DEBUG
