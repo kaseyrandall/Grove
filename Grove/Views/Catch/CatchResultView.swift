@@ -490,11 +490,10 @@ struct CatchResultView: View {
     /// New badges as cards in the same style as the Animal / Lives in /
     /// Sparks row, three to a row, each popping in after the last.
     private var achievementsUnlocked: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Text(achievements.count == 1 ? "New badge" : "New badges")
-                .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                .foregroundStyle(Theme.ink.opacity(0.7))
-                .padding(.leading, 4)
+        VStack(spacing: 12) {
+            Text(achievements.count == 1 ? "🎖 New Achievement!" : "🎖 New Achievements!")
+                .font(.system(.title3, design: .rounded, weight: .heavy))
+                .foregroundStyle(Theme.accent)
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3),
                       spacing: 10) {
                 ForEach(Array(achievements.enumerated()), id: \.element.id) { index, achievement in
