@@ -439,8 +439,8 @@ struct ZoneCard: View {
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("Might visit: \(visitors.map(\.name).formatted(.list(type: .or)))")
 
-            if let first = visitors.first {
-                Text("Try \(first.habitatNote.lowercased())")
+            if !visitors.isEmpty {
+                Text(zone.lookHint)
                     .font(.system(.caption2, design: .rounded))
                     .foregroundStyle(Theme.ink.opacity(0.5))
                     .lineLimit(2)
