@@ -69,7 +69,12 @@ struct CatchResultView: View {
 
                                 identifySection
 
-                                zonePicker
+                                // Where it lives follows from who it is, so
+                                // the zones wait until the friend is named.
+                                if !isMystery {
+                                    zonePicker
+                                        .transition(.opacity.combined(with: .move(edge: .top)))
+                                }
 
                                 sparksCard
 
@@ -146,14 +151,16 @@ struct CatchResultView: View {
                 .frame(width: pages.leading)
 
                 VStack(alignment: .leading, spacing: 14) {
-                    Text(isMystery ? "What did you find?" : "Not a \(species.name)? Choose another")
+                    Text(isMystery ? "What did you find?" : "Choose a different animal")
                         .font(.system(.title3, design: .rounded, weight: .bold))
                         .foregroundStyle(Theme.ink)
                         .lineLimit(1)
                         .minimumScaleFactor(0.8)
                     searchField
                     ScrollView { inlinePicker }
-                    spreadZonePicker
+                    if !isMystery {
+                        spreadZonePicker
+                    }
                     actionButtons
                 }
                 .padding(.vertical, 20)
@@ -332,14 +339,16 @@ struct CatchResultView: View {
     /// picks, and freely changeable afterwards.
     private var identifySection: some View {
         VStack(spacing: 10) {
-            Text(isMystery ? "What did you find?" : "Not quite?")
-                .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                .foregroundStyle(Theme.ink.opacity(0.7))
+            if isMystery {
+                Text("What did you find?")
+                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .foregroundStyle(Theme.ink.opacity(0.7))
+            }
 
             Button { showPicker = true } label: {
                 HStack(spacing: 10) {
                     Image(systemName: "square.grid.2x2.fill").foregroundStyle(Theme.accent)
-                    Text(isMystery ? "Choose your friend" : "Not a \(species.name)? Choose another")
+                    Text(isMystery ? "Choose your friend" : "Choose a different animal")
                         .font(.system(.subheadline, design: .rounded, weight: .semibold))
                         .foregroundStyle(Theme.ink)
                         .lineLimit(1)
@@ -407,13 +416,20 @@ struct CatchResultView: View {
                 .font(.system(.caption, design: .rounded, weight: .semibold))
                 .foregroundStyle(Theme.ink.opacity(0.55))
 
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach(Habitat.ordered) { habitat in
-                        zoneChip(habitat)
+            // Scrolls so the chosen zone is in view, even when it's far right.
+            ScrollViewReader { proxy in
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ForEach(Habitat.ordered) { habitat in
+                            zoneChip(habitat).id(habitat)
+                        }
                     }
+                    .padding(.horizontal, 4)
                 }
-                .padding(.horizontal, 4)
+                .onAppear { proxy.scrollTo(zone, anchor: .center) }
+                .onChange(of: zone) { _, newZone in
+                    withAnimation { proxy.scrollTo(newZone, anchor: .center) }
+                }
             }
         }
     }

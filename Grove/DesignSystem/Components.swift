@@ -37,7 +37,7 @@ struct BouncyButtonStyle: ButtonStyle {
 struct RarityBadge: View {
     let rarity: Rarity
     var body: some View {
-        Text("\(rarity.badge) \(rarity.fieldTerm)")
+        Text("\(rarity.badge) \(rarity.title)")
             .font(.system(.caption, design: .rounded, weight: .bold))
             .foregroundStyle(Theme.ink)
             .padding(.horizontal, 12)

@@ -1,7 +1,7 @@
 import SwiftUI
 
 /// How special a friend is. Drives the point payout and the celebration.
-/// Presented in gentle field-guide language ("Seldom seen"), not loot grammar.
+/// Shown by its plain tier name (Common … Legendary) everywhere.
 enum Rarity: Int, CaseIterable, Codable, Comparable {
     case common
     case uncommon
@@ -24,7 +24,7 @@ enum Rarity: Int, CaseIterable, Codable, Comparable {
         }
     }
 
-    /// Plain tier name, used in breakdowns/lists.
+    /// The tier's name, used on badges, the friend page and breakdowns.
     var title: String {
         switch self {
         case .common:    return "Common"
@@ -32,17 +32,6 @@ enum Rarity: Int, CaseIterable, Codable, Comparable {
         case .rare:      return "Rare"
         case .epic:      return "Epic"
         case .legendary: return "Legendary"
-        }
-    }
-
-    /// Warm field-guide phrasing, used on badges and the catch celebration.
-    var fieldTerm: String {
-        switch self {
-        case .common:    return "Common"
-        case .uncommon:  return "Uncommon"
-        case .rare:      return "Seldom seen"
-        case .epic:      return "Rare"
-        case .legendary: return "Almost mythical"
         }
     }
 

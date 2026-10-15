@@ -854,7 +854,7 @@ struct BattleCardView: View {
 
     private func rarityFrame(_ r: Rarity) -> some View {
         VStack(spacing: 0) {
-            Text(r.fieldTerm.uppercased())
+            Text(r.title.uppercased())
                 .font(.system(size: 9, weight: .heavy, design: .rounded)).tracking(0.4)
                 .foregroundStyle(BattleTheme.ink)
             Text("◆ frame")

@@ -287,7 +287,7 @@ struct GuideEntryView: View {
     private var metaRow: some View {
         HStack(spacing: 10) {
             metaTile(value: friend.caughtAt.formatted(.dateTime.month().day()), label: "Met")
-            metaTile(value: "\(species.rarity.badge) \(species.rarity.fieldTerm)", label: "Rarity")
+            metaTile(value: "\(species.rarity.badge) \(species.rarity.title)", label: "Rarity")
             metaTile(value: "\(friend.sparksEarned) ✨", label: "Sparks")
         }
     }

@@ -18,7 +18,7 @@ Built 100% native — SwiftUI and SwiftData. No backend, no accounts, no cost. Y
 - **You name your friends.** Snap first — **random animal confetti** rains down — then pick which animal it is from the searchable catalog. No flaky auto-guessing.
 - **Always rewarding.** Every snap lands as a **Mystery Friend** right away, so it never feels wasted; name it now or later, and its badges unlock when you do.
 - **First-find bonus.** The first time a species visits, sparks are doubled — the collection thrill.
-- **Gentle rarity.** Field-guide language, not loot: Common 💚 → Uncommon 💙 → Seldom seen 💜 → Rare 💗 → Almost mythical 💛.
+- **Simple rarity.** Common 💚 → Uncommon 💙 → Rare 💜 → Epic 💗 → Legendary 💛.
 - **Daily streaks.** 🔥 Catch something each day to keep your streak alive (current + all-time best).
 - **Achievements.** 🎖 Badges with live progress bars, celebrated the instant you unlock them mid-catch.
 - **Discovery map.** 🗺️ Every geotagged catch drops a rarity-colored pin where you met that friend.
