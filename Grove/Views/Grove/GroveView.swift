@@ -7,6 +7,10 @@ import SwiftData
 struct GroveView: View {
     @Query(sort: \Catch.caughtAt, order: .reverse) private var catches: [Catch]
 
+    /// Jumps to the camera (owned by RootView's tab selection). Optional so
+    /// previews work without it; when nil, the "go look" prompts are hidden.
+    var onSnap: (() -> Void)? = nil
+
     /// Play the graceful entrance only the first time the Grove is ever shown —
     /// i.e. right after the tutorial.
     @AppStorage("hasSeenGroveIntro") private var seenIntro = false
@@ -55,6 +59,16 @@ struct GroveView: View {
                             .offset(y: shown ? 0 : -6)
                             .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.05), value: shown)
                             .transition(.move(edge: .top).combined(with: .opacity))
+                    }
+
+                    if catches.isEmpty {
+                        firstFriendCard
+                            .padding(.horizontal)
+                            .padding(.top, 12)
+                            .opacity(shown ? 1 : 0)
+                            .offset(y: shown ? 0 : -6)
+                            .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.08), value: shown)
+                            .transition(.opacity.combined(with: .scale(scale: 0.96)))
                     }
 
                     #if DEBUG
@@ -127,7 +141,7 @@ struct GroveView: View {
     private func weight(of zone: Habitat) -> Double {
         let residents = catches.filter { $0.effectiveZone == zone }.count
         let base = 80.0                                    // header + padding + inter-card gap
-        guard residents > 0 else { return base + 52 }      // + the "quiet spot" line
+        guard residents > 0 else { return base + 72 }      // + visitor hints and the where-to-look line
         let rows = (Double(residents) / 2.0).rounded(.up)  // ~2 avatars per column-width row
         return base + rows * 66                             // + each avatar row
     }
@@ -135,7 +149,7 @@ struct GroveView: View {
     private func masonryColumn(_ items: [(index: Int, zone: Habitat)]) -> some View {
         VStack(spacing: 12) {
             ForEach(items, id: \.zone) { item in
-                ZoneCard(zone: item.zone, catches: catches)
+                ZoneCard(zone: item.zone, catches: catches, onSnap: onSnap)
                     .opacity(shown ? 1 : 0)
                     .offset(y: shown ? 0 : 26)
                     .animation(
@@ -205,6 +219,46 @@ struct GroveView: View {
             Spacer()
         }
         .padding(.vertical, 4)
+    }
+
+    /// The cold-start nudge for a brand-new Grove: the easiest friends to meet
+    /// are usually a few steps away, so lower the bar for that first snap.
+    /// Disappears for good once anyone comes home.
+    private var firstFriendCard: some View {
+        let easyFinds = ["housecat", "dog", "pigeon", "squirrel"]
+            .compactMap { id in CreatureCatalog.all.first { $0.id == id } }
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("Your first friend is closer than you think")
+                .font(.system(.subheadline, design: .rounded, weight: .bold))
+                .foregroundStyle(Theme.ink)
+            HStack(spacing: 8) {
+                ForEach(easyFinds) { species in
+                    Text(species.emoji)
+                        .font(.system(size: 22))
+                        .frame(width: 40, height: 40)
+                        .background(Circle().fill(Theme.cream))
+                }
+            }
+            .accessibilityHidden(true)
+            Text("A pet, a pigeon, a backyard squirrel: they all count. Even a blur becomes a Mystery Friend.")
+                .font(.system(.caption, design: .rounded))
+                .foregroundStyle(Theme.ink.opacity(0.6))
+                .fixedSize(horizontal: false, vertical: true)
+            if let onSnap {
+                Button(action: onSnap) {
+                    Label("Snap your first friend", systemImage: "camera.fill")
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 10)
+                        .background(Capsule().fill(Theme.accent))
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .softCard()
     }
 
     /// Shown in the top-right once the card is dismissed, to bring it back — a
@@ -304,6 +358,8 @@ struct GroveView: View {
 struct ZoneCard: View {
     let zone: Habitat
     let catches: [Catch]
+    /// Jumps to the camera when an empty zone is tapped.
+    var onSnap: (() -> Void)? = nil
 
     /// Shared with RootView by key — set when the player opens a friend, so the
     /// "meet your friend" coach mark retires on use, not only on bubble-tap.
@@ -335,14 +391,7 @@ struct ZoneCard: View {
             }
 
             if residents.isEmpty {
-                HStack {
-                    Spacer()
-                    Text("a quiet spot, waiting for its first visitor…")
-                        .font(.system(.caption, design: .rounded))
-                        .foregroundStyle(Theme.ink.opacity(0.45))
-                    Spacer()
-                }
-                .frame(height: 64)
+                emptyInvite
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 52), spacing: 8)], spacing: 10) {
                     ForEach(Array(residents.enumerated()), id: \.element.persistentModelID) { index, friend in
@@ -367,6 +416,69 @@ struct ZoneCard: View {
                 .fill(zone.gradient)
         )
         .shadow(color: Theme.ink.opacity(0.08), radius: 10, x: 0, y: 5)
+        // An empty zone is one big "go find who lives here" — tap anywhere on
+        // it to open the camera. (Filled zones keep their per-friend links.)
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .onTapGesture { if residents.isEmpty { onSnap?() } }
+        .accessibilityAddTraits(residents.isEmpty && onSnap != nil ? .isButton : [])
+        .accessibilityHint(residents.isEmpty && onSnap != nil ? "Opens the camera" : "")
+    }
+
+    /// An empty zone, made inviting: a few friends who might drop by (rotated
+    /// daily) and a hint of where to look. The whole card opens the camera.
+    /// They're friendly suggestions, not `???` silhouettes — nothing reads as
+    /// "missing", just "who's next".
+    private var emptyInvite: some View {
+        let visitors = zone.likelyVisitors()
+        return VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 6) {
+                ForEach(Array(visitors.enumerated()), id: \.element.id) { index, species in
+                    VisitorHint(species: species, index: index)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Might visit: \(visitors.map(\.name).formatted(.list(type: .or)))")
+
+            if !visitors.isEmpty {
+                Text(zone.lookHint)
+                    .font(.system(.caption2, design: .rounded))
+                    .foregroundStyle(Theme.ink.opacity(0.5))
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+/// A soft, dashed bubble holding the emoji of a friend who might visit an
+/// empty zone — clearly a hint (no photo, no rarity ring), gently bobbing so
+/// the quiet spot still feels alive.
+private struct VisitorHint: View {
+    let species: Species
+    var index: Int = 0
+
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var floating = false
+
+    var body: some View {
+        Text(species.emoji)
+            .font(.system(size: 20))
+            .opacity(0.75)
+            .frame(width: 38, height: 38)
+            .background(Circle().fill(.white.opacity(0.45)))
+            .overlay(Circle().strokeBorder(Theme.ink.opacity(0.18), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])))
+            .offset(y: floating ? -2 : 2)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(
+                    .easeInOut(duration: 2.2 + Double(index) * 0.3)
+                    .repeatForever(autoreverses: true)
+                    .delay(Double(index) * 0.35)
+                ) {
+                    floating = true
+                }
+            }
     }
 }
 
@@ -386,9 +498,7 @@ struct ResidentPortrait: View {
         ZStack {
             Circle().fill(.white)
             if let data = friend.photoData, let ui = UIImage(data: data) {
-                Image(uiImage: ui)
-                    .resizable()
-                    .scaledToFill()
+                FriendPhoto(image: ui, framing: friend.framing)
                     .clipShape(Circle())
                     .padding(3)
             } else {

@@ -24,6 +24,7 @@ struct CatchResultView: View {
     @State private var achievements: [Achievement]
     @State private var popped = false
     @State private var showPhoto = false
+    @State private var showCrop = false
     /// Drives the push to the full, searchable catalog.
     @State private var showPicker = false
 
@@ -85,7 +86,8 @@ struct CatchResultView: View {
                 }
             }
             .toolbar(.hidden, for: .navigationBar)
-            .photoLightbox(isPresented: $showPhoto, image: result.image)
+            .photoLightbox(isPresented: $showPhoto, image: result.image, friend: result.record)
+            .photoCropper(isPresented: $showCrop, friend: result.record)
             .navigationDestination(isPresented: $showPicker) {
                 SpeciesPickerView(selectedID: species.id) { picked in
                     correct(to: picked)
@@ -135,15 +137,25 @@ struct CatchResultView: View {
     // MARK: Photo
 
     private var photo: some View {
-        Image(uiImage: result.image)
-            .resizable()
-            .scaledToFill()
+        FriendPhoto(image: result.image, framing: result.record.framing)
             .frame(width: 260, height: 260 / Theme.photoAspectRatio) // shared 4:3 shape
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
                     .stroke(.white, lineWidth: 6)
             )
+            .overlay(alignment: .topTrailing) {
+                Button { showCrop = true } label: {
+                    Label("Crop", systemImage: "crop")
+                        .font(.system(.caption, design: .rounded, weight: .bold))
+                        .foregroundStyle(Theme.ink)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(.white.opacity(0.92)))
+                }
+                .buttonStyle(.plain)
+                .padding(12)
+            }
             .overlay(alignment: .bottomTrailing) {
                 Text(species.emoji)
                     .font(.system(size: 40))

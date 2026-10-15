@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import MapKit
 
 /// A field page for one individual friend: their photo, their kind, where they
 /// live in your Grove, and the personal touches you've given them.
@@ -12,11 +13,17 @@ struct GuideEntryView: View {
     @State private var wasReleased = false
     @State private var showPhoto = false
     @State private var showSwap = false
+    @State private var showMap = false
+    /// Drives the push to the catalog, to say who a Mystery Friend is.
+    @State private var showIdentify = false
+    /// Renaming happens right on the name: tap it, type, done.
+    @State private var isRenaming = false
+    @State private var draftName = ""
+    @FocusState private var nameFocused: Bool
     @Query private var allCatches: [Catch]
 
     private var species: Species { friend.species }
     private var zone: Habitat { friend.effectiveZone }
-    private var nickname: String? { friend.nickname }
     private var isMystery: Bool { species.id == Species.mystery.id }
     private var heroImage: UIImage? { friend.photoData.flatMap(UIImage.init(data:)) }
 
@@ -28,25 +35,33 @@ struct GuideEntryView: View {
                 VStack(spacing: 18) {
                     hero
                     nameBlock
-                    if let place = friend.placeName, !place.isEmpty {
-                        Label("Met at \(place)", systemImage: "mappin.and.ellipse")
-                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                            .foregroundStyle(Theme.ink.opacity(0.7))
-                    }
                     metaRow
                     infoCard
+                    whereYouMetCard
                     #if DEBUG
                     arenaSection
                     #endif
                 }
                 .padding()
                 .padding(.bottom, Theme.tabBarClearance)
+                // Tapping anywhere else finishes a rename.
+                .contentShape(Rectangle())
+                .onTapGesture { if isRenaming { commitRename() } }
             }
+            .scrollDismissesKeyboard(.immediately)
         }
         .navigationTitle("\(species.emoji) \(species.name)")
         .navigationBarTitleDisplayMode(.inline)
         .groveTabBarHidden()
-        .photoLightbox(isPresented: $showPhoto, image: heroImage)
+        .photoLightbox(isPresented: $showPhoto, image: heroImage, friend: friend)
+        .navigationDestination(isPresented: $showIdentify) {
+            SpeciesPickerView(selectedID: species.id) { picked in
+                identify(as: picked)
+            }
+        }
+        .fullScreenCover(isPresented: $showMap) {
+            MeetingSpotMap(friend: friend)
+        }
         .task {
             // Fill in the place name for older catches (or if it wasn't ready yet).
             if friend.placeName == nil, let lat = friend.latitude, let lng = friend.longitude {
@@ -90,9 +105,7 @@ struct GuideEntryView: View {
                 ZStack {
                     zone.gradient
                     if let ui = heroImage {
-                        Image(uiImage: ui)
-                            .resizable()
-                            .scaledToFill()
+                        FriendPhoto(image: ui, framing: friend.framing)
                     } else {
                         Text(species.emoji)
                             .font(.system(size: 92))
@@ -134,27 +147,89 @@ struct GuideEntryView: View {
             // The friend's own name leads — their nickname if they have one,
             // otherwise their kind. The kind always shows in the nav bar, so we
             // don't repeat it here.
-            Text(friend.displayName)
-                .font(.system(size: 26, weight: .heavy, design: .rounded))
-                .foregroundStyle(Theme.ink)
-                .multilineTextAlignment(.center)
-
-            Button { showEdit = true } label: {
-                if isMystery {
-                    Label("Tap to identify this friend", systemImage: "questionmark.circle.fill")
-                        .font(.system(.subheadline, design: .rounded, weight: .bold))
-                        .foregroundStyle(Theme.accent)
-                } else if let nickname, !nickname.isEmpty {
-                    Label("Tap to rename", systemImage: "pencil")
-                        .font(.system(.caption, design: .rounded, weight: .semibold))
-                        .foregroundStyle(Theme.ink.opacity(0.4))
-                } else {
-                    Label("Give it a nickname", systemImage: "pencil")
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                        .foregroundStyle(Theme.accent)
+            // Tap the name (or its pencil) to rename right here — no sheet.
+            if isRenaming {
+                TextField(species.name, text: $draftName)
+                    .font(.system(size: 26, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Theme.ink)
+                    .multilineTextAlignment(.center)
+                    .submitLabel(.done)
+                    .focused($nameFocused)
+                    .onSubmit { commitRename() }
+                    .padding(.vertical, 6)
+                    .padding(.horizontal, 16)
+                    .background(Capsule().fill(.white))
+                    .overlay(Capsule().stroke(Theme.accent, lineWidth: 2))
+                    .padding(.horizontal, 24)
+            } else {
+                Button { startRename() } label: {
+                    HStack(spacing: 8) {
+                        Text(friend.displayName)
+                            .font(.system(size: 26, weight: .heavy, design: .rounded))
+                            .foregroundStyle(Theme.ink)
+                            .multilineTextAlignment(.center)
+                        Image(systemName: "pencil")
+                            .font(.system(size: 14, weight: .bold))
+                            .foregroundStyle(Theme.accent)
+                            .frame(width: 28, height: 28)
+                            .background(Circle().fill(.white))
+                            .shadow(color: Theme.ink.opacity(0.08), radius: 3, y: 1)
+                    }
+                    .contentShape(Rectangle())
                 }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(friend.displayName), rename")
+            }
+
+            if isMystery {
+                // Straight to the catalog — one tap to pick who this is.
+                Button { showIdentify = true } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: "square.grid.2x2.fill")
+                        Text("Who is this? Choose your friend")
+                    }
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 11)
+                    .background(Capsule().fill(Theme.accent))
+                    .shadow(color: Theme.accent.opacity(0.35), radius: 8, y: 3)
+                }
+                .buttonStyle(BouncyButtonStyle())
+                .padding(.top, 6)
             }
         }
+        .onChange(of: nameFocused) { _, focused in
+            // Tapping away saves too.
+            if !focused && isRenaming { commitRename() }
+        }
+    }
+
+    /// Names the friend's kind, with its first-of-kind bonus, and moves it to
+    /// that kind's zone.
+    private func identify(as chosen: Species) {
+        guard chosen.id != friend.speciesID else { return }
+        let isFirst = !allCatches.contains { $0 !== friend && $0.speciesID == chosen.id }
+        friend.speciesID = chosen.id
+        friend.isFirstSighting = isFirst
+        friend.sparksEarned = Progression.sparks(for: chosen, isFirstSighting: isFirst)
+        friend.zoneOverride = nil
+        try? context.save()
+    }
+
+    private func startRename() {
+        draftName = friend.nickname ?? ""
+        isRenaming = true
+        nameFocused = true
+    }
+
+    /// Saves the typed name as the nickname; an empty name goes back to the kind.
+    private func commitRename() {
+        let trimmed = draftName.trimmingCharacters(in: .whitespacesAndNewlines)
+        friend.nickname = trimmed.isEmpty ? nil : trimmed
+        try? context.save()
+        isRenaming = false
+        nameFocused = false
     }
 
     // MARK: Meta
@@ -202,6 +277,44 @@ struct GuideEntryView: View {
         .padding()
         .frame(maxWidth: .infinity)
         .softCard()
+    }
+
+    /// A small map of the spot where you met this friend, named when we know
+    /// the place. Tap it for a full map you can move around.
+    @ViewBuilder private var whereYouMetCard: some View {
+        if let lat = friend.latitude, let lng = friend.longitude {
+            let spot = CLLocationCoordinate2D(latitude: lat, longitude: lng)
+            Button { showMap = true } label: {
+            VStack(alignment: .leading, spacing: 0) {
+                Map(initialPosition: .region(MKCoordinateRegion(center: spot,
+                                                                latitudinalMeters: 700,
+                                                                longitudinalMeters: 700)),
+                    interactionModes: []) {
+                    Annotation("", coordinate: spot) { MapPin(species: species) }
+                }
+                .frame(height: 170)
+                .allowsHitTesting(false)
+
+                HStack(spacing: 8) {
+                    Label(friend.meetingPlaceLabel, systemImage: "mappin.and.ellipse")
+                        .font(.system(.subheadline, design: .rounded, weight: .bold))
+                        .foregroundStyle(Theme.ink)
+                        .lineLimit(1)
+                    Spacer(minLength: 0)
+                    Image(systemName: "arrow.up.left.and.arrow.down.right")
+                        .font(.system(size: 12, weight: .bold))
+                        .foregroundStyle(Theme.ink.opacity(0.5))
+                }
+                .padding(14)
+            }
+            .background(Color.white)
+            .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
+            .shadow(color: Theme.ink.opacity(0.08), radius: 12, x: 0, y: 6)
+            }
+            .buttonStyle(.plain)
+            .accessibilityElement(children: .combine)
+            .accessibilityHint("Opens the map")
+        }
     }
 
     #if DEBUG

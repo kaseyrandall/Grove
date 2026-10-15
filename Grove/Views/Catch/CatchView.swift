@@ -115,23 +115,30 @@ struct CatchView: View {
 
     // MARK: Viewfinder
 
+    #if DEBUG
+    /// Test hook for screenshots in the simulator (which has no camera):
+    /// `-GroveCameraBackdrop <image path>` fills the viewfinder with that photo
+    /// and shows the controls as they'd be with a live camera.
+    private static let debugBackdrop: UIImage? = {
+        let args = ProcessInfo.processInfo.arguments
+        guard let i = args.firstIndex(of: "-GroveCameraBackdrop"), i + 1 < args.count else { return nil }
+        return UIImage(contentsOfFile: args[i + 1])
+    }()
+    #endif
+
+    /// Whether the camera-only controls (flip) should show.
+    private var cameraIsLive: Bool {
+        #if DEBUG
+        if Self.debugBackdrop != nil { return true }
+        #endif
+        return camera.status == .authorized
+    }
+
     private var viewfinder: some View {
         ZStack {
             Color.black
 
-            switch camera.status {
-            case .authorized:
-                CameraPreview(session: camera.session) { layerPoint, devicePoint in
-                    camera.focus(at: devicePoint)
-                    showFocus(at: layerPoint)
-                }
-            case .denied:
-                placeholder("🚫", "Grove needs your camera to meet friends.\nTurn it on in Settings to start snapping.", showSettings: true)
-            case .unavailable:
-                placeholder("📷", "No camera on this device.")
-            case .idle:
-                placeholder("🌿", "Warming up the lens…")
-            }
+            cameraLayer
 
             if gridOn { GridOverlay() }
 
@@ -151,6 +158,39 @@ struct CatchView: View {
                     .position(point)
                     .allowsHitTesting(false)
             }
+        }
+    }
+
+    /// The live camera, or a friendly placeholder when there isn't one.
+    @ViewBuilder private var cameraLayer: some View {
+        #if DEBUG
+        if let backdrop = Self.debugBackdrop {
+            // In an overlay so the photo fills the viewfinder without
+            // stretching the layout around it.
+            Color.clear
+                .overlay { Image(uiImage: backdrop).resizable().scaledToFill() }
+                .clipped()
+        } else {
+            liveCameraLayer
+        }
+        #else
+        liveCameraLayer
+        #endif
+    }
+
+    @ViewBuilder private var liveCameraLayer: some View {
+        switch camera.status {
+        case .authorized:
+            CameraPreview(session: camera.session) { layerPoint, devicePoint in
+                camera.focus(at: devicePoint)
+                showFocus(at: layerPoint)
+            }
+        case .denied:
+            placeholder("🚫", "Grove needs your camera to meet friends.\nTurn it on in Settings to start snapping.", showSettings: true)
+        case .unavailable:
+            placeholder("📷", "No camera on this device.")
+        case .idle:
+            placeholder("🌿", "Warming up the lens…")
         }
     }
 
@@ -186,22 +226,14 @@ struct CatchView: View {
 
     private var bottomControls: some View {
         VStack(spacing: 14) {
-            if abs(camera.displayZoom - 1.0) > 0.05 {
-                Text(String(format: "%.1f×", camera.displayZoom))
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .background(Capsule().fill(.black.opacity(0.45)))
-                    .transition(.scale.combined(with: .opacity))
-            }
+            if lensStops.count > 1 { lensButtons }
             safetyLine
             HStack {
                 // Fixed-size side slots keep the shutter centered even before the
                 // camera authorizes (and the flip button appears) or when there's
                 // no last catch yet — an empty view alone would collapse to zero.
                 sideSlot(alignment: .leading) {
-                    if camera.status == .authorized {
+                    if cameraIsLive {
                         circleButton("arrow.triangle.2.circlepath") { camera.flip() }
                             .transition(.opacity.combined(with: .scale))
                     }
@@ -218,7 +250,7 @@ struct CatchView: View {
                     PhotosPicker(selection: $libraryItem, matching: .images, photoLibrary: .shared()) {
                         Group {
                             if let last = lastCatch, let data = last.photoData, let ui = UIImage(data: data) {
-                                Image(uiImage: ui).resizable().scaledToFill()
+                                FriendPhoto(image: ui, framing: last.framing)
                             } else {
                                 Image(systemName: "photo.on.rectangle.angled")
                                     .font(.system(size: 19, weight: .semibold))
@@ -236,6 +268,55 @@ struct CatchView: View {
             }
             .animation(.easeInOut(duration: 0.25), value: camera.status)
         }
+    }
+
+    /// The lens buttons to show. (DEBUG: the screenshot backdrop has no camera,
+    /// so it shows a typical set.)
+    private var lensStops: [CGFloat] {
+        #if DEBUG
+        if Self.debugBackdrop != nil, camera.lensStops.isEmpty { return [0.5, 1, 2, 5] }
+        #endif
+        return camera.lensStops
+    }
+
+    /// The lens you're on: the longest one at or below the current zoom.
+    private var activeLens: CGFloat? {
+        lensStops.last { $0 <= camera.displayZoom + 0.05 } ?? lensStops.first
+    }
+
+    /// One button per lens (0.5×, 1×, 2×, 5×…). The lens you're on is lit and
+    /// shows the live zoom, so a pinch in between reads as "1.4×".
+    private var lensButtons: some View {
+        HStack(spacing: 6) {
+            ForEach(lensStops, id: \.self) { stop in
+                let isActive = stop == activeLens
+                Button {
+                    if hapticsEnabled { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+                    camera.selectLens(stop)
+                } label: {
+                    Text(isActive ? Self.zoomLabel(camera.displayZoom) + "×" : Self.zoomLabel(stop))
+                        .font(.system(size: isActive ? 13 : 12, weight: .bold, design: .rounded))
+                        .monospacedDigit()
+                        .foregroundStyle(isActive ? Theme.gold : .white)
+                        .frame(width: isActive ? 44 : 34, height: isActive ? 44 : 34)
+                        .background(Circle().fill(.black.opacity(isActive ? 0.6 : 0.4)))
+                        .frame(width: 44, height: 44)
+                        .contentShape(Circle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("\(Self.zoomLabel(stop)) times zoom")
+                .accessibilityAddTraits(isActive ? .isSelected : [])
+            }
+        }
+        .padding(.horizontal, 4)
+        .background(Capsule().fill(.black.opacity(0.3)))
+        .animation(.easeInOut(duration: 0.18), value: activeLens)
+    }
+
+    /// "0.5", "1", "2", "1.4" — whole numbers drop the decimal.
+    private static func zoomLabel(_ zoom: CGFloat) -> String {
+        let rounded = (zoom * 10).rounded() / 10
+        return rounded == rounded.rounded() ? String(format: "%.0f", rounded) : String(format: "%.1f", rounded)
     }
 
     private var safetyLine: some View {
@@ -263,7 +344,7 @@ struct CatchView: View {
         }
         .buttonStyle(BouncyButtonStyle())
         .disabled(camera.status != .authorized || isIdentifying)
-        .opacity(camera.status == .authorized ? 1 : 0.45)
+        .opacity(cameraIsLive ? 1 : 0.45)
     }
 
     /// A fixed 52pt-wide slot flanking the shutter. Always reserves its width so

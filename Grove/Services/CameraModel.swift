@@ -26,6 +26,10 @@ final class CameraModel: NSObject, ObservableObject {
     /// lens). On devices with an ultra-wide, raw 1.0 is the ultra-wide (~0.5×),
     /// so this is the ultra-wide→wide switch-over factor.
     @Published private(set) var nativeOneX: CGFloat = 1.0
+    /// The lens buttons to offer, as displayed zoom (0.5×, 1×, 2×, 5×…): one per
+    /// real lens on this camera, plus 2× (a crop of the main lens). Empty until
+    /// the camera is up.
+    @Published private(set) var lensStops: [CGFloat] = []
     /// Zoom as the stock Camera shows it (0.5×, 1×, 5×…), relative to native 1×.
     var displayZoom: CGFloat { zoomFactor / nativeOneX }
     /// Ceiling on displayed zoom (native lenses plus a little digital reach),
@@ -146,10 +150,25 @@ final class CameraModel: NSObject, ObservableObject {
         } catch {
             // Zoom is a nicety; ignore failures.
         }
+        let stops = lensStops(for: device, oneX: oneX)
         DispatchQueue.main.async {
             self.nativeOneX = oneX
             self.zoomFactor = target
+            self.lensStops = stops
         }
+    }
+
+    /// Displayed zoom for each lens button: the widest lens (0.5× where there's
+    /// an ultra-wide), 1×, 2×, and the telephoto (3× or 5×) where present.
+    private func lensStops(for device: AVCaptureDevice, oneX: CGFloat) -> [CGFloat] {
+        var stops: [CGFloat] = [1, 2]
+        if oneX > 1 { stops.append(device.minAvailableVideoZoomFactor / oneX) }
+        for factor in device.virtualDeviceSwitchOverVideoZoomFactors {
+            stops.append(CGFloat(truncating: factor) / oneX)
+        }
+        let maxDisplay = device.maxAvailableVideoZoomFactor / oneX
+        let rounded = stops.filter { $0 <= maxDisplay }.map { ($0 * 10).rounded() / 10 }
+        return Array(Set(rounded)).sorted()
     }
 
     // MARK: Viewfinder controls
@@ -213,6 +232,24 @@ final class CameraModel: NSObject, ObservableObject {
                 device.videoZoomFactor = clamped
                 device.unlockForConfiguration()
                 DispatchQueue.main.async { self.zoomFactor = clamped }
+            } catch {
+                // Zoom is a nicety; ignore failures.
+            }
+        }
+    }
+
+    /// Jumps to a lens button's zoom (as displayed: 0.5, 1, 2, 5…), gliding
+    /// there the way the stock Camera does.
+    func selectLens(_ displayZoom: CGFloat) {
+        sessionQueue.async { [weak self] in
+            guard let self, let device = self.currentInput?.device else { return }
+            let target = min(max(displayZoom * self.nativeOneX, device.minAvailableVideoZoomFactor),
+                             device.maxAvailableVideoZoomFactor)
+            do {
+                try device.lockForConfiguration()
+                device.ramp(toVideoZoomFactor: target, withRate: 8)
+                device.unlockForConfiguration()
+                DispatchQueue.main.async { self.zoomFactor = target }
             } catch {
                 // Zoom is a nicety; ignore failures.
             }
