@@ -71,6 +71,8 @@ struct CatchResultView: View {
                             // Roomy: the photo, name and cards each get a beat.
                             VStack(spacing: 28) {
                                 headline
+                                    // Clear of the sheet's grabber.
+                                    .padding(.top, 20)
 
                                 // Full width, like the friend page, now the
                                 // details sit in one row of cards.
