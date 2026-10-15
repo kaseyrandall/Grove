@@ -90,9 +90,14 @@ struct CatchResultView: View {
                         }
                         .scrollDismissesKeyboard(.immediately)
 
-                        actionButtons
-                            .padding([.horizontal, .bottom])
-                            .padding(.top, 4)
+                        // Out of the way while typing a name, so they don't
+                        // ride up on the keyboard.
+                        if !isRenaming {
+                            actionButtons
+                                .padding([.horizontal, .bottom])
+                                .padding(.top, 4)
+                                .transition(.opacity)
+                        }
                     }
                 }
             }
@@ -236,24 +241,32 @@ struct CatchResultView: View {
         }
     }
 
+    /// Details and Snap another as pills, with Done as a round, floating
+    /// check button beside them.
     private var actionButtons: some View {
-        VStack(spacing: 10) {
-            GroveButton(title: "Done", systemImage: "checkmark") {
-                onDone()
+        HStack(spacing: 10) {
+            NavigationLink {
+                GuideEntryView(friend: result.record)
+            } label: {
+                secondaryLabel("Details", systemImage: "book.closed.fill")
             }
-            HStack(spacing: 10) {
-                NavigationLink {
-                    GuideEntryView(friend: result.record)
-                } label: {
-                    secondaryLabel("Details", systemImage: "book.closed.fill")
-                }
-                .buttonStyle(.plain)
+            .buttonStyle(.plain)
 
-                Button { dismiss() } label: {
-                    secondaryLabel("Snap another", systemImage: "camera.fill")
-                }
-                .buttonStyle(.plain)
+            Button { dismiss() } label: {
+                secondaryLabel("Snap another", systemImage: "camera.fill")
             }
+            .buttonStyle(.plain)
+
+            Button { onDone() } label: {
+                Image(systemName: "checkmark")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(width: 64, height: 64)
+                    .background(Circle().fill(Theme.accent))
+                    .shadow(color: Theme.accent.opacity(0.4), radius: 10, x: 0, y: 6)
+            }
+            .buttonStyle(BouncyButtonStyle())
+            .accessibilityLabel("Done")
         }
     }
 
