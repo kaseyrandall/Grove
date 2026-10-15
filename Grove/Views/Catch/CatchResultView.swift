@@ -70,15 +70,13 @@ struct CatchResultView: View {
                             VStack(spacing: 18) {
                                 headline
 
-                                photo(width: 260)
+                                // Full width, like the friend page, now the
+                                // details sit in one row of cards.
+                                photo()
 
                                 nameBlock
 
-                                identifySection
-
-                                zonePicker
-
-                                sparksCard
+                                detailTiles
 
                                 if !achievements.isEmpty {
                                     achievementsUnlocked
@@ -120,20 +118,13 @@ struct CatchResultView: View {
             .multilineTextAlignment(.center)
     }
 
-    /// The friend's name — tap it to give them one — and, once named, the
-    /// kind under a nickname plus its rarity.
+    /// The friend's name — tap it to give them one — and, once named, its
+    /// rarity. (The kind is on the Animal card below.)
     private var nameBlock: some View {
         VStack(spacing: 8) {
             RenamableName(friend: result.record, isRenaming: $isRenaming, fontSize: 30)
             if !isMystery {
-                HStack(spacing: 8) {
-                    if result.record.nickname != nil {
-                        Text("\(species.emoji) \(species.name)")
-                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                            .foregroundStyle(Theme.ink.opacity(0.6))
-                    }
-                    RarityBadge(rarity: species.rarity)
-                }
+                RarityBadge(rarity: species.rarity)
             }
         }
     }
@@ -153,7 +144,7 @@ struct CatchResultView: View {
                         headline
                         photo(width: min(pages.leading, 420) - 12)
                         nameBlock
-                        sparksCard
+                        detailTiles
                         if !achievements.isEmpty {
                             achievementsUnlocked
                         }
@@ -174,7 +165,6 @@ struct CatchResultView: View {
                         .minimumScaleFactor(0.8)
                     searchField
                     ScrollView { inlinePicker }
-                    spreadZonePicker
                     actionButtons
                 }
                 .padding(.vertical, 20)
@@ -245,21 +235,6 @@ struct CatchResultView: View {
         }
     }
 
-    /// The zones as a wrapping grid (there's room on the spread for all eight).
-    private var spreadZonePicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            // Same weight as "What did you find?" above it on this page.
-            Text("Found in your…")
-                .font(.system(.title3, design: .rounded, weight: .bold))
-                .foregroundStyle(Theme.ink)
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 92), spacing: 8)], spacing: 8) {
-                ForEach(Habitat.ordered) { habitat in
-                    zoneChip(habitat)
-                }
-            }
-        }
-    }
-
     private var actionButtons: some View {
         VStack(spacing: 10) {
             GroveButton(title: "Done", systemImage: "checkmark") {
@@ -295,9 +270,14 @@ struct CatchResultView: View {
 
     // MARK: Photo
 
-    private func photo(width: CGFloat) -> some View {
-        FriendPhoto(image: result.image, framing: result.record.framing)
-            .frame(width: width, height: width / Theme.photoAspectRatio) // shared 4:3 shape
+    /// The friend's photo in the shared 4:3 card. With no width it fills the
+    /// width it's given, like the friend page's photo.
+    private func photo(width: CGFloat? = nil) -> some View {
+        Color.clear
+            .aspectRatio(Theme.photoAspectRatio, contentMode: .fit) // shared 4:3 shape
+            .frame(width: width)
+            .frame(maxWidth: width == nil ? .infinity : nil)
+            .overlay { FriendPhoto(image: result.image, framing: result.record.framing) }
             .clipShape(RoundedRectangle(cornerRadius: 28, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 28, style: .continuous)
@@ -320,7 +300,7 @@ struct CatchResultView: View {
                     .font(.system(size: 40))
                     .padding(8)
                     .background(Circle().fill(.white))
-                    .offset(x: 10, y: 10)
+                    .offset(x: -4, y: 14) // inside the edge now the photo is full width
             }
             .shadow(color: Theme.ink.opacity(0.15), radius: 16, y: 8)
             .scaleEffect(popped ? 1 : 0.6)
@@ -328,66 +308,104 @@ struct CatchResultView: View {
             .onTapGesture { showPhoto = true }
     }
 
-    // MARK: Sparks
+    // MARK: Details — animal, zone and sparks as three matching cards
 
-    private var sparksCard: some View {
-        HStack(spacing: 6) {
-            Text("✨")
-            Text("+\(sparks) sparks")
-                .font(.system(.title3, design: .rounded, weight: .bold))
-                .foregroundStyle(Theme.ink)
-            if isFirst {
-                Text("· 2× first find!")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
+    /// Who it is, where it lives and what it earned, as a row of cards like
+    /// the friend page's. Naming the friend is the main job here, so while
+    /// it's a Mystery Friend the Animal card is outlined in the accent.
+    private var detailTiles: some View {
+        HStack(spacing: 10) {
+            animalTile
+            zoneTile
+            sparksTile
+        }
+    }
+
+    @ViewBuilder private var animalTile: some View {
+        let label = tile(label: "Animal",
+                         systemImage: isSpread ? nil : "chevron.right",
+                         highlighted: isMystery) {
+            Text(isMystery ? "❓ Choose" : "\(species.emoji) \(species.name)")
+                .foregroundStyle(isMystery ? Theme.accent : Theme.ink)
+        }
+        if isSpread {
+            // The field guide is open on the right page already.
+            label
+        } else {
+            Button { showPicker = true } label: { label }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens the field guide")
+        }
+    }
+
+    private var zoneTile: some View {
+        Menu {
+            ForEach(Habitat.ordered) { habitat in
+                Button { setZone(habitat) } label: {
+                    if isSelected(habitat) {
+                        Label("\(habitat.emoji) \(habitat.shortName)", systemImage: "checkmark")
+                    } else {
+                        Text("\(habitat.emoji) \(habitat.shortName)")
+                    }
+                }
+            }
+        } label: {
+            tile(label: "Lives in", systemImage: "chevron.down") {
+                if showsZoneSelection {
+                    Text("\(zone.emoji) \(zone.shortName)")
+                        .foregroundStyle(Theme.ink)
+                } else {
+                    Text("Pick one")
+                        .foregroundStyle(Theme.ink.opacity(0.45))
+                }
             }
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 20)
+        .buttonStyle(.plain)
+    }
+
+    private var sparksTile: some View {
+        tile(label: isFirst ? "2× first find" : "Sparks",
+             labelColor: isFirst ? Theme.accent : Theme.ink.opacity(0.5)) {
+            Text("+\(sparks) ✨")
+                .foregroundStyle(Theme.ink)
+                .contentTransition(.numericText())
+        }
+    }
+
+    /// One card: a bold value over a small caption, like the friend page's.
+    private func tile<Value: View>(label: String,
+                                   systemImage: String? = nil,
+                                   highlighted: Bool = false,
+                                   labelColor: Color = Theme.ink.opacity(0.5),
+                                   @ViewBuilder value: () -> Value) -> some View {
+        VStack(spacing: 5) {
+            value()
+                .font(.system(.headline, design: .rounded, weight: .bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+            HStack(spacing: 3) {
+                Text(label.uppercased())
+                if let systemImage {
+                    Image(systemName: systemImage).font(.system(size: 8, weight: .heavy))
+                }
+            }
+            .font(.system(.caption, design: .rounded, weight: .semibold))
+            .foregroundStyle(labelColor)
+            .lineLimit(1)
+            .minimumScaleFactor(0.7)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 15)
+        .padding(.horizontal, 6)
         .softCard()
+        .overlay(
+            RoundedRectangle(cornerRadius: 24, style: .continuous)
+                .stroke(Theme.accent, lineWidth: highlighted ? 2 : 0)
+        )
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
     // MARK: Identify — the player names their new friend
-
-    /// Choose which animal this is. There's no auto-guess anymore, so this is
-    /// the heart of the celebration: an unnamed Mystery Friend until the player
-    /// picks, and freely changeable afterwards.
-    private var identifySection: some View {
-        VStack(spacing: 10) {
-            if isMystery {
-                Text("What did you find?")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                    .foregroundStyle(Theme.ink.opacity(0.7))
-            }
-
-            Button { showPicker = true } label: {
-                HStack(spacing: 10) {
-                    Image(systemName: "square.grid.2x2.fill").foregroundStyle(Theme.accent)
-                    Text(isMystery ? "Choose your friend" : "Choose a different animal")
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                        .foregroundStyle(Theme.ink)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
-                    Spacer(minLength: 0)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(Theme.ink.opacity(0.3))
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(.white)
-                )
-                .overlay(
-                    RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .stroke(isMystery ? Theme.accent : Theme.ink.opacity(0.08),
-                                lineWidth: isMystery ? 2 : 1)
-                )
-            }
-            .buttonStyle(.plain)
-        }
-    }
 
     private func correct(to chosen: Species) {
         // Is this the player's first sighting of the chosen friend (ignoring
@@ -424,49 +442,6 @@ struct CatchResultView: View {
             zone = newZone
             achievements.append(contentsOf: freshlyUnlocked)
         }
-    }
-
-    // MARK: Found-in zone
-
-    private var zonePicker: some View {
-        VStack(spacing: 8) {
-            // Matches "What did you find?": both are questions to answer.
-            Text("Found in your…")
-                .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                .foregroundStyle(Theme.ink.opacity(0.7))
-
-            // Scrolls so the chosen zone is in view, even when it's far right.
-            ScrollViewReader { proxy in
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(Habitat.ordered) { habitat in
-                            zoneChip(habitat).id(habitat)
-                        }
-                    }
-                    .padding(.horizontal, 4)
-                }
-                .onAppear { if showsZoneSelection { proxy.scrollTo(zone, anchor: .center) } }
-                .onChange(of: zone) { _, newZone in
-                    withAnimation { proxy.scrollTo(newZone, anchor: .center) }
-                }
-            }
-        }
-    }
-
-    private func zoneChip(_ habitat: Habitat) -> some View {
-        Button { setZone(habitat) } label: {
-            Text("\(habitat.emoji) \(habitat.shortName)")
-                .font(.system(.caption, design: .rounded, weight: .semibold))
-                .foregroundStyle(Theme.ink)
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
-                .background(
-                    Capsule().fill(isSelected(habitat) ? habitat.gradient
-                                   : LinearGradient(colors: [.white, .white], startPoint: .top, endPoint: .bottom))
-                )
-                .overlay(Capsule().stroke(isSelected(habitat) ? Theme.accent : Theme.ink.opacity(0.1), lineWidth: 1.5))
-        }
-        .buttonStyle(.plain)
     }
 
     private func isSelected(_ habitat: Habitat) -> Bool {
