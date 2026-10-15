@@ -487,23 +487,35 @@ struct CatchResultView: View {
 
     // MARK: Achievements
 
+    /// New badges as cards in the same style as the Animal / Lives in /
+    /// Sparks row, three to a row, each popping in after the last.
     private var achievementsUnlocked: some View {
-        VStack(spacing: 8) {
-            Text("🎖 Achievement\(achievements.count > 1 ? "s" : "") unlocked!")
-                .font(.system(.subheadline, design: .rounded, weight: .bold))
-                .foregroundStyle(Theme.accent)
-            ForEach(achievements) { achievement in
-                HStack(spacing: 8) {
-                    Text(achievement.emoji).font(.title3)
-                    Text(achievement.title)
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                        .foregroundStyle(Theme.ink)
+        VStack(alignment: .leading, spacing: 10) {
+            Text(achievements.count == 1 ? "New badge" : "New badges")
+                .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                .foregroundStyle(Theme.ink.opacity(0.7))
+                .padding(.leading, 4)
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3),
+                      spacing: 10) {
+                ForEach(Array(achievements.enumerated()), id: \.element.id) { index, achievement in
+                    VStack(spacing: 6) {
+                        Text(achievement.emoji).font(.system(size: 30))
+                        Text(achievement.title)
+                            .font(.system(.subheadline, design: .rounded, weight: .bold))
+                            .foregroundStyle(Theme.ink)
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+                    }
+                    .modifier(TileCard())
+                    .scaleEffect(popped ? 1 : 0.6)
+                    .opacity(popped ? 1 : 0)
+                    .animation(.spring(response: 0.5, dampingFraction: 0.6)
+                        .delay(0.35 + Double(index) * 0.12), value: popped)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityLabel("New badge: \(achievement.title)")
                 }
             }
         }
-        .padding(.vertical, 12)
-        .padding(.horizontal, 20)
-        .softCard(fill: .white.opacity(0.9))
     }
 }
 
