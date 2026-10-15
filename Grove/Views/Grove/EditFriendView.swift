@@ -3,10 +3,12 @@ import SwiftData
 import UIKit
 
 /// Customize an individual friend: identify (or correct) which animal it is,
-/// give them a nickname, choose which Grove zone they live in, or release them
-/// back to the wild. Edits the friend's `Catch` directly. Releasing is signalled
-/// to the presenter via `onRelease` (which performs the delete once this sheet
-/// closes, so we never touch a deleted model).
+/// crop their photo, choose which Grove zone they live in, or release them
+/// back to the wild. (Naming them happens right on their name, on the friend
+/// page.) Nothing changes until Save, which edits the friend's `Catch`
+/// directly. Releasing is signalled to the presenter via `onRelease` (which
+/// performs the delete once this sheet closes, so we never touch a deleted
+/// model).
 struct EditFriendView: View {
     let friend: Catch
     let onRelease: () -> Void
@@ -18,7 +20,9 @@ struct EditFriendView: View {
 
     /// The friend's kind — mutable so it can be (re)identified here.
     @State private var species: Species
-    @State private var nickname: String
+    /// The photo crop as edited here; applied on Save.
+    @State private var framing: PhotoFraming?
+    @State private var showCrop = false
     @State private var zone: Habitat
     @State private var showReleaseConfirm = false
 
@@ -29,7 +33,7 @@ struct EditFriendView: View {
         self.friend = friend
         self.onRelease = onRelease
         _species = State(initialValue: friend.species)
-        _nickname = State(initialValue: friend.nickname ?? "")
+        _framing = State(initialValue: friend.framing)
         _zone = State(initialValue: friend.effectiveZone)
     }
 
@@ -44,7 +48,6 @@ struct EditFriendView: View {
                     preview
                     typeSection
                     zonePicker
-                    nicknameField
                     releaseButton
                 }
                 .padding()
@@ -60,6 +63,11 @@ struct EditFriendView: View {
             cancel: SheetAction(title: "Cancel") { close() },
             confirm: SheetAction(title: "Save") { save() }
         )
+        .fullScreenCover(isPresented: $showCrop) {
+            if let image = friend.photoData.flatMap(UIImage.init(data:)) {
+                PhotoCropView(image: image, framing: framing) { framing = $0 }
+            }
+        }
         .sheet(isPresented: $showReleaseConfirm) {
             ReleaseSheet(speciesName: species.name) {
                 onRelease()
@@ -78,13 +86,27 @@ struct EditFriendView: View {
                 ZStack {
                     zone.gradient
                     if let data = friend.photoData, let ui = UIImage(data: data) {
-                        FriendPhoto(image: ui, framing: friend.framing)
+                        FriendPhoto(image: ui, framing: framing)
                     } else {
                         Text(species.emoji).font(.system(size: 64))
                     }
                 }
             }
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .overlay(alignment: .topTrailing) {
+            if friend.photoData != nil {
+                Button { showCrop = true } label: {
+                    Label("Crop", systemImage: "crop")
+                        .font(.system(.caption, design: .rounded, weight: .bold))
+                        .foregroundStyle(Theme.ink)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Capsule().fill(.white.opacity(0.92)))
+                }
+                .buttonStyle(.plain)
+                .padding(12)
+            }
+        }
         .overlay(alignment: .bottomTrailing) {
             if !isMystery {
                 Text("\(species.emoji) \(species.name)")
@@ -98,11 +120,12 @@ struct EditFriendView: View {
         .animation(.easeInOut(duration: 0.25), value: zone)
     }
 
-    // MARK: Type of friend — the full, searchable catalog behind a door
+    // MARK: Animal — the full, searchable catalog behind a door
 
     private var typeSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            sectionLabel("TYPE OF FRIEND")
+            // Same words as the catch celebration's cards: Animal, Lives in.
+            sectionLabel("ANIMAL")
             browseButton
         }
     }
@@ -174,16 +197,6 @@ struct EditFriendView: View {
         }
     }
 
-    private var nicknameField: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("NICKNAME")
-            TextField("A name just for this friend", text: $nickname)
-                .font(.system(.body, design: .rounded))
-                .padding()
-                .softCard()
-        }
-    }
-
     private var releaseButton: some View {
         Button(role: .destructive) {
             showReleaseConfirm = true
@@ -226,8 +239,7 @@ struct EditFriendView: View {
             friend.sparksEarned = Progression.sparks(for: species, isFirstSighting: isFirst)
         }
 
-        let trimmed = nickname.trimmingCharacters(in: .whitespacesAndNewlines)
-        friend.nickname = trimmed.isEmpty ? nil : trimmed
+        friend.framing = framing
         friend.zoneOverride = (zone == species.zone) ? nil : zone
 
         try? context.save()
