@@ -211,7 +211,7 @@ struct GroveView: View {
             ForEach(rows, id: \.first!.zone) { row in
                 GridRow {
                     ForEach(row, id: \.zone) { item in
-                        ZoneCard(zone: item.zone, catches: catches, onSnap: onSnap, fillsHeight: true)
+                        ZoneCard(zone: item.zone, catches: catches, fillsHeight: true)
                             .frame(minHeight: rowHeight)
                             .frame(maxHeight: .infinity)
                             .opacity(shown ? 1 : 0)
@@ -270,7 +270,7 @@ struct GroveView: View {
     private func masonryColumn(_ items: [(index: Int, zone: Habitat)]) -> some View {
         VStack(spacing: 12) {
             ForEach(items, id: \.zone) { item in
-                ZoneCard(zone: item.zone, catches: catches, onSnap: onSnap)
+                ZoneCard(zone: item.zone, catches: catches)
                     .opacity(shown ? 1 : 0)
                     .offset(y: shown ? 0 : 26)
                     .animation(
@@ -479,8 +479,6 @@ struct GroveView: View {
 struct ZoneCard: View {
     let zone: Habitat
     let catches: [Catch]
-    /// Jumps to the camera when an empty zone is tapped.
-    var onSnap: (() -> Void)? = nil
     /// Stretch to fill the space offered (the spread's equal-height rows).
     var fillsHeight = false
 
@@ -543,16 +541,10 @@ struct ZoneCard: View {
                 .fill(zone.gradient)
         )
         .shadow(color: Theme.ink.opacity(0.08), radius: 10, x: 0, y: 5)
-        // An empty zone is one big "go find who lives here" — tap anywhere on
-        // it to open the camera. (Filled zones keep their per-friend links.)
-        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .onTapGesture { if residents.isEmpty { onSnap?() } }
-        .accessibilityAddTraits(residents.isEmpty && onSnap != nil ? .isButton : [])
-        .accessibilityHint(residents.isEmpty && onSnap != nil ? "Opens the camera" : "")
     }
 
     /// An empty zone, made inviting: a few friends who might drop by (rotated
-    /// daily) and a hint of where to look. The whole card opens the camera.
+    /// daily) and a hint of where to look.
     /// They're friendly suggestions, not `???` silhouettes — nothing reads as
     /// "missing", just "who's next".
     private var emptyInvite: some View {

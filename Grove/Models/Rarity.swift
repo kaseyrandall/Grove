@@ -41,7 +41,7 @@ enum Rarity: Int, CaseIterable, Codable, Comparable {
         case .common:    return "Common"
         case .uncommon:  return "Uncommon"
         case .rare:      return "Seldom seen"
-        case .epic:      return "Rarely seen"
+        case .epic:      return "Rare"
         case .legendary: return "Almost mythical"
         }
     }

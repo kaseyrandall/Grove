@@ -12,13 +12,13 @@ Built 100% native — SwiftUI and SwiftData. No backend, no accounts, no cost. Y
 
 > **Spot a friend → Snap → "A new friend found your Grove! Red Fox — +120 sparks, first find!" → it settles into your Woods → go find more.**
 
-- **Friends come home.** Every animal you photograph moves into the habitat **zone** it belongs to — Home, the Garden, the Pond, the Coast, the Meadow, the Woods, the Treetops, or the Wilds. No flat grid, no `???` silhouettes; empty zones suggest a few friends who might visit (hand-picked to fit each zone, rotated daily) with a hint of where to look — tap an empty zone to jump straight into the camera. A brand-new Grove also shows a *first friend* card pointing at the easiest finds — pets, pigeons, squirrels.
+- **Friends come home.** Every animal you photograph moves into the habitat **zone** it belongs to — Home, the Garden, the Pond, the Coast, the Meadow, the Woods, the Treetops, or the Wilds. No flat grid, no `???` silhouettes; empty zones suggest a few friends who might visit (hand-picked to fit each zone, rotated daily) with a hint of where to look. A brand-new Grove also shows a *first friend* card pointing at the easiest finds — pets, pigeons, squirrels.
 - **A personal field guide.** Each friend has a guide page with your photos, its **real name**, the **nickname you give it**, a field note, and where/when you first met.
 - **Live camera only.** Catches must be taken *in the moment* — no photo-library upload, so you can't collect screenshots or downloaded images. (A library picker exists in **DEBUG builds only** for Simulator testing; it's compiled out of release builds.)
 - **You name your friends.** Snap first — **random animal confetti** rains down — then pick which animal it is from the searchable catalog. No flaky auto-guessing.
 - **Always rewarding.** Every snap lands as a **Mystery Friend** right away, so it never feels wasted; name it now or later, and its badges unlock when you do.
 - **First-find bonus.** The first time a species visits, sparks are doubled — the collection thrill.
-- **Gentle rarity.** Field-guide language, not loot: Common 💚 → Uncommon 💙 → Seldom seen 💜 → Rarely seen 💗 → Almost mythical 💛.
+- **Gentle rarity.** Field-guide language, not loot: Common 💚 → Uncommon 💙 → Seldom seen 💜 → Rare 💗 → Almost mythical 💛.
 - **Daily streaks.** 🔥 Catch something each day to keep your streak alive (current + all-time best).
 - **Achievements.** 🎖 Badges with live progress bars, celebrated the instant you unlock them mid-catch.
 - **Discovery map.** 🗺️ Every geotagged catch drops a rarity-colored pin where you met that friend.
