@@ -141,7 +141,7 @@ struct GroveView: View {
     private func weight(of zone: Habitat) -> Double {
         let residents = catches.filter { $0.effectiveZone == zone }.count
         let base = 80.0                                    // header + padding + inter-card gap
-        guard residents > 0 else { return base + 104 }     // + visitor hints, where-to-look, "Go look"
+        guard residents > 0 else { return base + 72 }      // + visitor hints and the where-to-look line
         let rows = (Double(residents) / 2.0).rounded(.up)  // ~2 avatars per column-width row
         return base + rows * 66                             // + each avatar row
     }
@@ -358,7 +358,7 @@ struct GroveView: View {
 struct ZoneCard: View {
     let zone: Habitat
     let catches: [Catch]
-    /// Jumps to the camera; shown as a "Go look" button on empty zones.
+    /// Jumps to the camera when an empty zone is tapped.
     var onSnap: (() -> Void)? = nil
 
     /// Shared with RootView by key — set when the player opens a friend, so the
@@ -416,10 +416,16 @@ struct ZoneCard: View {
                 .fill(zone.gradient)
         )
         .shadow(color: Theme.ink.opacity(0.08), radius: 10, x: 0, y: 5)
+        // An empty zone is one big "go find who lives here" — tap anywhere on
+        // it to open the camera. (Filled zones keep their per-friend links.)
+        .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
+        .onTapGesture { if residents.isEmpty { onSnap?() } }
+        .accessibilityAddTraits(residents.isEmpty && onSnap != nil ? .isButton : [])
+        .accessibilityHint(residents.isEmpty && onSnap != nil ? "Opens the camera" : "")
     }
 
     /// An empty zone, made inviting: a few friends who might drop by (rotated
-    /// daily), a hint of where to look, and a one-tap way to go find them.
+    /// daily) and a hint of where to look. The whole card opens the camera.
     /// They're friendly suggestions, not `???` silhouettes — nothing reads as
     /// "missing", just "who's next".
     private var emptyInvite: some View {
@@ -439,19 +445,6 @@ struct ZoneCard: View {
                     .foregroundStyle(Theme.ink.opacity(0.5))
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
-            }
-
-            if let onSnap {
-                Button(action: onSnap) {
-                    Label("Go look", systemImage: "camera.fill")
-                        .font(.system(.caption, design: .rounded, weight: .bold))
-                        .foregroundStyle(Theme.ink.opacity(0.7))
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(Capsule().fill(.white.opacity(0.7)))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Go look for a friend for your \(zone.shortName)")
             }
         }
         .padding(.vertical, 4)
