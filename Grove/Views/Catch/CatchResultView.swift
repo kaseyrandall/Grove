@@ -19,6 +19,11 @@ struct CatchResultView: View {
     @State private var sparks: Int
     @State private var isFirst: Bool
     @State private var zone: Habitat
+    /// True once the player has picked a zone themselves. Until then a
+    /// Mystery Friend shows no zone selected (its stand-in zone means nothing),
+    /// and naming the friend moves it to that kind's zone.
+    @State private var zoneChosen = false
+    private var showsZoneSelection: Bool { zoneChosen || !isMystery }
     /// Badges to celebrate. Starts from what the snap unlocked, and grows when
     /// naming the friend unlocks a species/rarity/zone badge in place.
     @State private var achievements: [Achievement]
@@ -69,12 +74,7 @@ struct CatchResultView: View {
 
                                 identifySection
 
-                                // Where it lives follows from who it is, so
-                                // the zones wait until the friend is named.
-                                if !isMystery {
-                                    zonePicker
-                                        .transition(.opacity.combined(with: .move(edge: .top)))
-                                }
+                                zonePicker
 
                                 sparksCard
 
@@ -158,9 +158,7 @@ struct CatchResultView: View {
                         .minimumScaleFactor(0.8)
                     searchField
                     ScrollView { inlinePicker }
-                    if !isMystery {
-                        spreadZonePicker
-                    }
+                    spreadZonePicker
                     actionButtons
                 }
                 .padding(.vertical, 20)
@@ -389,7 +387,10 @@ struct CatchResultView: View {
         result.record.speciesID = chosen.id
         result.record.isFirstSighting = first
         result.record.sparksEarned = newSparks
-        result.record.zoneOverride = nil // default to the identified kind's zone
+        // Keep a zone the player already picked; otherwise it moves to the
+        // identified kind's zone.
+        let newZone = zoneChosen ? zone : chosen.zone
+        result.record.zoneOverride = (newZone == chosen.zone) ? nil : newZone
         try? context.save()
 
         let after = PlayerStats(catches: others) // same records, now re-identified
@@ -403,7 +404,7 @@ struct CatchResultView: View {
             species = chosen
             sparks = newSparks
             isFirst = first
-            zone = chosen.zone
+            zone = newZone
             achievements.append(contentsOf: freshlyUnlocked)
         }
     }
@@ -426,7 +427,7 @@ struct CatchResultView: View {
                     }
                     .padding(.horizontal, 4)
                 }
-                .onAppear { proxy.scrollTo(zone, anchor: .center) }
+                .onAppear { if showsZoneSelection { proxy.scrollTo(zone, anchor: .center) } }
                 .onChange(of: zone) { _, newZone in
                     withAnimation { proxy.scrollTo(newZone, anchor: .center) }
                 }
@@ -442,15 +443,20 @@ struct CatchResultView: View {
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(
-                    Capsule().fill(zone == habitat ? habitat.gradient
+                    Capsule().fill(isSelected(habitat) ? habitat.gradient
                                    : LinearGradient(colors: [.white, .white], startPoint: .top, endPoint: .bottom))
                 )
-                .overlay(Capsule().stroke(zone == habitat ? Theme.accent : Theme.ink.opacity(0.1), lineWidth: 1.5))
+                .overlay(Capsule().stroke(isSelected(habitat) ? Theme.accent : Theme.ink.opacity(0.1), lineWidth: 1.5))
         }
         .buttonStyle(.plain)
     }
 
+    private func isSelected(_ habitat: Habitat) -> Bool {
+        showsZoneSelection && zone == habitat
+    }
+
     private func setZone(_ habitat: Habitat) {
+        zoneChosen = true
         withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { zone = habitat }
         result.record.zoneOverride = (habitat == species.zone) ? nil : habitat
         try? context.save()
