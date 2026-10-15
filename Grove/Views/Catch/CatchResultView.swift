@@ -584,9 +584,13 @@ struct Confetti: View {
 
 /// The shared card behind the celebration's Animal, Lives in and Sparks cards.
 private struct TileCard: ViewModifier {
+    /// Room for a value over its caption, so a card is the same size whether
+    /// it shows a choice ("🦊 Fox / ANIMAL") or just its prompt ("❓ Animal").
+    @ScaledMetric(relativeTo: .headline) private var contentHeight: CGFloat = 44
+
     func body(content: Content) -> some View {
         content
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .frame(maxWidth: .infinity, minHeight: contentHeight, maxHeight: .infinity)
             .padding(.vertical, 15)
             .padding(.horizontal, 6)
             .softCard()
