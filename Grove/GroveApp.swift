@@ -10,6 +10,8 @@ struct GroveApp: App {
     /// on-device. When we add a social/backend layer later, this is where
     /// sync would hook in.
     let container: ModelContainer
+    /// Shown on every cold launch, handing off from the system launch screen.
+    @State private var showsSplash = true
 
     init() {
         let schema = Schema(versionedSchema: GroveCurrentSchema.self)
@@ -58,10 +60,16 @@ struct GroveApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView()
-                .tint(Theme.accent)
-                .fontDesign(.rounded) // soft, friendly type everywhere
-                .preferredColorScheme(.light) // Grove's palette is a fixed light aesthetic — keep it consistent on every device
+            ZStack {
+                RootView()
+                    .tint(Theme.accent)
+                    .fontDesign(.rounded) // soft, friendly type everywhere
+                    .preferredColorScheme(.light) // Grove's palette is a fixed light aesthetic — keep it consistent on every device
+                if showsSplash {
+                    SplashView { showsSplash = false }
+                        .zIndex(1)
+                }
+            }
         }
         .modelContainer(container)
     }
