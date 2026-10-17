@@ -39,7 +39,7 @@ struct CatchResultView: View {
     @State private var restingNameBottom: CGFloat = 0
     private static let topID = "celebrationTop"
     private static let scrollSpace = "celebrationScroll"
-    private static let compactHeaderHeight: CGFloat = 110
+    private static let compactHeaderHeight: CGFloat = 136
     /// Renaming happens right on the name (see `RenamableName`).
     @State private var isRenaming = false
 
@@ -393,13 +393,13 @@ struct CatchResultView: View {
     private var compactHeader: some View {
         HStack(spacing: 12) {
             FriendPhoto(image: result.image, framing: result.record.framing)
-                .frame(width: 88, height: 66)
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .frame(width: 120, height: 90)
+                .clipShape(RoundedRectangle(cornerRadius: 20, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous)
                     .stroke(.white, lineWidth: 3))
-            VStack(alignment: .leading, spacing: 4) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text(result.record.displayName)
-                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .font(.system(size: 24, weight: .heavy, design: .rounded))
                     .foregroundStyle(Theme.ink)
                     .lineLimit(1)
                 HStack(spacing: 6) {
