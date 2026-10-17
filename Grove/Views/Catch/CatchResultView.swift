@@ -403,7 +403,7 @@ struct CatchResultView: View {
     /// to a row, each popping in after the last. The badges are flat (not
     /// cards) because they aren't tappable.
     private var achievementsUnlocked: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(spacing: 14) {
             Text(achievements.count == 1 ? "🎖 New Achievement!" : "🎖 New Achievements!")
                 .font(.system(.title3, design: .rounded, weight: .heavy))
                 .foregroundStyle(Theme.accent)
@@ -432,7 +432,7 @@ struct CatchResultView: View {
             }
         }
         .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(maxWidth: .infinity)
         .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(.white.opacity(0.75)))
     }
 }
