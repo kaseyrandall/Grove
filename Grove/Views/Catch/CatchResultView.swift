@@ -32,11 +32,11 @@ struct CatchResultView: View {
     @State private var showCrop = false
     /// Drives the push to the full, searchable catalog.
     @State private var showPicker = false
-    /// True once the name has scrolled up out of view: a compact header
+    /// True once the photo has scrolled up out of view: a compact header
     /// (small photo, name, badges) shows at the top instead.
     @State private var showsCompactHeader = false
-    /// Where the name block's bottom sits with the page scrolled to the top.
-    @State private var restingNameBottom: CGFloat = 0
+    /// Where the photo's bottom sits with the page scrolled to the top.
+    @State private var restingPhotoBottom: CGFloat = 0
     private static let topID = "celebrationTop"
     private static let scrollSpace = "celebrationScroll"
     private static let compactHeaderHeight: CGFloat = 136
@@ -85,17 +85,17 @@ struct CatchResultView: View {
                                     .padding(.top, 20)
                                     .id(Self.topID)
 
-                                // Full width, like the friend page.
+                                // Full width, like the friend page. Once it
+                                // scrolls out of view, the compact header
+                                // takes over.
                                 photo()
-
-                                nameBlock
-                                    // Once the name scrolls under the top, the
-                                    // compact header takes over.
                                     .background(GeometryReader { geo in
                                         Color.clear.preference(
-                                            key: NameBottomKey.self,
+                                            key: PhotoBottomKey.self,
                                             value: geo.frame(in: .named(Self.scrollSpace)).maxY)
                                     })
+
+                                nameBlock
 
                                 // The same two sections as the Edit sheet.
                                 VStack(spacing: 22) {
@@ -109,19 +109,19 @@ struct CatchResultView: View {
                                 }
                             }
                             .padding()
-                            // Always room to scroll the name up under the top,
+                            // Always room to scroll the photo out of view,
                             // so the page can collapse to the compact header
                             // even when its content is short.
-                            .frame(minHeight: viewport.size.height + restingNameBottom, alignment: .top)
+                            .frame(minHeight: viewport.size.height + restingPhotoBottom, alignment: .top)
                             // Tapping anywhere else finishes a rename.
                             .contentShape(Rectangle())
                             .onTapGesture { isRenaming = false }
                         }
                         .coordinateSpace(name: Self.scrollSpace)
                         .scrollDismissesKeyboard(.immediately)
-                        .onPreferenceChange(NameBottomKey.self) { bottom in
-                            if bottom.isFinite, bottom > restingNameBottom { restingNameBottom = bottom }
-                            let compact = bottom < 12
+                        .onPreferenceChange(PhotoBottomKey.self) { bottom in
+                            if bottom.isFinite, bottom > restingPhotoBottom { restingPhotoBottom = bottom }
+                            let compact = bottom < 20 // the photo has all but left the top
                             if compact != showsCompactHeader {
                                 withAnimation(.easeInOut(duration: 0.22)) { showsCompactHeader = compact }
                             }
@@ -571,8 +571,8 @@ struct Confetti: View {
     }
 }
 
-/// The bottom of the name block in the celebration's scroll space.
-private struct NameBottomKey: PreferenceKey {
+/// The bottom of the photo in the celebration's scroll space.
+private struct PhotoBottomKey: PreferenceKey {
     static let defaultValue: CGFloat = .infinity
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = min(value, nextValue()) }
 }
