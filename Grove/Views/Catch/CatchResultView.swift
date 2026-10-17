@@ -32,6 +32,14 @@ struct CatchResultView: View {
     @State private var showCrop = false
     /// Drives the push to the full, searchable catalog.
     @State private var showPicker = false
+    /// True once the name has scrolled up out of view: a compact header
+    /// (small photo, name, badges) shows at the top instead.
+    @State private var showsCompactHeader = false
+    /// Where the name block's bottom sits with the page scrolled to the top.
+    @State private var restingNameBottom: CGFloat = 0
+    private static let topID = "celebrationTop"
+    private static let scrollSpace = "celebrationScroll"
+    private static let compactHeaderHeight: CGFloat = 110
     /// Renaming happens right on the name (see `RenamableName`).
     @State private var isRenaming = false
 
@@ -67,18 +75,27 @@ struct CatchResultView: View {
                     spreadLayout
                 } else {
                     VStack(spacing: 0) {
+                        ScrollViewReader { proxy in
+                        GeometryReader { viewport in
                         ScrollView {
                             // Roomy: the photo, name and cards each get a beat.
                             VStack(spacing: 28) {
                                 headline
                                     // Clear of the sheet's grabber.
                                     .padding(.top, 20)
+                                    .id(Self.topID)
 
-                                // Full width, like the friend page, now the
-                                // details sit in one row of cards.
+                                // Full width, like the friend page.
                                 photo()
 
                                 nameBlock
+                                    // Once the name scrolls under the top, the
+                                    // compact header takes over.
+                                    .background(GeometryReader { geo in
+                                        Color.clear.preference(
+                                            key: NameBottomKey.self,
+                                            value: geo.frame(in: .named(Self.scrollSpace)).maxY)
+                                    })
 
                                 // The same two sections as the Edit sheet.
                                 VStack(spacing: 22) {
@@ -92,11 +109,46 @@ struct CatchResultView: View {
                                 }
                             }
                             .padding()
+                            // Always room to scroll the name up under the top,
+                            // so the page can collapse to the compact header
+                            // even when its content is short.
+                            .frame(minHeight: viewport.size.height + restingNameBottom, alignment: .top)
                             // Tapping anywhere else finishes a rename.
                             .contentShape(Rectangle())
                             .onTapGesture { isRenaming = false }
                         }
+                        .coordinateSpace(name: Self.scrollSpace)
                         .scrollDismissesKeyboard(.immediately)
+                        .onPreferenceChange(NameBottomKey.self) { bottom in
+                            if bottom.isFinite, bottom > restingNameBottom { restingNameBottom = bottom }
+                            let compact = bottom < 12
+                            if compact != showsCompactHeader {
+                                withAnimation(.easeInOut(duration: 0.22)) { showsCompactHeader = compact }
+                            }
+                        }
+                        // Content fades out under the compact header and above
+                        // the bottom buttons, instead of meeting a hard edge.
+                        .mask {
+                            VStack(spacing: 0) {
+                                Color.clear.frame(height: showsCompactHeader ? Self.compactHeaderHeight : 0)
+                                LinearGradient(colors: [.clear, .black], startPoint: .top, endPoint: .bottom)
+                                    .frame(height: showsCompactHeader ? 18 : 0)
+                                Rectangle()
+                                LinearGradient(colors: [.black, .clear], startPoint: .top, endPoint: .bottom)
+                                    .frame(height: 28)
+                            }
+                        }
+                        .overlay(alignment: .top) {
+                            if showsCompactHeader {
+                                compactHeader
+                                    .onTapGesture {
+                                        withAnimation { proxy.scrollTo(Self.topID, anchor: .top) }
+                                    }
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                            }
+                        }
+                        }
+                        }
 
                         // Out of the way while typing a name, so they don't
                         // ride up on the keyboard.
@@ -142,7 +194,7 @@ struct CatchResultView: View {
                 if !isMystery {
                     RarityBadge(rarity: species.rarity, large: true)
                 }
-                sparksBadge
+                sparksBadge()
             }
         }
     }
@@ -336,8 +388,40 @@ struct CatchResultView: View {
 
     // MARK: Rewards
 
+    /// The photo, name, rarity and sparks in one compact row, pinned at the
+    /// top while the rest of the page scrolls. Tap it to go back up.
+    private var compactHeader: some View {
+        HStack(spacing: 12) {
+            FriendPhoto(image: result.image, framing: result.record.framing)
+                .frame(width: 88, height: 66)
+                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .stroke(.white, lineWidth: 3))
+            VStack(alignment: .leading, spacing: 4) {
+                Text(result.record.displayName)
+                    .font(.system(size: 22, weight: .heavy, design: .rounded))
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(1)
+                HStack(spacing: 6) {
+                    if !isMystery {
+                        RarityBadge(rarity: species.rarity)
+                    }
+                    sparksBadge(compact: true)
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.horizontal)
+        .padding(.top, 16) // clear of the sheet's grabber
+        .frame(height: Self.compactHeaderHeight)
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityHint("Scrolls back to the top")
+    }
+
     /// The sparks earned, beside the rarity badge: "✨ +120 · 2× first find".
-    private var sparksBadge: some View {
+    private func sparksBadge(compact: Bool = false) -> some View {
         HStack(spacing: 4) {
             Text("✨ +\(sparks)")
                 .foregroundStyle(Theme.ink)
@@ -347,10 +431,10 @@ struct CatchResultView: View {
                     .foregroundStyle(Theme.accent)
             }
         }
-        .font(.system(.subheadline, design: .rounded, weight: .bold))
+        .font(.system(compact ? .caption : .subheadline, design: .rounded, weight: .bold))
         .lineLimit(1)
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
+        .padding(.horizontal, compact ? 12 : 16)
+        .padding(.vertical, compact ? 6 : 8)
         .background(Capsule().fill(.white.opacity(0.7)))
     }
 
@@ -485,4 +569,10 @@ struct Confetti: View {
         .allowsHitTesting(false)
         .ignoresSafeArea()
     }
+}
+
+/// The bottom of the name block in the celebration's scroll space.
+private struct NameBottomKey: PreferenceKey {
+    static let defaultValue: CGFloat = .infinity
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = min(value, nextValue()) }
 }
