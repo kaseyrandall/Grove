@@ -55,6 +55,10 @@
             argument = "-com.apple.CoreData.CloudKitDebug 1"
             isEnabled = "YES">
          </CommandLineArgument>
+         <CommandLineArgument
+            argument = "-GroveInitCloudKitSchema"
+            isEnabled = "YES">
+         </CommandLineArgument>
       </CommandLineArguments>
    </LaunchAction>
    <ProfileAction

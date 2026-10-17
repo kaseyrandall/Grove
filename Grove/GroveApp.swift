@@ -13,6 +13,11 @@ struct GroveApp: App {
 
     init() {
         let schema = Schema(versionedSchema: GroveCurrentSchema.self)
+        CloudSyncMonitor.shared.start()
+        #if DEBUG
+        CloudSyncMonitor.initializeSchemaIfAsked(
+            configuration: ModelConfiguration(schema: schema, cloudKitDatabase: .automatic))
+        #endif
         container = Self.makeContainer(schema: schema)
         ProfileSync.shared.start()
     }
@@ -28,9 +33,12 @@ struct GroveApp: App {
     private static func makeContainer(schema: Schema) -> ModelContainer {
         do {
             let synced = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)
-            return try ModelContainer(for: schema, migrationPlan: GroveMigrationPlan.self,
-                                      configurations: synced)
+            let container = try ModelContainer(for: schema, migrationPlan: GroveMigrationPlan.self,
+                                               configurations: synced)
+            CloudSyncMonitor.log("store opened with iCloud sync (\(synced.cloudKitContainerIdentifier ?? "no container"))")
+            return container
         } catch {
+            CloudSyncMonitor.log("store couldn't use iCloud, using this device only: \(error)")
             assertionFailure("iCloud-backed ModelContainer failed: \(error)")
         }
         do {
