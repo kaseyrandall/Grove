@@ -80,7 +80,12 @@ struct CatchResultView: View {
 
                                 nameBlock
 
-                                detailTiles
+                                // The same two sections as the Edit sheet.
+                                VStack(spacing: 22) {
+                                    FriendAnimalSection(species: species) { showPicker = true }
+                                    FriendZoneSection(selected: showsZoneSelection ? zone : nil,
+                                                      onSelect: setZone)
+                                }
 
                                 if !achievements.isEmpty {
                                     achievementsUnlocked
@@ -157,7 +162,6 @@ struct CatchResultView: View {
                         headline
                         photo(width: min(pages.leading, 420) - 12)
                         nameBlock
-                        detailTiles
                         if !achievements.isEmpty {
                             achievementsUnlocked
                         }
@@ -178,6 +182,7 @@ struct CatchResultView: View {
                         .minimumScaleFactor(0.8)
                     searchField
                     ScrollView { inlinePicker }
+                    FriendZoneSection(selected: showsZoneSelection ? zone : nil, onSelect: setZone)
                     actionButtons
                 }
                 .padding(.vertical, 20)
@@ -329,67 +334,7 @@ struct CatchResultView: View {
             .onTapGesture { showPhoto = true }
     }
 
-    // MARK: Details — animal, zone and sparks as three matching cards
-
-    /// Who it is and where it lives: the two choices, as a pair of cards.
-    /// (What it earned sits with the rarity badge, as info rather than a card.)
-    private var detailTiles: some View {
-        HStack(spacing: 10) {
-            animalTile
-            zoneTile
-        }
-        // Equal heights, whether a card shows one line or two.
-        .fixedSize(horizontal: false, vertical: true)
-    }
-
-    @ViewBuilder private var animalTile: some View {
-        let chevron = isSpread ? nil : "chevron.right"
-        let label = Group {
-            if isMystery {
-                // Until it's named, the card is just its question.
-                promptTile("Animal", emoji: "❓", systemImage: chevron, color: Theme.accent)
-            } else {
-                tile(label: "Animal", systemImage: chevron) {
-                    Text("\(species.emoji) \(species.name)")
-                        .foregroundStyle(Theme.ink)
-                }
-            }
-        }
-        if isSpread {
-            // The field guide is open on the right page already.
-            label
-        } else {
-            Button { showPicker = true } label: { label }
-                .buttonStyle(.plain)
-                .accessibilityHint("Opens the field guide")
-        }
-    }
-
-    private var zoneTile: some View {
-        Menu {
-            ForEach(Habitat.ordered) { habitat in
-                Button { setZone(habitat) } label: {
-                    if isSelected(habitat) {
-                        Label("\(habitat.emoji) \(habitat.shortName)", systemImage: "checkmark")
-                    } else {
-                        Text("\(habitat.emoji) \(habitat.shortName)")
-                    }
-                }
-            }
-        } label: {
-            if showsZoneSelection {
-                tile(label: "Lives in", systemImage: "chevron.right") {
-                    Text("\(zone.emoji) \(zone.shortName)")
-                        .foregroundStyle(Theme.ink)
-                }
-            } else {
-                // The first zone's emoji (Home) hints at the list behind it.
-                promptTile("Lives in", emoji: Habitat.ordered.first?.emoji,
-                           systemImage: "chevron.right", color: Theme.ink)
-            }
-        }
-        .buttonStyle(.plain)
-    }
+    // MARK: Rewards
 
     /// The sparks earned, beside the rarity badge: "✨ +120 · 2× first find".
     private var sparksBadge: some View {
@@ -407,47 +352,6 @@ struct CatchResultView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 8)
         .background(Capsule().fill(.white.opacity(0.7)))
-    }
-
-    /// A card that's only its prompt ("❓ Animal ›"), before anything is chosen.
-    private func promptTile(_ title: String, emoji: String? = nil, systemImage: String?,
-                            color: Color) -> some View {
-        HStack(spacing: 4) {
-            if let emoji { Text(emoji) }
-            Text(title)
-            if let systemImage {
-                Image(systemName: systemImage).font(.system(size: 12, weight: .heavy))
-            }
-        }
-        .font(.system(.headline, design: .rounded, weight: .bold))
-        .foregroundStyle(color)
-        .lineLimit(1)
-        .minimumScaleFactor(0.7)
-        .modifier(TileCard())
-    }
-
-    /// One card: a bold value over a small caption, like the friend page's.
-    private func tile<Value: View>(label: String,
-                                   systemImage: String? = nil,
-                                   labelColor: Color = Theme.ink.opacity(0.5),
-                                   @ViewBuilder value: () -> Value) -> some View {
-        VStack(spacing: 5) {
-            value()
-                .font(.system(.headline, design: .rounded, weight: .bold))
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-            HStack(spacing: 3) {
-                Text(label.uppercased())
-                if let systemImage {
-                    Image(systemName: systemImage).font(.system(size: 8, weight: .heavy))
-                }
-            }
-            .font(.system(.caption, design: .rounded, weight: .semibold))
-            .foregroundStyle(labelColor)
-            .lineLimit(1)
-            .minimumScaleFactor(0.7)
-        }
-        .modifier(TileCard())
     }
 
     // MARK: Identify — the player names their new friend
@@ -486,10 +390,6 @@ struct CatchResultView: View {
         }
     }
 
-    private func isSelected(_ habitat: Habitat) -> Bool {
-        showsZoneSelection && zone == habitat
-    }
-
     private func setZone(_ habitat: Habitat) {
         zoneChosen = true
         withAnimation(.spring(response: 0.35, dampingFraction: 0.75)) { zone = habitat }
@@ -499,24 +399,24 @@ struct CatchResultView: View {
 
     // MARK: Achievements
 
-    /// New badges, three to a row, each popping in after the last. Flat (no
-    /// card) on purpose: they aren't tappable, so they mustn't look like the
-    /// Animal and Lives in cards.
+    /// New achievements in one card: a clear heading over the badges, three
+    /// to a row, each popping in after the last. The badges are flat (not
+    /// cards) because they aren't tappable.
     private var achievementsUnlocked: some View {
-        VStack(spacing: 12) {
+        VStack(alignment: .leading, spacing: 14) {
             Text(achievements.count == 1 ? "🎖 New Achievement!" : "🎖 New Achievements!")
                 .font(.system(.title3, design: .rounded, weight: .heavy))
                 .foregroundStyle(Theme.accent)
-            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 10), count: 3),
-                      spacing: 10) {
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3),
+                      spacing: 14) {
                 ForEach(Array(achievements.enumerated()), id: \.element.id) { index, achievement in
                     VStack(spacing: 6) {
                         Text(achievement.emoji)
-                            .font(.system(size: 30))
-                            .frame(width: 56, height: 56)
-                            .background(Circle().fill(.white.opacity(0.55)))
+                            .font(.system(size: 26))
+                            .frame(width: 52, height: 52)
+                            .background(Circle().fill(Theme.lavender.opacity(0.25)))
                         Text(achievement.title)
-                            .font(.system(.subheadline, design: .rounded, weight: .bold))
+                            .font(.system(.footnote, design: .rounded, weight: .bold))
                             .foregroundStyle(Theme.ink)
                             .lineLimit(1)
                             .minimumScaleFactor(0.7)
@@ -527,10 +427,13 @@ struct CatchResultView: View {
                     .animation(.spring(response: 0.5, dampingFraction: 0.6)
                         .delay(0.35 + Double(index) * 0.12), value: popped)
                     .accessibilityElement(children: .combine)
-                    .accessibilityLabel("New badge: \(achievement.title)")
+                    .accessibilityLabel("New achievement: \(achievement.title)")
                 }
             }
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(.white.opacity(0.75)))
     }
 }
 
@@ -581,21 +484,5 @@ struct Confetti: View {
         }
         .allowsHitTesting(false)
         .ignoresSafeArea()
-    }
-}
-
-/// The shared card behind the celebration's Animal, Lives in and Sparks cards.
-private struct TileCard: ViewModifier {
-    /// Room for a value over its caption, so a card is the same size whether
-    /// it shows a choice ("🦊 Fox / ANIMAL") or just its prompt ("❓ Animal").
-    @ScaledMetric(relativeTo: .headline) private var contentHeight: CGFloat = 44
-
-    func body(content: Content) -> some View {
-        content
-            .frame(maxWidth: .infinity, minHeight: contentHeight, maxHeight: .infinity)
-            .padding(.vertical, 15)
-            .padding(.horizontal, 6)
-            .softCard()
-            .contentShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 }

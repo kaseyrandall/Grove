@@ -48,8 +48,11 @@ struct EditFriendView: View {
             ScrollView {
                 VStack(spacing: 22) {
                     preview
-                    typeSection
-                    zonePicker
+                    FriendAnimalSection(species: species) { showPicker = true }
+                    FriendZoneSection(selected: zone) { habitat in
+                        zoneTouched = true
+                        zone = habitat
+                    }
                     releaseButton
                 }
                 .padding()
@@ -122,84 +125,6 @@ struct EditFriendView: View {
         .animation(.easeInOut(duration: 0.25), value: zone)
     }
 
-    // MARK: Animal — the full, searchable catalog behind a door
-
-    private var typeSection: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            // Same words as the catch celebration's cards: Animal, Lives in.
-            sectionLabel("ANIMAL")
-            browseButton
-        }
-    }
-
-    /// The door to the full, searchable catalog.
-    private var browseButton: some View {
-        Button {
-            showPicker = true
-        } label: {
-            HStack(spacing: 10) {
-                if isMystery {
-                    Image(systemName: "square.grid.2x2.fill")
-                        .foregroundStyle(Theme.accent)
-                    Text("Browse all animals")
-                        .font(.system(.body, design: .rounded, weight: .semibold))
-                        .foregroundStyle(Theme.ink)
-                } else {
-                    Text(species.emoji)
-                    VStack(alignment: .leading, spacing: 1) {
-                        Text(species.name)
-                            .font(.system(.body, design: .rounded, weight: .semibold))
-                            .foregroundStyle(Theme.ink)
-                        Text("Tap to choose a different animal")
-                            .font(.system(.caption2, design: .rounded))
-                            .foregroundStyle(Theme.ink.opacity(0.5))
-                    }
-                }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Theme.ink.opacity(0.3))
-            }
-            .padding()
-            .softCard()
-        }
-        .buttonStyle(.plain)
-    }
-
-    private var zonePicker: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            sectionLabel("LIVES IN")
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 10)], spacing: 10) {
-                ForEach(Habitat.ordered) { habitat in
-                    Button {
-                        zoneTouched = true
-                        withAnimation { zone = habitat }
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text(habitat.emoji)
-                            Text(habitat.shortName)
-                                .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                        }
-                        .foregroundStyle(Theme.ink)
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .fill(zone == habitat
-                                      ? habitat.gradient
-                                      : LinearGradient(colors: [.white, .white], startPoint: .top, endPoint: .bottom))
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 16, style: .continuous)
-                                .stroke(zone == habitat ? Theme.accent : Theme.ink.opacity(0.08), lineWidth: 2)
-                        )
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-        }
-    }
-
     private var releaseButton: some View {
         Button(role: .destructive) {
             showReleaseConfirm = true
@@ -213,13 +138,6 @@ struct EditFriendView: View {
         .padding(.top, 4)
     }
 
-    private func sectionLabel(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 11, weight: .bold, design: .rounded))
-            .foregroundStyle(Theme.ink.opacity(0.45))
-            .padding(.leading, 6)
-            .frame(maxWidth: .infinity, alignment: .leading)
-    }
 
     // MARK: Actions
 
