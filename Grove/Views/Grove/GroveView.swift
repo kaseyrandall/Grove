@@ -34,7 +34,6 @@ struct GroveView: View {
     @AppStorage("challengeDismissedComplete") private var dismissedWhileComplete = false
     private var todayKey: Int { Int((Calendar.current.startOfDay(for: .now).timeIntervalSince1970 / 86_400).rounded()) }
 
-    private var friendCount: Int { catches.count }
     private var shown: Bool { seenIntro || revealed }
 
     /// The open Duo in landscape: the Grove lays out as a two-page spread.
@@ -53,12 +52,9 @@ struct GroveView: View {
                     spreadLayout
                 } else {
                     ScrollView {
-                        header
+                        titleRow
                             .padding(.horizontal)
-                            .padding(.top, 4)
-                            .opacity(shown ? 1 : 0)
-                            .offset(y: shown ? 0 : -10)
-                            .animation(.spring(response: 0.5, dampingFraction: 0.8), value: shown)
+                            .padding(.top, 8)
 
                         if !challengeDismissed {
                             dailyChallengeCard
@@ -99,24 +95,24 @@ struct GroveView: View {
                         }
                         .padding()
                     }
+                    // With no navigation bar, fade the page out under the
+                    // status bar so scrolled content doesn't run into the clock.
+                    .overlay(alignment: .top) {
+                        GeometryReader { geo in
+                            LinearGradient(colors: [Theme.cream, Theme.cream.opacity(0)],
+                                           startPoint: .top, endPoint: .bottom)
+                                .frame(height: geo.safeAreaInsets.top + 14)
+                                .ignoresSafeArea(edges: .top)
+                        }
+                        .allowsHitTesting(false)
+                    }
                 }
             }
             .clearsGroveTabBar()
-            // Overlaid (not a real toolbar item) so it can transition in and
-            // out gracefully instead of popping. Attached to the root content —
-            // not the whole NavigationStack — so it shows ONLY on the Grove and
-            // never bleeds onto pushed detail screens over their Edit button.
-            .overlay(alignment: .topTrailing) {
-                if challengeDismissed {
-                    reopenChallengeButton
-                        .padding(.trailing, 18)
-                        .padding(.top, 4)
-                        .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .topTrailing)))
-                }
-            }
+            // Kept for the back button on pushed pages; the Grove draws its own
+            // title (with the challenge button beside it) in the scroll content.
             .navigationTitle("Your Grove")
-            // The spread draws its own title on the left page.
-            .toolbar(isSpread ? .hidden : .automatic, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
             #if DEBUG
             // Test hook: `-GroveOpenFriend` opens your rarest friend's page on launch.
             .navigationDestination(item: $debugFriend) { GuideEntryView(friend: $0) }
@@ -163,12 +159,7 @@ struct GroveView: View {
         return ScrollView {
             HStack(alignment: .top, spacing: DuoSpread.foldGutter * 2) {
                 VStack(alignment: .leading, spacing: spacing) {
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Your Grove")
-                            .font(.system(size: 34, weight: .heavy, design: .rounded))
-                            .foregroundStyle(Theme.ink)
-                        header
-                    }
+                    titleRow
                     .frame(height: headerHeight, alignment: .topLeading)
                     .opacity(shown ? 1 : 0)
                     .offset(y: shown ? 0 : -10)
@@ -349,22 +340,22 @@ struct GroveView: View {
     }
     #endif
 
-    private var header: some View {
-        HStack(spacing: 12) {
-            Text("🌳").font(.system(size: 30))
-            VStack(alignment: .leading, spacing: 1) {
-                Text(friendCount == 0
-                     ? "Your Grove is waiting"
-                     : "\(friendCount) friend\(friendCount == 1 ? " has" : "s have") come home")
-                    .font(.system(.headline, design: .rounded, weight: .bold))
-                    .foregroundStyle(Theme.ink)
-                Text("Grow a place full of the life you've met.")
-                    .font(.system(.caption, design: .rounded))
-                    .foregroundStyle(Theme.ink.opacity(0.6))
+    /// The page title, with the challenge's calendar button beside it once the
+    /// card is put away. Part of the scroll content, so it scrolls away with
+    /// the page rather than staying pinned.
+    private var titleRow: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text("Your Grove")
+                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                .foregroundStyle(Theme.ink)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 0)
+            if challengeDismissed {
+                reopenChallengeButton
+                    .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .trailing)))
             }
-            Spacer()
         }
-        .padding(.vertical, 4)
+        .frame(minHeight: 44)
     }
 
     /// The cold-start nudge for a brand-new Grove: the easiest friends to meet
