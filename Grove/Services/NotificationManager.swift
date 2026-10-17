@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 import UserNotifications
 
 /// Gentle, retention-minded local notifications. The whole set is rescheduled
@@ -47,6 +48,54 @@ enum NotificationManager {
                 content.body = "Come see how it went in the Arena."
                 content.sound = .default
                 let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
+                center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+            default:
+                break
+            }
+        }
+    }
+
+    /// What tapping a notification does (see `NotificationTapHandler`).
+    enum TapAction {
+        case openStore(URL)
+        case whatsNew
+
+        static let userInfoKey = "grove.tap"
+        static let urlKey = "grove.url"
+
+        var userInfo: [String: String] {
+            switch self {
+            case .openStore(let url): return [Self.userInfoKey: "openStore", Self.urlKey: url.absoluteString]
+            case .whatsNew:           return [Self.userInfoKey: "whatsNew"]
+            }
+        }
+
+        init?(userInfo: [AnyHashable: Any]) {
+            switch userInfo[Self.userInfoKey] as? String {
+            case "openStore":
+                guard let string = userInfo[Self.urlKey] as? String, let url = URL(string: string) else { return nil }
+                self = .openStore(url)
+            case "whatsNew":
+                self = .whatsNew
+            default:
+                return nil
+            }
+        }
+    }
+
+    /// Show a notification right away (used for app-update news). Never asks
+    /// for permission itself — that only happens after a first catch — so it
+    /// silently no-ops until the player has said yes.
+    static func postNow(id: String, title: String, body: String, action: TapAction? = nil) {
+        center.getNotificationSettings { settings in
+            switch settings.authorizationStatus {
+            case .authorized, .provisional, .ephemeral:
+                let content = UNMutableNotificationContent()
+                content.title = title
+                content.body = body
+                content.sound = .default
+                if let action { content.userInfo = action.userInfo }
+                let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 1, repeats: false)
                 center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
             default:
                 break
@@ -111,5 +160,37 @@ enum NotificationManager {
         let comps = calendar.dateComponents([.year, .month, .day, .hour, .minute], from: date)
         let trigger = UNCalendarNotificationTrigger(dateMatching: comps, repeats: false)
         center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
+    }
+}
+
+/// Routes notification taps. Grove's reminders still stay out of the way while
+/// the app is open (as they did before this delegate existed); update news
+/// shows as a banner either way.
+final class NotificationTapHandler: NSObject, UNUserNotificationCenterDelegate {
+    static let shared = NotificationTapHandler()
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification,
+        withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void
+    ) {
+        let isUpdateNews = NotificationManager.TapAction(userInfo: notification.request.content.userInfo) != nil
+        completionHandler(isUpdateNews ? [.banner, .list, .sound] : [])
+    }
+
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse,
+        withCompletionHandler completionHandler: @escaping () -> Void
+    ) {
+        let action = NotificationManager.TapAction(userInfo: response.notification.request.content.userInfo)
+        Task { @MainActor in
+            switch action {
+            case .openStore(let url): UIApplication.shared.open(url)
+            case .whatsNew:           AppUpdates.shared.showWhatsNew()
+            case nil:                 break
+            }
+            completionHandler()
+        }
     }
 }
