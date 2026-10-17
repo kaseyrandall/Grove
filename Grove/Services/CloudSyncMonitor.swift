@@ -6,10 +6,20 @@ import SwiftData
 /// logs starts with "☁️ Grove iCloud:" so it's easy to find in Xcode's
 /// console. It also remembers the last sync error, so the app can tell the
 /// player when syncing has stopped (say, their iCloud storage is full).
-final class CloudSyncMonitor {
+final class CloudSyncMonitor: ObservableObject {
     static let shared = CloudSyncMonitor()
     static let containerID = "iCloud.com.kaseyrandall.grove"
 
+    /// Where the Grove's iCloud backup stands, for the Settings card.
+    enum Status: Equatable {
+        case checking
+        case backedUp
+        case notSignedIn
+        case storageFull
+        case paused(String)
+    }
+
+    @Published private(set) var status: Status = .checking
     /// The most recent sync failure, if the last attempt failed.
     private(set) var lastError: Error?
     private var started = false
@@ -20,8 +30,28 @@ final class CloudSyncMonitor {
         NotificationCenter.default.addObserver(
             self, selector: #selector(syncEvent(_:)),
             name: NSPersistentCloudKitContainer.eventChangedNotification, object: nil)
+        refreshAccountStatus()
+        // Signing in or out of iCloud while Grove is open.
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(accountChanged),
+            name: .CKAccountChanged, object: nil)
+    }
+
+    @objc private func accountChanged() { refreshAccountStatus() }
+
+    private func refreshAccountStatus() {
         CKContainer(identifier: Self.containerID).accountStatus { status, error in
             Self.log("account is \(Self.describe(status))" + (error.map { " (\($0.localizedDescription))" } ?? ""))
+            DispatchQueue.main.async {
+                switch status {
+                case .available:
+                    if self.status == .checking || self.status == .notSignedIn { self.status = .backedUp }
+                case .noAccount, .restricted:
+                    self.status = .notSignedIn
+                default:
+                    break
+                }
+            }
         }
     }
 
@@ -42,10 +72,33 @@ final class CloudSyncMonitor {
         if let error = event.error {
             lastError = error
             Self.log("\(kind) FAILED: \(Self.describe(error))")
+            let ns = error as NSError
+            let noAccount = ns.domain == NSCocoaErrorDomain && ns.code == 134400
+            let newStatus: Status = Self.contains(error, code: .quotaExceeded) ? .storageFull
+                : noAccount || Self.contains(error, code: .notAuthenticated) ? .notSignedIn
+                : Self.contains(error, code: .networkUnavailable) || Self.contains(error, code: .networkFailure)
+                    ? status // offline: it'll catch up, no need to alarm anyone
+                : .paused(Self.describe(error))
+            DispatchQueue.main.async { self.status = newStatus }
         } else {
             lastError = nil
             Self.log("\(kind) finished")
+            DispatchQueue.main.async { self.status = .backedUp }
         }
+    }
+
+    /// Whether `error`, or anything it wraps, is a CloudKit error with `code`.
+    private static func contains(_ error: Error, code: CKError.Code) -> Bool {
+        if let ck = error as? CKError {
+            if ck.code == code { return true }
+            if let partial = ck.partialErrorsByItemID?.values,
+               partial.contains(where: { contains($0, code: code) }) { return true }
+        }
+        let ns = error as NSError
+        if let underlying = ns.userInfo[NSUnderlyingErrorKey] as? Error, contains(underlying, code: code) { return true }
+        if let partial = ns.userInfo[CKPartialErrorsByItemIDKey] as? [AnyHashable: Error],
+           partial.values.contains(where: { contains($0, code: code) }) { return true }
+        return false
     }
 
     static func log(_ message: String) {

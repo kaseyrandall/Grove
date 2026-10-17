@@ -41,6 +41,7 @@ struct SettingsContent: View {
 
     var body: some View {
         VStack(spacing: 20) {
+            ICloudStatusCard()
             preferencesCard
             introCard
             if showsAbout { aboutCard }
@@ -55,7 +56,7 @@ struct SettingsContent: View {
             Button("Erase my whole Grove", role: .destructive) { eraseAll() }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("This releases every friend and resets your Grove. This can't be undone.")
+            Text("This releases every friend and resets your Grove, here and in iCloud on all your devices. This can't be undone.")
         }
     }
 
@@ -200,4 +201,52 @@ struct SettingsContent: View {
     NavigationStack { SettingsView() }
         .tint(Theme.accent)
         .fontDesign(.rounded)
+}
+
+/// Where the Grove's iCloud backup stands: a reassuring line when all's well,
+/// and a clear note (with what to do) when syncing has stopped.
+private struct ICloudStatusCard: View {
+    @ObservedObject private var monitor = CloudSyncMonitor.shared
+
+    private var content: (icon: String, title: String, detail: String, warning: Bool) {
+        switch monitor.status {
+        case .checking:
+            return ("icloud", "iCloud", "Checking your iCloud backup…", false)
+        case .backedUp:
+            return ("checkmark.icloud.fill", "Backed up to iCloud",
+                    "Your Grove comes back on a new device or after reinstalling.", false)
+        case .notSignedIn:
+            return ("icloud.slash", "Not backed up",
+                    "Sign in to iCloud in Settings to keep your Grove safe. Until then it lives only on this device.", true)
+        case .storageFull:
+            return ("exclamationmark.icloud.fill", "iCloud sync paused",
+                    "Your iCloud storage is full, so new friends aren't backed up. Free up space or add storage in Settings, and Grove will catch up.", true)
+        case .paused:
+            return ("exclamationmark.icloud.fill", "iCloud sync paused",
+                    "Grove couldn't reach iCloud just now. Your Grove is safe on this device and will catch up.", true)
+        }
+    }
+
+    var body: some View {
+        let c = content
+        HStack(alignment: .top, spacing: 14) {
+            Image(systemName: c.icon)
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(c.warning ? Color.orange : Theme.accent)
+                .frame(width: 26)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(c.title)
+                    .font(.system(.body, design: .rounded, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                Text(c.detail)
+                    .font(.system(.footnote, design: .rounded))
+                    .foregroundStyle(Theme.ink.opacity(0.6))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding()
+        .softCard()
+        .accessibilityElement(children: .combine)
+    }
 }

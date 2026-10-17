@@ -306,7 +306,7 @@ struct ProfileView: View {
                     Text("Private by design")
                         .font(.system(.headline, design: .rounded, weight: .bold))
                         .foregroundStyle(Theme.ink)
-                    Text("Everything you collect stays on this device.")
+                    Text("Everything you collect stays yours, on this device and in your own iCloud.")
                         .font(.system(.subheadline, design: .rounded))
                         .foregroundStyle(Theme.ink.opacity(0.7))
                 }
