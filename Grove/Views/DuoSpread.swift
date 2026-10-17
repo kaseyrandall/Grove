@@ -17,6 +17,11 @@ extension EnvironmentValues {
 }
 
 enum DuoSpread {
+    /// The off switch for Duo support. While false, Grove stays portrait-only
+    /// with its phone layouts everywhere (as in 1.1), even on the open Duo; the
+    /// spread code stays in place. Flip to true once it's tested on a Duo.
+    static let isEnabled = false
+
     /// The shortest side a window needs before it counts as the open Duo's inner
     /// display. Every regular iPhone (and the Duo's cover display) is narrower
     /// than this in portrait, so they never switch to spreads or landscape.
@@ -24,12 +29,12 @@ enum DuoSpread {
 
     /// Whether a window of this size should lay out as a two-page spread.
     static func isSpread(windowSize size: CGSize) -> Bool {
-        size.width > size.height && min(size.width, size.height) >= minimumShortSide
+        isEnabled && size.width > size.height && min(size.width, size.height) >= minimumShortSide
     }
 
     /// Whether a screen this size may rotate to landscape at all.
     static func allowsLandscape(screenSize size: CGSize) -> Bool {
-        min(size.width, size.height) >= minimumShortSide
+        isEnabled && min(size.width, size.height) >= minimumShortSide
     }
 
     /// How far down the side column the status bar reaches on the open Duo; the

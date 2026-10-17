@@ -41,7 +41,7 @@ struct JournalView: View {
                         // Other wide displays (e.g. the open Duo turned upright)
                         // reflow the single column into two: progress on the
                         // left, collection on the right.
-                        if sizeClass == .regular {
+                        if DuoSpread.isEnabled && sizeClass == .regular {
                             HStack(alignment: .top, spacing: 20) {
                                 VStack(spacing: 20) { progressCards }
                                 VStack(spacing: 20) { collectionCards }
