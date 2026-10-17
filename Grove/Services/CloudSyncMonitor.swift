@@ -23,6 +23,10 @@ final class CloudSyncMonitor: ObservableObject {
     /// The most recent sync failure, if the last attempt failed.
     private(set) var lastError: Error?
     private var started = false
+    /// True once iCloud sync has reported in at all. Creating a CKContainer
+    /// in a build without the iCloud entitlement traps the app, so the
+    /// account is only looked up after sync has proven it's set up.
+    private var syncIsConfigured = false
 
     func start() {
         guard !started else { return }
@@ -30,7 +34,8 @@ final class CloudSyncMonitor: ObservableObject {
         NotificationCenter.default.addObserver(
             self, selector: #selector(syncEvent(_:)),
             name: NSPersistentCloudKitContainer.eventChangedNotification, object: nil)
-        refreshAccountStatus()
+        // The account is checked once sync reports in (see syncEvent), never
+        // here: without the iCloud entitlement, CKContainer would crash.
         // Signing in or out of iCloud while Grove is open.
         NotificationCenter.default.addObserver(
             self, selector: #selector(accountChanged),
@@ -40,6 +45,7 @@ final class CloudSyncMonitor: ObservableObject {
     @objc private func accountChanged() { refreshAccountStatus() }
 
     private func refreshAccountStatus() {
+        guard syncIsConfigured else { return }
         CKContainer(identifier: Self.containerID).accountStatus { status, error in
             Self.log("account is \(Self.describe(status))" + (error.map { " (\($0.localizedDescription))" } ?? ""))
             DispatchQueue.main.async {
@@ -58,6 +64,12 @@ final class CloudSyncMonitor: ObservableObject {
     @objc private func syncEvent(_ note: Notification) {
         guard let event = note.userInfo?[NSPersistentCloudKitContainer.eventNotificationUserInfoKey]
                 as? NSPersistentCloudKitContainer.Event else { return }
+        if !syncIsConfigured {
+            // Sync is set up, so the iCloud entitlement is there: safe to ask
+            // about the account now.
+            syncIsConfigured = true
+            refreshAccountStatus()
+        }
         let kind: String
         switch event.type {
         case .setup: kind = "setup"
