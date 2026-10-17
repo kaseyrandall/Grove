@@ -5,10 +5,10 @@ import UIKit
 /// Customize an individual friend: identify (or correct) which animal it is,
 /// crop their photo, choose which Grove zone they live in, or release them
 /// back to the wild. (Naming them happens right on their name, on the friend
-/// page.) Nothing changes until Save, which edits the friend's `Catch`
-/// directly. Releasing is signalled to the presenter via `onRelease` (which
-/// performs the delete once this sheet closes, so we never touch a deleted
-/// model).
+/// page.) Every change saves the moment it's made, like the catch
+/// celebration, so there's just Done. Releasing is signalled to the presenter
+/// via `onRelease` (which performs the delete once this sheet closes, so we
+/// never touch a deleted model).
 struct EditFriendView: View {
     let friend: Catch
     let onRelease: () -> Void
@@ -20,11 +20,9 @@ struct EditFriendView: View {
 
     /// The friend's kind — mutable so it can be (re)identified here.
     @State private var species: Species
-    /// The photo crop as edited here; applied on Save.
+    /// Mirrors of the friend's crop and zone, so changes animate in place.
     @State private var framing: PhotoFraming?
     @State private var showCrop = false
-    /// True once the player taps a zone here.
-    @State private var zoneTouched = false
     @State private var zone: Habitat
     @State private var showReleaseConfirm = false
 
@@ -49,10 +47,7 @@ struct EditFriendView: View {
                 VStack(spacing: 22) {
                     preview
                     FriendAnimalSection(species: species) { showPicker = true }
-                    FriendZoneSection(selected: zone) { habitat in
-                        zoneTouched = true
-                        zone = habitat
-                    }
+                    FriendZoneSection(selected: zone, onSelect: setZone)
                     releaseButton
                 }
                 .padding()
@@ -65,12 +60,15 @@ struct EditFriendView: View {
         }
         .groveSheetChrome(
             title: isMystery ? "New Friend" : "Edit \(species.name)",
-            cancel: SheetAction(title: "Cancel") { close() },
-            confirm: SheetAction(title: "Save") { save() }
+            confirm: SheetAction(title: "Done") { close() }
         )
         .fullScreenCover(isPresented: $showCrop) {
             if let image = friend.photoData.flatMap(UIImage.init(data:)) {
-                PhotoCropView(image: image, framing: framing) { framing = $0 }
+                PhotoCropView(image: image, framing: framing) { newFraming in
+                    framing = newFraming
+                    friend.framing = newFraming
+                    try? context.save()
+                }
             }
         }
         .sheet(isPresented: $showReleaseConfirm) {
@@ -141,31 +139,28 @@ struct EditFriendView: View {
 
     // MARK: Actions
 
-    /// Pick a kind. Moves the friend to that kind's home zone so "Lives in"
-    /// reflects the choice — the player can still override it just below.
+    /// Pick a kind, saved straight away with its first-of-kind bonus. A friend
+    /// whose zone was never chosen follows its new kind's usual zone.
     private func select(_ candidate: Species) {
+        guard candidate.id != friend.speciesID else { return }
+        let others = (try? context.fetch(FetchDescriptor<Catch>())) ?? []
+        let isFirst = !others.contains { $0 !== friend && $0.speciesID == candidate.id }
+        friend.speciesID = candidate.id
+        friend.isFirstSighting = isFirst
+        friend.sparksEarned = Progression.sparks(for: candidate, isFirstSighting: isFirst)
+        try? context.save()
         withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
             species = candidate
-            // Only a friend whose zone was never chosen follows its animal.
-            if !zoneTouched && friend.zoneOverride == nil { zone = candidate.zone }
+            zone = friend.effectiveZone
         }
     }
 
-    private func save() {
-        // If the kind changed, re-log it and recompute its first-of-kind bonus.
-        if species.id != friend.speciesID {
-            let others = (try? context.fetch(FetchDescriptor<Catch>())) ?? []
-            let isFirst = !others.contains { $0 !== friend && $0.speciesID == species.id }
-            friend.speciesID = species.id
-            friend.isFirstSighting = isFirst
-            friend.sparksEarned = Progression.sparks(for: species, isFirstSighting: isFirst)
-        }
-
-        friend.framing = framing
-        if zoneTouched { friend.zoneOverride = zone } // a choice, even if it's the usual zone
-
+    /// Choose where the friend lives, saved straight away (a choice, even if
+    /// it's the animal's usual zone).
+    private func setZone(_ habitat: Habitat) {
+        zone = habitat
+        friend.zoneOverride = habitat
         try? context.save()
-        close()
     }
 
     /// Close this sheet, or the right-page panel it opened as.
