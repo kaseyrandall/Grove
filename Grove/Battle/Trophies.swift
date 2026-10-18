@@ -184,6 +184,7 @@ struct TrophiesTab: View {
     let ledger: TrophyLedger
     /// Called when the player leaves the tab: "New" tags clear.
     var onSeen: () -> Void = {}
+    @State private var open: Set<Trophy.Group> = []
 
     var body: some View {
         ScrollView {
@@ -200,29 +201,25 @@ struct TrophiesTab: View {
 
                 TrophyShelf(ledger: ledger)
 
-                ForEach(Trophy.Group.allCases, id: \.self) { group in
-                    groupLabel(group.rawValue)
-                    ForEach(Trophy.allCases.filter { $0.group == group }) { t in
-                        TrophyRow(trophy: t, ledger: ledger)
-                            .arenaEntrance((Trophy.allCases.firstIndex(of: t) ?? 0) + 1)
-                    }
+                // One card per group; tap to open the full list. A group
+                // with a new trophy starts open.
+                ForEach(Array(Trophy.Group.allCases.enumerated()), id: \.element) { n, group in
+                    TrophyGroupCard(group: group, ledger: ledger,
+                                    isOpen: Binding(get: { open.contains(group) },
+                                                    set: { on in
+                                                        if on { open.insert(group) } else { open.remove(group) }
+                                                    }))
+                        .arenaEntrance(n + 1)
                 }
             }
             .padding()
         }
-        .onDisappear(perform: onSeen)
-    }
-
-    private func groupLabel(_ text: String) -> some View {
-        HStack(spacing: 10) {
-            Text(text.uppercased())
-                .arenaDisplay(15)
-                .foregroundStyle(BattleTheme.muted)
-            LinearGradient(colors: [BattleTheme.panelLine, .clear], startPoint: .leading, endPoint: .trailing)
-                .frame(height: 2)
+        .onAppear {
+            open = Set(Trophy.Group.allCases.filter { g in
+                Trophy.allCases.contains { $0.group == g && ledger.unseen.contains($0.rawValue) }
+            })
         }
-        .padding(.top, 12)
-        .padding(.horizontal, 2)
+        .onDisappear(perform: onSeen)
     }
 }
 
@@ -298,118 +295,168 @@ private struct TrophyShelf: View {
     }
 }
 
-private struct TrophyRow: View {
+extension Trophy.Group {
+    /// Each group's edge color.
+    var accent: Color {
+        switch self {
+        case .wins:   return TrophyStyle.gold
+        case .rivals: return Color(hex: 0xFF8A4B)
+        case .team:   return BattleTheme.leaf
+        }
+    }
+}
+
+/// A group as one card. Closed: its badges, the count and the closest
+/// trophy to earn next. Open: every trophy in the group.
+private struct TrophyGroupCard: View {
+    let group: Trophy.Group
+    let ledger: TrophyLedger
+    @Binding var isOpen: Bool
+
+    private var trophies: [Trophy] { Trophy.allCases.filter { $0.group == group } }
+    private var earned: Int { trophies.filter(ledger.isEarned).count }
+    /// The unearned trophy you're furthest along on.
+    private var next: Trophy? {
+        trophies.filter { !ledger.isEarned($0) && $0.goal > 1 && ledger.value($0) > 0 }
+            .max { Double(ledger.value($0)) / Double($0.goal) < Double(ledger.value($1)) / Double($1.goal) }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Button {
+                withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) { isOpen.toggle() }
+            } label: {
+                HStack(spacing: 10) {
+                    Text(group.rawValue.uppercased())
+                        .arenaDisplay(24)
+                        .foregroundStyle(BattleTheme.ink)
+                    Spacer()
+                    Text("\(earned)/\(trophies.count)")
+                        .arenaDisplay(22)
+                        .foregroundStyle(TrophyStyle.gold)
+                        .monospacedDigit()
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundStyle(BattleTheme.muted)
+                        .rotationEffect(.degrees(isOpen ? 180 : 0))
+                }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("\(group.rawValue), \(earned) of \(trophies.count) earned")
+            .accessibilityHint(isOpen ? "Hides the list" : "Shows every trophy")
+
+            if isOpen {
+                VStack(spacing: 0) {
+                    ForEach(Array(trophies.enumerated()), id: \.element) { n, t in
+                        TrophyLine(trophy: t, ledger: ledger)
+                            .arenaEntrance(n)
+                    }
+                }
+                .padding(.top, 6)
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            } else {
+                HStack(spacing: 10) {
+                    ForEach(trophies) { t in
+                        TrophyBadge(trophy: t, state: badgeState(t), size: 40)
+                            .overlay(alignment: .topTrailing) {
+                                if ledger.unseen.contains(t.rawValue) {
+                                    Circle().fill(TrophyStyle.gold).frame(width: 9, height: 9).offset(x: 2, y: -2)
+                                }
+                            }
+                    }
+                }
+                .padding(.top, 12)
+                .transition(.opacity)
+                if let t = next { nextLine(t).padding(.top, 12).transition(.opacity) }
+            }
+        }
+        .padding(.leading, 16).padding(.trailing, 24).padding(.vertical, 14)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Slant(trail: 12).fill(BattleTheme.panelFill))
+        .overlay(alignment: .leading) { Rectangle().fill(group.accent).frame(width: 3) }
+        .clipped()
+    }
+
+    private func badgeState(_ t: Trophy) -> TrophyBadge.State {
+        ledger.isEarned(t) ? .earned : (ledger.value(t) > 0 && t.goal > 1 ? .progress : .locked)
+    }
+
+    private func nextLine(_ t: Trophy) -> some View {
+        let v = ledger.value(t)
+        return HStack(spacing: 10) {
+            (Text("NEXT: ").foregroundStyle(BattleTheme.muted) + Text(t.title.uppercased()).foregroundStyle(BattleTheme.ink))
+                .arenaFont(12, .bold, .rounded)
+                .lineLimit(1)
+                .fixedSize()
+            LeanBar(fraction: Double(v) / Double(t.goal),
+                    color: BattleTheme.sta, height: 5)
+            Text(t.isLevel ? "Lv \(v)/\(t.goal)" : "\(v)/\(t.goal)")
+                .arenaFont(12, .heavy, .rounded)
+                .monospacedDigit()
+                .foregroundStyle(BattleTheme.sta)
+        }
+        .accessibilityElement(children: .combine)
+    }
+}
+
+/// One trophy inside an open group.
+private struct TrophyLine: View {
     let trophy: Trophy
     let ledger: TrophyLedger
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var sheen: CGFloat = -1
 
     private var earned: Bool { ledger.isEarned(trophy) }
-    private var isNew: Bool { ledger.unseen.contains(trophy.rawValue) }
     private var value: Int { ledger.value(trophy) }
     private var state: TrophyBadge.State {
         earned ? .earned : (value > 0 && trophy.goal > 1 ? .progress : .locked)
     }
 
     var body: some View {
-        HStack(spacing: 14) {
-            TrophyBadge(trophy: trophy, state: state, size: 54)
-            VStack(alignment: .leading, spacing: 3) {
-                HStack(spacing: 8) {
+        HStack(spacing: 12) {
+            TrophyBadge(trophy: trophy, state: state, size: 40)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 7) {
                     Text(trophy.title.uppercased())
-                        .arenaDisplay(20)
+                        .arenaDisplay(18)
                         .foregroundStyle(state == .locked ? BattleTheme.ink.opacity(0.7) : BattleTheme.ink)
-                    if isNew {
+                    if ledger.unseen.contains(trophy.rawValue) {
                         Text("NEW")
                             .arenaDisplay(11)
                             .foregroundStyle(Color(hex: 0x1A1206))
-                            .padding(.horizontal, 6).padding(.vertical, 2.5)
+                            .padding(.horizontal, 6).padding(.vertical, 2)
                             .background(Lean(amount: 4).fill(TrophyStyle.goldFill))
                     }
                 }
-                Text(trophy.how)
-                    .arenaFont(13.5, .medium)
+                Text(detail)
+                    .arenaFont(12, .semibold, .rounded)
                     .foregroundStyle(BattleTheme.muted)
                     .fixedSize(horizontal: false, vertical: true)
-                detail.padding(.top, 5)
             }
-            Spacer(minLength: 0)
+            Spacer(minLength: 6)
+            Text(status)
+                .arenaFont(11, .heavy, .rounded)
+                .tracking(0.6)
+                .monospacedDigit()
+                .foregroundStyle(earned ? TrophyStyle.gold : (state == .progress ? BattleTheme.sta : BattleTheme.muted))
         }
-        .padding(14)
-        .background(background)
-        .overlay {
-            // A single bright sweep across a trophy you've just earned.
-            if isNew && !reduceMotion {
-                GeometryReader { g in
-                    LinearGradient(colors: [.clear, .white.opacity(0.16), .clear],
-                                   startPoint: .leading, endPoint: .trailing)
-                        .frame(width: g.size.width * 0.4)
-                        .rotationEffect(.degrees(18))
-                        .offset(x: sheen * g.size.width * 1.4)
-                }
-                .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                .allowsHitTesting(false)
-                .onAppear {
-                    withAnimation(.easeInOut(duration: 1.1).delay(0.3)) { sheen = 1 }
-                }
-            }
-        }
+        .padding(.vertical, 10)
+        .overlay(alignment: .top) { Rectangle().fill(BattleTheme.panelLine).frame(height: 1) }
         .accessibilityElement(children: .combine)
-        .accessibilityValue(accessibilityValue)
     }
 
-    @ViewBuilder private var detail: some View {
+    /// How to earn it, or for earned ones, when and how it was earned.
+    private var detail: String {
+        guard earned else { return trophy.how }
+        let date = ledger.earned[trophy.rawValue]?.formatted(.dateTime.month(.abbreviated).day()) ?? ""
+        let note = ledger.notes[trophy.rawValue].map { " · \($0)" } ?? ""
+        return "Earned \(date)\(note)"
+    }
+
+    private var status: String {
         switch state {
-        case .earned:
-            let date = ledger.earned[trophy.rawValue]?.formatted(.dateTime.month(.abbreviated).day()) ?? ""
-            let note = ledger.notes[trophy.rawValue].map { " · \($0)" } ?? ""
-            Text("EARNED \(date)\(note)".uppercased())
-                .arenaFont(11, .heavy)
-                .tracking(0.8)
-                .foregroundStyle(TrophyStyle.gold)
-                .lineLimit(1)
-                .minimumScaleFactor(0.8)
-        case .progress:
-            HStack(spacing: 10) {
-                GeometryReader { g in
-                    ZStack(alignment: .leading) {
-                        Capsule().fill(Color.white.opacity(0.07))
-                        Capsule()
-                            .fill(LinearGradient(colors: [BattleTheme.sta, BattleTheme.leaf],
-                                                 startPoint: .leading, endPoint: .trailing))
-                            .frame(width: max(6, g.size.width * Double(value) / Double(trophy.goal)))
-                    }
-                }
-                .frame(height: 6)
-                Text(trophy.isLevel ? "Lv \(value) / \(trophy.goal)" : "\(value) / \(trophy.goal)")
-                    .arenaFont(12, .heavy)
-                    .monospacedDigit()
-                    .foregroundStyle(BattleTheme.sta)
-            }
-        case .locked:
-            EmptyView()
-        }
-    }
-
-    private var background: some View {
-        RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(BattleTheme.panelFill)
-            .overlay {
-                if earned {
-                    LinearGradient(colors: [TrophyStyle.gold.opacity(0.10), .clear],
-                                   startPoint: .leading, endPoint: .trailing)
-                        .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
-                }
-            }
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous)
-                .stroke(earned ? TrophyStyle.gold.opacity(0.45) : BattleTheme.panelLine, lineWidth: 1))
-    }
-
-    private var accessibilityValue: String {
-        switch state {
-        case .earned:   return "Earned"
-        case .progress: return "\(value) of \(trophy.goal)"
-        case .locked:   return "Not yet earned"
+        case .earned:   return "EARNED"
+        case .progress: return trophy.isLevel ? "LV \(value)/\(trophy.goal)" : "\(value)/\(trophy.goal)"
+        case .locked:   return "LOCKED"
         }
     }
 }
