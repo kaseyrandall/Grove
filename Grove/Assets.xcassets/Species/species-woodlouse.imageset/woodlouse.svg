@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+<defs>
+<linearGradient id="band" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#5E616C"/><stop offset="0.35" stop-color="#A6AAB5"/><stop offset="0.5" stop-color="#BCC0CA"/><stop offset="0.65" stop-color="#A6AAB5"/><stop offset="1" stop-color="#5E616C"/></linearGradient>
+<linearGradient id="head" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#4C4F59"/><stop offset="0.5" stop-color="#8A8E99"/><stop offset="1" stop-color="#4C4F59"/></linearGradient>
+<clipPath id="shell"><ellipse cx="64" cy="70" rx="30" ry="40"/></clipPath>
+</defs>
+<g stroke="#5A5D66" stroke-width="2.4" stroke-linecap="round">
+<path d="M36 48 L28 44 M35 58 L26 56 M34 68 L25 68 M34 78 L25 80 M36 88 L27 92 M39 97 L31 103 M44 104 L38 111"/>
+<path d="M92 48 L100 44 M93 58 L102 56 M94 68 L103 68 M94 78 L103 80 M92 88 L101 92 M89 97 L97 103 M84 104 L90 111"/></g>
+<path d="M58 106 L54 118 M70 106 L74 118" stroke="#6E717B" stroke-width="3.5" stroke-linecap="round"/>
+<g clip-path="url(#shell)">
+<rect x="30" y="28" width="68" height="13" fill="url(#band)"/>
+<rect x="30" y="41" width="68" height="11" fill="url(#band)"/>
+<rect x="30" y="52" width="68" height="11" fill="url(#band)"/>
+<rect x="30" y="63" width="68" height="11" fill="url(#band)"/>
+<rect x="30" y="74" width="68" height="11" fill="url(#band)"/>
+<rect x="30" y="85" width="68" height="10" fill="url(#band)"/>
+<rect x="30" y="95" width="68" height="9" fill="url(#band)"/>
+<rect x="30" y="104" width="68" height="8" fill="url(#band)"/>
+<g stroke="#4A4D56" stroke-width="1.6" opacity="0.8"><path d="M30 41 H98 M30 52 H98 M30 63 H98 M30 74 H98 M30 85 H98 M30 95 H98 M30 104 H98"/></g>
+<ellipse cx="56" cy="44" rx="10" ry="16" fill="#FFFFFF" opacity="0.18"/>
+</g>
+<path d="M44 34 C 46 22 82 22 84 34 C 76 38 52 38 44 34 Z" fill="url(#head)"/>
+<g stroke="#5A5D66" stroke-width="2.4" stroke-linecap="round" fill="none">
+<path d="M54 26 C 48 18 40 14 32 14"/><path d="M74 26 C 80 18 88 14 96 14"/></g>
+<circle cx="53" cy="30" r="2" fill="#15161A"/><circle cx="75" cy="30" r="2" fill="#15161A"/>
+</svg>

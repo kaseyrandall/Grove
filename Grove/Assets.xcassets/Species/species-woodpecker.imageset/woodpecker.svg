@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+<defs>
+<radialGradient id="black" cx="0.4" cy="0.3" r="0.8"><stop offset="0" stop-color="#4A4650"/><stop offset="1" stop-color="#141217"/></radialGradient>
+<radialGradient id="white" cx="0.4" cy="0.3" r="0.8"><stop offset="0" stop-color="#FFFFFF"/><stop offset="1" stop-color="#D6D0D4"/></radialGradient>
+<radialGradient id="red" cx="0.4" cy="0.3" r="0.8"><stop offset="0" stop-color="#FF6B5E"/><stop offset="1" stop-color="#C8261E"/></radialGradient>
+<linearGradient id="beak" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9A949C"/><stop offset="1" stop-color="#55505A"/></linearGradient>
+<radialGradient id="eye" cx="0.35" cy="0.3" r="0.8"><stop offset="0" stop-color="#3C3842"/><stop offset="1" stop-color="#0C0A0F"/></radialGradient>
+</defs>
+<path d="M78 92 L98 122 L106 118 L92 88 Z" fill="url(#black)"/>
+<ellipse cx="70" cy="70" rx="23" ry="33" transform="rotate(18 70 70)" fill="url(#white)"/>
+<path d="M74 40 C 96 46 102 80 92 102 C 86 108 78 104 76 96 C 74 80 70 56 74 40 Z" fill="url(#black)"/>
+<g fill="#FFFFFF" opacity="0.95">
+<ellipse cx="86" cy="58" rx="3" ry="2"/><ellipse cx="91" cy="68" rx="3" ry="2"/><ellipse cx="84" cy="72" rx="3" ry="2"/>
+<ellipse cx="90" cy="80" rx="3" ry="2"/><ellipse cx="85" cy="86" rx="2.6" ry="1.8"/><ellipse cx="89" cy="93" rx="2.4" ry="1.7"/></g>
+<path d="M30 40 L6 45 L30 47 Z" fill="url(#beak)"/>
+<circle cx="46" cy="40" r="18" fill="url(#white)"/>
+<path d="M29 37 C 30 24 42 20 52 22 C 60 23 64 30 63 36 C 56 32 40 32 29 37 Z" fill="url(#black)"/>
+<path d="M56 24 C 62 26 65 31 64 37 C 60 36 57 33 56 24 Z" fill="url(#red)"/>
+<path d="M32 42 C 42 40 54 40 64 44 C 64 47 62 49 60 49 C 52 46 42 45 33 46 Z" fill="url(#black)"/>
+<path d="M33 49 C 40 52 46 56 50 60 C 46 61 40 58 34 53 Z" fill="url(#black)" opacity="0.9"/>
+<circle cx="42" cy="38" r="4" fill="url(#eye)"/><circle cx="43.4" cy="36.6" r="1.4" fill="#fff"/>
+<g stroke="#6E6873" stroke-width="2.6" stroke-linecap="round" fill="none">
+<path d="M66 100 L62 110 M62 110 L56 110 M62 110 L60 116"/><path d="M74 102 L72 112 M72 112 L66 113 M72 112 L71 118"/></g>
+</svg>

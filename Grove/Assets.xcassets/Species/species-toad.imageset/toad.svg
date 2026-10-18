@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+<defs>
+<radialGradient id="skin" cx="0.45" cy="0.3" r="0.8"><stop offset="0" stop-color="#B8925A"/><stop offset="0.65" stop-color="#977242"/><stop offset="1" stop-color="#5E4527"/></radialGradient>
+<radialGradient id="dome" cx="0.4" cy="0.3" r="0.8"><stop offset="0" stop-color="#C29C62"/><stop offset="1" stop-color="#7A5A32"/></radialGradient>
+<radialGradient id="iris" cx="0.4" cy="0.35" r="0.7"><stop offset="0" stop-color="#F7CF5A"/><stop offset="1" stop-color="#B9761A"/></radialGradient>
+<linearGradient id="jaw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#E6D2A6" stop-opacity="0"/><stop offset="0.5" stop-color="#E6D2A6"/><stop offset="1" stop-color="#CDB27E"/></linearGradient>
+<radialGradient id="wart" cx="0.35" cy="0.3" r="0.7"><stop offset="0" stop-color="#C9A570"/><stop offset="1" stop-color="#6E5230"/></radialGradient>
+<clipPath id="fc"><path d="M64 40 C 98 40 118 56 116 78 C 114 100 92 112 64 112 C 36 112 14 100 12 78 C 10 56 30 40 64 40 Z"/></clipPath>
+</defs>
+<g transform="translate(64 70) scale(1.06) translate(-64 -72)">
+<circle cx="38" cy="44" r="19" fill="url(#dome)"/><circle cx="90" cy="44" r="19" fill="url(#dome)"/>
+<path d="M64 40 C 98 40 118 56 116 78 C 114 100 92 112 64 112 C 36 112 14 100 12 78 C 10 56 30 40 64 40 Z" fill="url(#skin)"/>
+<g clip-path="url(#fc)"><rect x="0" y="82" width="128" height="40" fill="url(#jaw)"/></g>
+<ellipse cx="22" cy="60" rx="7" ry="11" transform="rotate(-25 22 60)" fill="url(#wart)" opacity="0.9"/>
+<ellipse cx="106" cy="60" rx="7" ry="11" transform="rotate(25 106 60)" fill="url(#wart)" opacity="0.9"/>
+<g>
+<circle cx="50" cy="62" r="3.2" fill="url(#wart)"/><circle cx="78" cy="62" r="3.2" fill="url(#wart)"/>
+<circle cx="64" cy="56" r="2.6" fill="url(#wart)"/><circle cx="34" cy="74" r="3" fill="url(#wart)"/>
+<circle cx="94" cy="74" r="3" fill="url(#wart)"/><circle cx="44" cy="80" r="2.4" fill="url(#wart)"/>
+<circle cx="84" cy="80" r="2.4" fill="url(#wart)"/><circle cx="58" cy="68" r="2" fill="url(#wart)"/><circle cx="71" cy="69" r="2.2" fill="url(#wart)"/>
+</g>
+<circle cx="38" cy="42" r="12" fill="url(#iris)"/><circle cx="90" cy="42" r="12" fill="url(#iris)"/>
+<ellipse cx="38" cy="43" rx="8" ry="3.6" fill="#1A1410"/><ellipse cx="90" cy="43" rx="8" ry="3.6" fill="#1A1410"/>
+<circle cx="34" cy="38" r="2.6" fill="#fff"/><circle cx="86" cy="38" r="2.6" fill="#fff"/>
+<circle cx="58" cy="76" r="1.6" fill="#4A3520"/><circle cx="70" cy="76" r="1.6" fill="#4A3520"/>
+<path d="M30 90 C 44 98 84 98 98 90" stroke="#4A3520" stroke-width="2.4" stroke-linecap="round" fill="none"/>
+</g></svg>
