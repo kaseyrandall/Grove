@@ -66,6 +66,7 @@ struct GroveApp: App {
         WindowGroup {
             ZStack {
                 RootView()
+                    .readsFold() // the iPhone Duo's hinge, for its half-fold modes
                     .tint(Theme.accent)
                     .fontDesign(.rounded) // soft, friendly type everywhere
                     .preferredColorScheme(.light) // Grove's palette is a fixed light aesthetic — keep it consistent on every device

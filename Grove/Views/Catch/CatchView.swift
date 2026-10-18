@@ -29,6 +29,16 @@ struct CatchView: View {
     @State private var result: CatchResult?
     /// The open Duo in landscape (the celebration opens full screen there).
     @Environment(\.groveIsSpread) private var isSpread
+    /// The Duo half-folded like a tiny laptop: viewfinder up top, a control
+    /// deck on the bottom half (see `halfFoldLayout`).
+    @Environment(\.groveFold) private var fold
+    @State private var windowSize: CGSize = .zero
+    private var isLaptopPose: Bool { fold.isHalfFolded && windowSize.height > windowSize.width }
+    /// Self-timer for the half-fold deck: 0 (off), 3 or 10 seconds.
+    @AppStorage("cameraTimerSeconds") private var timerSeconds = 0
+    /// The countdown in progress, if any.
+    @State private var countdown: Int?
+    @State private var countdownTask: Task<Void, Never>?
     @State private var showOptions = false
     @State private var flashOpacity: Double = 0
     @State private var focusPoint: CGPoint?
@@ -43,43 +53,15 @@ struct CatchView: View {
     }
 
     var body: some View {
-        ZStack {
-            // Full-bleed viewfinder (or a friendly placeholder off-device).
-            viewfinder
-                .ignoresSafeArea()
-                .gesture(
-                    MagnifyGesture()
-                        .updating($isPinching) { _, state, _ in state = true }
-                        .onChanged { value in camera.zoom(to: baseZoom * value.magnification) }
-                        .onEnded { _ in baseZoom = camera.zoomFactor }
-                )
-                // Keep the pinch base aligned with the camera's own zoom changes
-                // (initial open at native 1×, or a flip) when not actively pinching.
-                .onChange(of: camera.zoomFactor) { _, newValue in
-                    if !isPinching { baseZoom = newValue }
-                }
-
-            // Controls live inside the safe area so nothing hides behind the
-            // Dynamic Island or the home indicator.
-            if isSpread {
-                spreadControls
-            } else {
-                VStack(spacing: 0) {
-                    topBar
-                    Spacer()
-                    bottomControls
-                }
-                .padding(.horizontal, 18)
-                .padding(.top, 6)
-                .padding(.bottom, 14)
-            }
-
-            // Shutter flash.
-            Color.white
-                .opacity(flashOpacity)
-                .ignoresSafeArea()
-                .allowsHitTesting(false)
+        Group {
+            if isLaptopPose { halfFoldLayout } else { standardLayout }
         }
+        .onGeometryChange(for: CGSize.self) { proxy in
+            let insets = proxy.safeAreaInsets
+            return CGSize(width: proxy.size.width + insets.leading + insets.trailing,
+                          height: proxy.size.height + insets.top + insets.bottom)
+        } action: { windowSize = $0 }
+        .onChange(of: isLaptopPose) { _, _ in cancelCountdown() }
         .groveTabBarHidden()
         .onChange(of: libraryItem) { _, newItem in
             guard let newItem else { return }
@@ -112,6 +94,13 @@ struct CatchView: View {
             })
         }
         #if DEBUG
+        // Test hook: `-GroveStartTimer` starts a 3-second self-timer.
+        .task {
+            guard ProcessInfo.processInfo.arguments.contains("-GroveStartTimer") else { return }
+            try? await Task.sleep(for: .milliseconds(1500))
+            timerSeconds = 3
+            snapWithTimer()
+        }
         // Test hook: `-GroveShowCatchResult` shows the celebration for one of
         // your sample friends, as a not-yet-named Mystery Friend.
         .task {
@@ -152,6 +141,46 @@ struct CatchView: View {
             Button("Got it", role: .cancel) {}
         } message: { issue in
             Text(issue.message)
+        }
+    }
+
+    private var standardLayout: some View {
+        ZStack {
+            // Full-bleed viewfinder (or a friendly placeholder off-device).
+            viewfinder
+                .ignoresSafeArea()
+                .gesture(
+                    MagnifyGesture()
+                        .updating($isPinching) { _, state, _ in state = true }
+                        .onChanged { value in camera.zoom(to: baseZoom * value.magnification) }
+                        .onEnded { _ in baseZoom = camera.zoomFactor }
+                )
+                // Keep the pinch base aligned with the camera's own zoom changes
+                // (initial open at native 1×, or a flip) when not actively pinching.
+                .onChange(of: camera.zoomFactor) { _, newValue in
+                    if !isPinching { baseZoom = newValue }
+                }
+
+            // Controls live inside the safe area so nothing hides behind the
+            // Dynamic Island or the home indicator.
+            if isSpread {
+                spreadControls
+            } else {
+                VStack(spacing: 0) {
+                    topBar
+                    Spacer()
+                    bottomControls
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 6)
+                .padding(.bottom, 14)
+            }
+
+            // Shutter flash.
+            Color.white
+                .opacity(flashOpacity)
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
         }
     }
 
@@ -254,6 +283,151 @@ struct CatchView: View {
                 .foregroundStyle(Theme.blush)
             }
         }
+    }
+
+    // MARK: Half-fold (iPhone Duo)
+
+    /// The Duo stood up like a tiny laptop: the viewfinder fills the top half
+    /// and the bottom half becomes a control deck you can tap anywhere to
+    /// snap, so you never have to hold (and shake) the phone.
+    private var halfFoldLayout: some View {
+        GeometryReader { geo in
+            let full = geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom
+            let top = full / 2 - geo.safeAreaInsets.top
+            VStack(spacing: 0) {
+                ZStack {
+                    viewfinder
+                        .gesture(
+                            MagnifyGesture()
+                                .updating($isPinching) { _, state, _ in state = true }
+                                .onChanged { value in camera.zoom(to: baseZoom * value.magnification) }
+                                .onEnded { _ in baseZoom = camera.zoomFactor }
+                        )
+                    VStack {
+                        topBar
+                        Spacer()
+                        safetyLine
+                    }
+                    .padding(.horizontal, 18)
+                    .padding(.top, geo.safeAreaInsets.top + 6)
+                    .padding(.bottom, 14)
+                    if let countdown {
+                        Text("\(countdown)")
+                            .font(.system(size: 120, weight: .heavy, design: .rounded))
+                            .foregroundStyle(.white)
+                            .shadow(color: .black.opacity(0.4), radius: 12)
+                            .contentTransition(.numericText(countsDown: true))
+                            .transition(.scale.combined(with: .opacity))
+                    }
+                    Color.white.opacity(flashOpacity).allowsHitTesting(false)
+                }
+                .frame(height: top + geo.safeAreaInsets.top)
+                .clipped()
+
+                controlDeck
+                    .padding(.bottom, geo.safeAreaInsets.bottom)
+                    .frame(maxHeight: .infinity)
+            }
+            .ignoresSafeArea()
+        }
+        .background(Color.black.ignoresSafeArea())
+        .onChange(of: camera.zoomFactor) { _, newValue in
+            if !isPinching { baseZoom = newValue }
+        }
+    }
+
+    /// The bottom half: lenses, a big shutter between the library and flip,
+    /// and the self-timer. A tap anywhere else on the deck snaps too.
+    private var controlDeck: some View {
+        ZStack {
+            Color(hex: 0x16211A)
+                .contentShape(Rectangle())
+                .onTapGesture { snapWithTimer() }
+                .accessibilityHidden(true)
+
+            VStack(spacing: 22) {
+                if lensStops.count > 1 { lensButtons(vertical: false) }
+
+                HStack(spacing: 44) {
+                    libraryButton
+                    Button { snapWithTimer() } label: {
+                        ZStack {
+                            Circle().strokeBorder(.white, lineWidth: 5).frame(width: 104, height: 104)
+                            Circle().fill(Theme.accent).frame(width: 82, height: 82)
+                                .shadow(color: Theme.accent.opacity(0.5), radius: 10, y: 3)
+                            Image(systemName: countdown == nil ? "camera.fill" : "xmark")
+                                .font(.system(size: 30, weight: .bold))
+                                .foregroundStyle(.white)
+                        }
+                    }
+                    .buttonStyle(BouncyButtonStyle())
+                    .disabled(!cameraIsLive || isIdentifying)
+                    .opacity(cameraIsLive ? 1 : 0.45)
+                    .accessibilityLabel(countdown == nil ? "Take photo" : "Cancel timer")
+                    sideSlot(alignment: .center) {
+                        if cameraIsLive {
+                            circleButton("arrow.triangle.2.circlepath") { camera.flip() }
+                        }
+                    }
+                }
+
+                timerPicker
+
+                Text(countdown == nil ? "Tap anywhere here to snap" : "Tap to cancel")
+                    .font(.system(size: 13, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.45))
+            }
+            .padding(.bottom, 10)
+        }
+    }
+
+    private var timerPicker: some View {
+        HStack(spacing: 4) {
+            ForEach([0, 3, 10], id: \.self) { seconds in
+                let selected = timerSeconds == seconds
+                Button {
+                    timerSeconds = seconds
+                    if hapticsEnabled { UISelectionFeedbackGenerator().selectionChanged() }
+                } label: {
+                    Label(seconds == 0 ? "Off" : "\(seconds)s",
+                          systemImage: seconds == 0 ? "timer.slash" : "timer")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(selected ? Color(hex: 0x16211A) : .white.opacity(0.8))
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 8)
+                        .background(Capsule().fill(selected ? Theme.gold : .clear))
+                }
+                .buttonStyle(.plain)
+                .accessibilityAddTraits(selected ? .isSelected : [])
+            }
+        }
+        .padding(4)
+        .background(Capsule().fill(.white.opacity(0.1)))
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Self-timer")
+    }
+
+    /// Snap now, or after the self-timer; a tap during a countdown cancels it.
+    private func snapWithTimer() {
+        guard cameraIsLive, !isIdentifying else { return }
+        if countdown != nil { cancelCountdown(); return }
+        guard timerSeconds > 0 else { capture(); return }
+        countdownTask = Task { @MainActor in
+            for remaining in stride(from: timerSeconds, through: 1, by: -1) {
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) { countdown = remaining }
+                if hapticsEnabled { UIImpactFeedbackGenerator(style: .light).impactOccurred() }
+                try? await Task.sleep(for: .seconds(1))
+                if Task.isCancelled { return }
+            }
+            withAnimation { countdown = nil }
+            capture()
+        }
+    }
+
+    private func cancelCountdown() {
+        countdownTask?.cancel()
+        countdownTask = nil
+        withAnimation { countdown = nil }
     }
 
     // MARK: Controls
