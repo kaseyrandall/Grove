@@ -20,7 +20,7 @@ enum DuoSpread {
     /// The off switch for Duo support. While false, Grove stays portrait-only
     /// with its phone layouts everywhere (as in 1.1), even on the open Duo; the
     /// spread code stays in place. Flip to true once it's tested on a Duo.
-    static let isEnabled = false
+    static let isEnabled = true
 
     /// The shortest side a window needs before it counts as the open Duo's inner
     /// display. Every regular iPhone (and the Duo's cover display) is narrower

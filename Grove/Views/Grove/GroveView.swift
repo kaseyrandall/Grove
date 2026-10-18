@@ -338,9 +338,11 @@ struct GroveView: View {
     /// the page rather than staying pinned.
     private var titleRow: some View {
         HStack(alignment: .center, spacing: 12) {
+            // Matches `PageTitle` (iOS's large title) on the other tabs.
             Text("Your Grove")
-                .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                .foregroundStyle(Theme.ink)
+                .font(.largeTitle.bold())
+                .fontDesign(.default)
+                .foregroundStyle(Color.primary)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 0)
             if challengeDismissed {

@@ -130,6 +130,7 @@ struct ProfileView: View {
                         spreadTitle("Profile")
                         headerCard
                         FavoriteFriendsCard(catches: catches) { showFavoritesPicker = true }
+                        if !catches.isEmpty { RecentFriendsCard(catches: catches) }
                         sectionMenu
                         privacyFooter
                         #if DEBUG
@@ -161,10 +162,13 @@ struct ProfileView: View {
         }
     }
 
+    /// Matches `PageTitle` (iOS's large title) on the other tabs.
     private func spreadTitle(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 30, weight: .heavy, design: .rounded))
-            .foregroundStyle(Theme.ink)
+            .font(.largeTitle.bold())
+            .fontDesign(.default)
+            .foregroundStyle(Color.primary)
+            .accessibilityAddTraits(.isHeader)
     }
 
     /// The left page's menu: picking a row opens that section on the right.
