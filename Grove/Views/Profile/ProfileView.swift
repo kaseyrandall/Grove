@@ -41,6 +41,12 @@ struct ProfileView: View {
                     spreadLayout
                 } else {
                     ScrollView {
+                        PageTitle(title: "Profile") {
+                            PageTitleButton(systemImage: "gearshape.fill", label: "Settings") {
+                                showSettings = true
+                            }
+                        }
+
                         VStack(spacing: 20) {
                             headerCard
                             FavoriteFriendsCard(catches: catches) { showFavoritesPicker = true }
@@ -55,25 +61,14 @@ struct ProfileView: View {
                         }
                         .padding()
                     }
+                    .statusBarFade()
                 }
             }
             .clearsGroveTabBar()
-            // The standard large title, like the Journal, with Settings in the
-            // corner. The spread draws its own titles on each page.
+            // Kept for the back button on pushed pages; the page draws its
+            // own title, with Settings beside it (see `PageTitle`).
             .navigationTitle("Profile")
-            .toolbar(isSpread ? .hidden : .automatic, for: .navigationBar)
-            .toolbar {
-                if !isSpread {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button { showSettings = true } label: {
-                            Image(systemName: "gearshape.fill")
-                                .font(.system(size: 16, weight: .semibold))
-                                .foregroundStyle(Theme.accent)
-                        }
-                        .accessibilityLabel("Settings")
-                    }
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             .navigationDestination(isPresented: $showSettings) { SettingsView() }
             // A notification asked for Settings.
             .onAppear { openSettingsIfAsked(router.pending) }

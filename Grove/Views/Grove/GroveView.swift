@@ -52,11 +52,18 @@ struct GroveView: View {
                     spreadLayout
                 } else {
                     ScrollView {
-                        if !challengeDismissed {
+                        PageTitle("Your Grove")
+
+                        if challengeDismissed {
+                            challengePill
+                                .padding(.horizontal)
+                                .padding(.top, 8)
+                                .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .topLeading)))
+                        } else {
                             dailyChallengeCard
                                 .coachTarget(.dailyGoal)
                                 .padding(.horizontal)
-                                .padding(.top, 12)
+                                .padding(.top, 8)
                                 .opacity(shown ? 1 : 0)
                                 .offset(y: shown ? 0 : -6)
                                 .animation(.spring(response: 0.5, dampingFraction: 0.8).delay(0.05), value: shown)
@@ -91,18 +98,14 @@ struct GroveView: View {
                         }
                         .padding()
                     }
+                    .statusBarFade()
                 }
             }
             .clearsGroveTabBar()
-            // The standard large title, like the Journal; it shrinks into the
-            // bar as you scroll. The spread draws its own title on each page.
+            // Kept for the back button on pushed pages; the page draws its
+            // own title (see `PageTitle`).
             .navigationTitle("Your Grove")
-            .toolbar(isSpread ? .hidden : .automatic, for: .navigationBar)
-            .toolbar {
-                if challengeDismissed && !isSpread {
-                    ToolbarItem(placement: .topBarTrailing) { reopenChallengeButton(inToolbar: true) }
-                }
-            }
+            .toolbar(.hidden, for: .navigationBar)
             #if DEBUG
             // Test hook: `-GroveOpenFriend` opens your rarest friend's page on launch.
             .navigationDestination(item: $debugFriend) { GuideEntryView(friend: $0) }
@@ -161,7 +164,9 @@ struct GroveView: View {
 
                 VStack(spacing: spacing) {
                     ZStack(alignment: .top) {
-                        if !challengeDismissed {
+                        if challengeDismissed {
+                            challengePill
+                        } else {
                             dailyChallengeCard
                                 .coachTarget(.dailyGoal)
                                 .opacity(shown ? 1 : 0)
@@ -340,10 +345,6 @@ struct GroveView: View {
                 .foregroundStyle(Theme.ink)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 0)
-            if challengeDismissed {
-                reopenChallengeButton()
-                    .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .trailing)))
-            }
         }
         .frame(minHeight: 44)
     }
@@ -387,40 +388,43 @@ struct GroveView: View {
         .softCard()
     }
 
-    /// Shown in the top-right once the card is dismissed, to bring it back — a
-    /// calendar, since the challenge is a daily/event thing.
-    /// `inToolbar`: drawn as a plain icon, since the navigation bar gives
-    /// its buttons their own background.
-    private func reopenChallengeButton(inToolbar: Bool = false) -> some View {
+    /// The challenge card, collapsed: a small pill at the top of the page
+    /// that shows how today's goal is going. Tap to open the card again.
+    private var challengePill: some View {
         let challenge = DailyChallenge.today()
         let todays = catches.filter { Calendar.current.isDateInToday($0.caughtAt) }
-        // Completed since it was collapsed (and it wasn't already done then).
-        let justCompleted = challenge.isComplete(todays, PlayerStats(catches: catches)) && !dismissedWhileComplete
+        let stats = PlayerStats(catches: catches)
+        let complete = challenge.isComplete(todays, stats)
         return Button {
             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
                 challengeDismissed = false
             }
             challengeDismissedDay = 0
         } label: {
-            Image(systemName: "calendar")
-                .font(.system(size: 16, weight: .semibold))
-                .foregroundStyle(Theme.accent)
-                .frame(width: inToolbar ? 30 : 42, height: inToolbar ? 30 : 42)
-                .background(Circle().fill(inToolbar ? .clear : .white))
-                .shadow(color: Theme.ink.opacity(inToolbar ? 0 : 0.1), radius: 8, y: 4)
-                .overlay(alignment: .topTrailing) {
-                    if justCompleted {
-                        Circle()
-                            .fill(Theme.accent)
-                            .frame(width: 12, height: 12)
-                            .overlay(Circle().strokeBorder(.white, lineWidth: 2))
-                            .offset(x: 3, y: -3)
-                            .transition(.scale.combined(with: .opacity))
-                    }
-                }
+            HStack(spacing: 8) {
+                Image(systemName: complete ? "checkmark.circle.fill" : "target")
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                Text("Today's challenge")
+                    .font(.system(.subheadline, design: .rounded, weight: .bold))
+                    .foregroundStyle(Theme.ink)
+                Text(complete ? "Done" : "\(challenge.current(todays, stats)) of \(challenge.goal)")
+                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    .foregroundStyle(complete ? Theme.accent : Theme.ink.opacity(0.45))
+                    .monospacedDigit()
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(Theme.ink.opacity(0.3))
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 9)
+            .background(Capsule().fill(.white))
+            .shadow(color: Theme.ink.opacity(0.07), radius: 6, y: 3)
+            .contentShape(Capsule())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel(justCompleted ? "Show today's challenge, completed" : "Show today's challenge")
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityLabel(complete ? "Today's challenge, done. Show it" : "Today's challenge, \(challenge.current(todays, stats)) of \(challenge.goal). Show it")
     }
 
     /// Today's bite-sized goal — a fresh reason to open the app each day.
@@ -470,14 +474,14 @@ struct GroveView: View {
                 dismissedWhileComplete = complete
                 hasSeenGoalCoach = true // engaging with the card retires its hint
             } label: {
-                Image(systemName: "xmark")
-                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                Image(systemName: "chevron.up")
+                    .font(.system(size: 11, weight: .bold, design: .rounded))
                     .foregroundStyle(Theme.ink.opacity(0.3))
-                    .padding(9)
+                    .padding(10)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Dismiss today's challenge")
+            .accessibilityLabel("Collapse today's challenge")
         }
     }
 }

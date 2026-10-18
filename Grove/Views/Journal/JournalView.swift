@@ -38,6 +38,8 @@ struct JournalView: View {
                     }
                 } else {
                     ScrollView {
+                        PageTitle("Journal")
+
                         // Other wide displays (e.g. the open Duo turned upright)
                         // reflow the single column into two: progress on the
                         // left, collection on the right.
@@ -55,10 +57,14 @@ struct JournalView: View {
                             .padding()
                         }
                     }
+                    .statusBarFade()
                 }
             }
             .clearsGroveTabBar()
+            // Kept for the back button on pushed pages; the page draws its
+            // own title (see `PageTitle`). The spread keeps the bar.
             .navigationTitle("Journal")
+            .toolbar(isSpread ? .automatic : .hidden, for: .navigationBar)
             .navigationDestination(isPresented: $openGuide) { FieldGuideView() }
             .onAppear {
                 if router.pending == .fieldGuide { router.pending = nil; openGuide = true }
