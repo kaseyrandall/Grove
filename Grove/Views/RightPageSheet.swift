@@ -38,6 +38,21 @@ private struct RightPageSheet<Sheet: View>: ViewModifier {
                     GeometryReader { geo in
                         let pages = DuoSpread.pageWidths(in: geo.frame(in: .global), foldX: foldX,
                                                          leading: 16, trailing: 16)
+                        // The panel takes over the right page: the page's own
+                        // ground covers it edge to edge, so nothing of the page
+                        // underneath peeks out around the panel.
+                        // It's the same full-screen gradient as the page, on
+                        // the same window background (the gradient fades to
+                        // translucent), masked to the right page, so the
+                        // shades line up.
+                        Theme.background
+                            .background(Color(uiColor: .systemBackground))
+                            .ignoresSafeArea()
+                            .mask(alignment: .trailing) {
+                                Rectangle()
+                                    .frame(width: pages.trailing + 32)
+                                    .ignoresSafeArea()
+                            }
                         sheet()
                             // Inside the panel the screen lays out as it would
                             // in a phone sheet, and closes the panel.

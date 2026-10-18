@@ -209,6 +209,11 @@ struct RootView: View {
         if args.contains("-GroveSeedSample"), !SeedData.isPresent(in: catches) {
             SeedData.fill(context: context)
         }
+        // `-GroveShowOnboarding` replays the intro (iCloud otherwise restores
+        // "already onboarded" on launch).
+        if args.contains("-GroveShowOnboarding") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { hasOnboarded = false }
+        }
         if let i = args.firstIndex(of: "-GroveTab"), i + 1 < args.count {
             switch args[i + 1] {
             case "map":     selection = .map

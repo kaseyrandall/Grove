@@ -61,14 +61,18 @@ struct CatchView: View {
 
             // Controls live inside the safe area so nothing hides behind the
             // Dynamic Island or the home indicator.
-            VStack(spacing: 0) {
-                topBar
-                Spacer()
-                bottomControls
+            if isSpread {
+                spreadControls
+            } else {
+                VStack(spacing: 0) {
+                    topBar
+                    Spacer()
+                    bottomControls
+                }
+                .padding(.horizontal, 18)
+                .padding(.top, 6)
+                .padding(.bottom, 14)
             }
-            .padding(.horizontal, 18)
-            .padding(.top, 6)
-            .padding(.bottom, 14)
 
             // Shutter flash.
             Color.white
@@ -262,9 +266,64 @@ struct CatchView: View {
         }
     }
 
+    /// The open Duo: the viewfinder runs across both pages and the controls
+    /// stand in a column on the trailing edge, like Camera in landscape, so
+    /// the shutter never sits on the fold. The safety reminder stays bottom
+    /// left, on the first page.
+    private var spreadControls: some View {
+        HStack(spacing: 0) {
+            VStack(alignment: .leading) {
+                circleButton("xmark") { onFinished() }
+                Spacer()
+                safetyLine
+            }
+            Spacer()
+            VStack(spacing: 22) {
+                circleButton("slider.horizontal.3") { showOptions = true }
+                Spacer()
+                if lensStops.count > 1 { lensButtons(vertical: true) }
+                shutterButton
+                libraryButton
+                Spacer()
+                sideSlot(alignment: .center) {
+                    if cameraIsLive {
+                        circleButton("arrow.triangle.2.circlepath") { camera.flip() }
+                            .transition(.opacity.combined(with: .scale))
+                    }
+                }
+            }
+            .animation(.easeInOut(duration: 0.25), value: camera.status)
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 14)
+    }
+
+    /// Opens the photo library (any photo, any date), following the familiar
+    /// camera pattern: your last catch shows as the thumbnail, or a photos
+    /// glyph before your first.
+    private var libraryButton: some View {
+        PhotosPicker(selection: $libraryItem, matching: .images, photoLibrary: .shared()) {
+            Group {
+                if let last = lastCatch, let data = last.photoData, let ui = UIImage(data: data) {
+                    FriendPhoto(image: ui, framing: last.framing)
+                } else {
+                    Image(systemName: "photo.on.rectangle.angled")
+                        .font(.system(size: 19, weight: .semibold))
+                        .foregroundStyle(.white)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .background(Color.black.opacity(0.42))
+                }
+            }
+            .frame(width: 46, height: 46)
+            .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
+            .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(.white.opacity(0.9), lineWidth: 2))
+        }
+        .disabled(isIdentifying)
+    }
+
     private var bottomControls: some View {
         VStack(spacing: 14) {
-            if lensStops.count > 1 { lensButtons }
+            if lensStops.count > 1 { lensButtons(vertical: false) }
             safetyLine
             HStack {
                 // Fixed-size side slots keep the shutter centered even before the
@@ -281,28 +340,8 @@ struct CatchView: View {
                 shutterButton
                 Spacer()
 
-                // Bottom-right opens the photo library (any photo, any date),
-                // following the familiar camera pattern: your last catch shows
-                // as the thumbnail, or a photos glyph before your first.
-                sideSlot(alignment: .trailing) {
-                    PhotosPicker(selection: $libraryItem, matching: .images, photoLibrary: .shared()) {
-                        Group {
-                            if let last = lastCatch, let data = last.photoData, let ui = UIImage(data: data) {
-                                FriendPhoto(image: ui, framing: last.framing)
-                            } else {
-                                Image(systemName: "photo.on.rectangle.angled")
-                                    .font(.system(size: 19, weight: .semibold))
-                                    .foregroundStyle(.white)
-                                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    .background(Color.black.opacity(0.42))
-                            }
-                        }
-                        .frame(width: 46, height: 46)
-                        .clipShape(RoundedRectangle(cornerRadius: 13, style: .continuous))
-                        .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(.white.opacity(0.9), lineWidth: 2))
-                    }
-                    .disabled(isIdentifying)
-                }
+                // Bottom-right opens the photo library.
+                sideSlot(alignment: .trailing) { libraryButton }
             }
             .animation(.easeInOut(duration: 0.25), value: camera.status)
         }
@@ -324,8 +363,9 @@ struct CatchView: View {
 
     /// One button per lens (0.5×, 1×, 2×, 5×…). The lens you're on is lit and
     /// shows the live zoom, so a pinch in between reads as "1.4×".
-    private var lensButtons: some View {
-        HStack(spacing: 6) {
+    private func lensButtons(vertical: Bool) -> some View {
+        let layout = vertical ? AnyLayout(VStackLayout(spacing: 6)) : AnyLayout(HStackLayout(spacing: 6))
+        return layout {
             ForEach(lensStops, id: \.self) { stop in
                 let isActive = stop == activeLens
                 Button {
@@ -346,7 +386,7 @@ struct CatchView: View {
                 .accessibilityAddTraits(isActive ? .isSelected : [])
             }
         }
-        .padding(.horizontal, 4)
+        .padding(vertical ? .vertical : .horizontal, 4)
         .background(Capsule().fill(.black.opacity(0.3)))
         .animation(.easeInOut(duration: 0.18), value: activeLens)
     }
