@@ -43,10 +43,6 @@ struct ProfileView: View {
                     spreadLayout
                 } else {
                     ScrollView {
-                        titleRow
-                            .padding(.horizontal)
-                            .padding(.top, 8)
-
                         VStack(spacing: 20) {
                             headerCard
                             FavoriteFriendsCard(catches: catches) { showFavoritesPicker = true }
@@ -63,24 +59,25 @@ struct ProfileView: View {
                         }
                         .padding()
                     }
-                    // With no navigation bar, fade the page out under the
-                    // status bar so scrolled content doesn't run into the clock.
-                    .overlay(alignment: .top) {
-                        GeometryReader { geo in
-                            LinearGradient(colors: [Theme.cream, Theme.cream.opacity(0)],
-                                           startPoint: .top, endPoint: .bottom)
-                                .frame(height: geo.safeAreaInsets.top + 14)
-                                .ignoresSafeArea(edges: .top)
-                        }
-                        .allowsHitTesting(false)
-                    }
                 }
             }
             .clearsGroveTabBar()
-            // Kept for the back button on pushed pages; the page draws its own
-            // title (with the Settings button beside it), like the Grove.
+            // The standard large title, like the Journal, with Settings in the
+            // corner. The spread draws its own titles on each page.
             .navigationTitle("Profile")
-            .toolbar(.hidden, for: .navigationBar)
+            .toolbar(isSpread ? .hidden : .automatic, for: .navigationBar)
+            .toolbar {
+                if !isSpread {
+                    ToolbarItem(placement: .topBarTrailing) {
+                        Button { showSettings = true } label: {
+                            Image(systemName: "gearshape.fill")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundStyle(Theme.accent)
+                        }
+                        .accessibilityLabel("Settings")
+                    }
+                }
+            }
             .navigationDestination(isPresented: $showSettings) { SettingsView() }
             #if DEBUG
             // Test hooks: `-GroveProfileSection settings|about` opens that
@@ -335,33 +332,6 @@ struct ProfileView: View {
                 .grayscale(unlocked ? 0 : 1)
                 .opacity(unlocked ? 1 : 0.4)
         }
-    }
-
-    // MARK: Title
-
-    /// The page title with the Settings button in the top-right, matching the
-    /// Grove's title and calendar button. Scrolls away with the page.
-    private var titleRow: some View {
-        HStack(alignment: .center, spacing: 12) {
-            Text("Profile")
-                .font(.system(.largeTitle, design: .rounded, weight: .bold))
-                .foregroundStyle(Theme.ink)
-                .accessibilityAddTraits(.isHeader)
-            Spacer(minLength: 0)
-            Button {
-                showSettings = true
-            } label: {
-                Image(systemName: "gearshape.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: 42, height: 42)
-                    .background(Circle().fill(.white))
-                    .shadow(color: Theme.ink.opacity(0.1), radius: 8, y: 4)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Settings")
-        }
-        .frame(minHeight: 44)
     }
 
     // MARK: Privacy — a quiet reassurance that the Grove is theirs alone

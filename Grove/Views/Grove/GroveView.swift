@@ -53,10 +53,6 @@ struct GroveView: View {
                     spreadLayout
                 } else {
                     ScrollView {
-                        titleRow
-                            .padding(.horizontal)
-                            .padding(.top, 8)
-
                         if !challengeDismissed {
                             dailyChallengeCard
                                 .coachTarget(.dailyGoal)
@@ -98,24 +94,18 @@ struct GroveView: View {
                         }
                         .padding()
                     }
-                    // With no navigation bar, fade the page out under the
-                    // status bar so scrolled content doesn't run into the clock.
-                    .overlay(alignment: .top) {
-                        GeometryReader { geo in
-                            LinearGradient(colors: [Theme.cream, Theme.cream.opacity(0)],
-                                           startPoint: .top, endPoint: .bottom)
-                                .frame(height: geo.safeAreaInsets.top + 14)
-                                .ignoresSafeArea(edges: .top)
-                        }
-                        .allowsHitTesting(false)
-                    }
                 }
             }
             .clearsGroveTabBar()
-            // Kept for the back button on pushed pages; the Grove draws its own
-            // title (with the challenge button beside it) in the scroll content.
+            // The standard large title, like the Journal; it shrinks into the
+            // bar as you scroll. The spread draws its own title on each page.
             .navigationTitle("Your Grove")
-            .toolbar(.hidden, for: .navigationBar)
+            .toolbar(isSpread ? .hidden : .automatic, for: .navigationBar)
+            .toolbar {
+                if challengeDismissed && !isSpread {
+                    ToolbarItem(placement: .topBarTrailing) { reopenChallengeButton(inToolbar: true) }
+                }
+            }
             #if DEBUG
             // Test hook: `-GroveOpenFriend` opens your rarest friend's page on launch.
             .navigationDestination(item: $debugFriend) { GuideEntryView(friend: $0) }
@@ -354,7 +344,7 @@ struct GroveView: View {
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 0)
             if challengeDismissed {
-                reopenChallengeButton
+                reopenChallengeButton()
                     .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .trailing)))
             }
         }
@@ -402,7 +392,9 @@ struct GroveView: View {
 
     /// Shown in the top-right once the card is dismissed, to bring it back — a
     /// calendar, since the challenge is a daily/event thing.
-    private var reopenChallengeButton: some View {
+    /// `inToolbar`: drawn as a plain icon, since the navigation bar gives
+    /// its buttons their own background.
+    private func reopenChallengeButton(inToolbar: Bool = false) -> some View {
         let challenge = DailyChallenge.today()
         let todays = catches.filter { Calendar.current.isDateInToday($0.caughtAt) }
         // Completed since it was collapsed (and it wasn't already done then).
@@ -416,9 +408,9 @@ struct GroveView: View {
             Image(systemName: "calendar")
                 .font(.system(size: 16, weight: .semibold))
                 .foregroundStyle(Theme.accent)
-                .frame(width: 42, height: 42)
-                .background(Circle().fill(.white))
-                .shadow(color: Theme.ink.opacity(0.1), radius: 8, y: 4)
+                .frame(width: inToolbar ? 30 : 42, height: inToolbar ? 30 : 42)
+                .background(Circle().fill(inToolbar ? .clear : .white))
+                .shadow(color: Theme.ink.opacity(inToolbar ? 0 : 0.1), radius: 8, y: 4)
                 .overlay(alignment: .topTrailing) {
                     if justCompleted {
                         Circle()
