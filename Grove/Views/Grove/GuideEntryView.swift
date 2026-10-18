@@ -425,7 +425,7 @@ private struct ArenaSwapSheet: View {
                                 dismiss()
                             } label: {
                                 HStack(spacing: 12) {
-                                    PortraitCircle(photoData: member.photoData,
+                                    PortraitCircle(friend: member,
                                                    type: BattleType(habitat: member.effectiveZone),
                                                    monogram: String(member.displayName.prefix(1)), size: 46)
                                     VStack(alignment: .leading, spacing: 2) {

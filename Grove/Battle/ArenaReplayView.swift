@@ -1,34 +1,5 @@
 import SwiftUI
 
-// MARK: - Battlegrounds palette (a committed dark arena)
-
-/// Battlegrounds runs dark by default — its own self-contained palette, separate
-/// from Grove's soft daylight `Theme`.
-private enum Arena {
-    static let ink      = Color(hex: 0xEAF3EC)
-    static let muted    = Color(hex: 0x8FAE9C)
-    static let panel    = Color(hex: 0x132019)
-    static let panelLo  = Color(hex: 0x0E1712)
-    static let panelLine = Color(hex: 0x294536)
-    static let gold     = Color(hex: 0xF3D17A)
-    static let leaf     = Color(hex: 0x6FC07A)
-    static let leafDeep = Color(hex: 0x3F9A58)
-    static let sta      = Color(hex: 0x5FC7D6)
-    static let hpGood   = Color(hex: 0x6FC07A)
-    static let hpMid    = Color(hex: 0xF0C24B)
-    static let hpLow    = Color(hex: 0xE8654F)
-    static let dmg      = Color(hex: 0xFFD9CF)
-    static let heal     = Color(hex: 0xC8F5CF)
-
-    static var background: LinearGradient {
-        LinearGradient(colors: [Color(hex: 0x0E1A14), Color(hex: 0x0A130F)],
-                       startPoint: .top, endPoint: .bottom)
-    }
-    static var stage: LinearGradient {
-        LinearGradient(colors: [Color(hex: 0x16261D), Color(hex: 0x0A1310)],
-                       startPoint: .top, endPoint: .bottom)
-    }
-}
 
 // MARK: - Transient overlays
 
@@ -47,7 +18,7 @@ private struct BadgePop: Identifiable {
 /// the engine produced. Deterministic in, cinematic out.
 struct ArenaReplayView: View {
     let result: BattleResult
-    private let portraits: [UIImage?]
+    private let portraits: [BattlePortrait]
 
     // playback
     @State private var idx = 0
@@ -68,6 +39,8 @@ struct ArenaReplayView: View {
     @State private var floats: [Floater] = []
     @State private var badges: [BadgePop] = []
     @State private var lungeOffset: [CGSize] = [.zero, .zero]
+    /// Reduce Motion keeps the flinch's fade but drops lunges and shakes.
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var hurtX: [CGFloat] = [0, 0]
     @State private var hurtOpacity: [Double] = [1, 1]
     @State private var stageOffset: CGSize = .zero
@@ -75,18 +48,16 @@ struct ArenaReplayView: View {
     private let speeds: [Double] = [1, 2, 3.25]
     private var speed: Double { speeds[speedIndex] }
 
-    init(result: BattleResult, portraits: [Data?] = [nil, nil]) {
+    init(result: BattleResult, portraits: [BattlePortrait] = [.none, .none]) {
         self.result = result
-        self.portraits = (0..<2).map { i in
-            portraits.indices.contains(i) ? portraits[i].flatMap(UIImage.init(data:)) : nil
-        }
+        self.portraits = (0..<2).map { i in portraits.indices.contains(i) ? portraits[i] : .none }
         _hp = State(initialValue: [result.fighters[0].maxHP, result.fighters[1].maxHP])
         _sta = State(initialValue: [result.fighters[0].maxStamina, result.fighters[1].maxStamina])
     }
 
     var body: some View {
         ZStack {
-            Arena.background.ignoresSafeArea()
+            BattleTheme.background.ignoresSafeArea()
 
             VStack(spacing: 12) {
                 stage
@@ -113,7 +84,7 @@ struct ArenaReplayView: View {
     private var stage: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 24, style: .continuous)
-                .fill(Arena.stage)
+                .fill(BattleTheme.stage)
                 .overlay(
                     RoundedRectangle(cornerRadius: 24, style: .continuous)
                         .stroke(.white.opacity(0.05), lineWidth: 1)
@@ -140,15 +111,33 @@ struct ArenaReplayView: View {
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
 
+    /// One pip per round, or for long matches (more than a row's worth) a
+    /// slim progress bar with "Round 7 of 24".
     private var roundPips: some View {
-        HStack(spacing: 5) {
-            ForEach(0..<result.turns, id: \.self) { i in
-                Circle()
-                    .fill(i < round ? Arena.gold : .white.opacity(0.14))
-                    .frame(width: 7, height: 7)
-                    .shadow(color: i < round ? Arena.gold.opacity(0.8) : .clear, radius: 4)
+        Group {
+            if result.turns <= 12 {
+                HStack(spacing: 5) {
+                    ForEach(0..<result.turns, id: \.self) { i in
+                        Circle()
+                            .fill(i < round ? BattleTheme.gold : .white.opacity(0.14))
+                            .frame(width: 7, height: 7)
+                            .shadow(color: i < round ? BattleTheme.gold.opacity(0.8) : .clear, radius: 4)
+                    }
+                }
+            } else {
+                HStack(spacing: 8) {
+                    ProgressView(value: Double(min(round, result.turns)), total: Double(result.turns))
+                        .tint(BattleTheme.gold)
+                        .frame(width: 120)
+                    Text("Round \(min(max(round, 1), result.turns)) of \(result.turns)")
+                        .arenaFont(11, .bold, .rounded)
+                        .foregroundStyle(BattleTheme.muted)
+                        .monospacedDigit()
+                }
             }
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Round \(min(max(round, 1), result.turns)) of \(result.turns)")
     }
 
     // MARK: Nameplate
@@ -159,29 +148,29 @@ struct ArenaReplayView: View {
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 7) {
                 Text(f.name)
-                    .font(.system(size: 16, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Arena.ink)
+                    .arenaFont(16, .semibold, .rounded)
+                    .foregroundStyle(BattleTheme.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
                 Text("Lv\(f.level)")
-                    .font(.system(size: 11, weight: .bold, design: .rounded))
-                    .foregroundStyle(Arena.muted)
+                    .arenaFont(11, .bold, .rounded)
+                    .foregroundStyle(BattleTheme.muted)
                 Spacer(minLength: 4)
                 Text(f.type.rawValue.uppercased())
-                    .font(.system(size: 9, weight: .heavy, design: .rounded))
+                    .arenaFont(9, .heavy, .rounded)
                     .tracking(0.5)
                     .foregroundStyle(Color(hex: 0x0C130F))
                     .padding(.horizontal, 7).padding(.vertical, 3)
                     .background(Capsule().fill(f.type.color))
             }
             Text(f.archetype.rawValue.capitalized)
-                .font(.system(size: 10.5, weight: .bold, design: .rounded))
-                .foregroundStyle(Arena.muted)
+                .arenaFont(10.5, .bold, .rounded)
+                .foregroundStyle(BattleTheme.muted)
 
             hpBar(frac: frac)
             Text("\(max(0, hp[side])) / \(f.maxHP)")
-                .font(.system(size: 10, weight: .heavy, design: .rounded))
-                .foregroundStyle(Arena.ink)
+                .arenaFont(10, .heavy, .rounded)
+                .foregroundStyle(BattleTheme.ink)
                 .monospacedDigit()
                 .frame(maxWidth: .infinity, alignment: .trailing)
 
@@ -191,15 +180,15 @@ struct ArenaReplayView: View {
         .frame(width: 188, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(LinearGradient(colors: [Arena.panel, Arena.panelLo], startPoint: .top, endPoint: .bottom))
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Arena.panelLine, lineWidth: 1))
+                .fill(LinearGradient(colors: [BattleTheme.panel, BattleTheme.panelLo], startPoint: .top, endPoint: .bottom))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
         )
         .shadow(color: .black.opacity(0.4), radius: 12, y: 6)
     }
 
     private func hpBar(frac: Double) -> some View {
         GeometryReader { geo in
-            let color = frac > 0.5 ? Arena.hpGood : (frac > 0.22 ? Arena.hpMid : Arena.hpLow)
+            let color = frac > 0.5 ? BattleTheme.hpGood : (frac > 0.22 ? BattleTheme.hpMid : BattleTheme.hpLow)
             ZStack(alignment: .leading) {
                 Capsule().fill(.black.opacity(0.4))
                 Capsule().fill(color)
@@ -215,7 +204,7 @@ struct ArenaReplayView: View {
         return GeometryReader { geo in
             ZStack(alignment: .leading) {
                 Capsule().fill(.white.opacity(0.08))
-                Capsule().fill(Arena.sta.opacity(0.85))
+                Capsule().fill(BattleTheme.sta.opacity(0.85))
                     .frame(width: max(0, geo.size.width * frac))
             }
         }
@@ -230,8 +219,8 @@ struct ArenaReplayView: View {
         let big = side == 0
         let size: CGFloat = big ? 104 : 78
         return VStack(spacing: 6) {
-            TokenView(letter: String(f.name.prefix(1)), color: f.type.color, size: size, image: portraits[side])
-                .shadow(color: activeSide == side ? Arena.gold.opacity(0.9) : .clear,
+            TokenView(letter: String(f.name.prefix(1)), color: f.type.color, size: size, portrait: portraits[side])
+                .shadow(color: activeSide == side ? BattleTheme.gold.opacity(0.9) : .clear,
                         radius: activeSide == side ? 16 : 0)
                 .offset(lungeOffset[side])
                 .offset(x: hurtX[side])
@@ -260,23 +249,23 @@ struct ArenaReplayView: View {
     private var messageBox: some View {
         ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(LinearGradient(colors: [Arena.panel, Arena.panelLo], startPoint: .top, endPoint: .bottom))
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(Arena.panelLine, lineWidth: 1))
+                .fill(LinearGradient(colors: [BattleTheme.panel, BattleTheme.panelLo], startPoint: .top, endPoint: .bottom))
+                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
 
             HStack(alignment: .top, spacing: 3) {
                 Text(message)
-                    .font(.system(size: 15, weight: .bold, design: .rounded))
-                    .foregroundStyle(Arena.ink)
+                    .arenaFont(15, .bold, .rounded)
+                    .foregroundStyle(BattleTheme.ink)
                 BlinkingCursor()
             }
             .padding(.horizontal, 15).padding(.vertical, 14)
 
             Text("Round \(round)")
-                .font(.system(size: 11, weight: .semibold, design: .rounded))
+                .arenaFont(11, .semibold, .rounded)
                 .tracking(0.6)
                 .foregroundStyle(Color(hex: 0x0C130F))
                 .padding(.horizontal, 10).padding(.vertical, 2)
-                .background(Capsule().fill(Arena.gold))
+                .background(Capsule().fill(BattleTheme.gold))
                 .offset(x: 14, y: -10)
         }
         .frame(height: 84)
@@ -289,11 +278,11 @@ struct ArenaReplayView: View {
             ctlButton(system: "arrow.counterclockwise", label: "Restart") { restart() }
             Button(action: toggle) {
                 Image(systemName: idx >= result.events.count ? "arrow.counterclockwise" : (playing ? "pause.fill" : "play.fill"))
-                    .font(.system(size: 16, weight: .bold))
+                    .arenaFont(16, .bold)
                     .foregroundStyle(Color(hex: 0x07130B))
                     .frame(width: 54, height: 40)
                     .background(RoundedRectangle(cornerRadius: 11, style: .continuous)
-                        .fill(LinearGradient(colors: [Arena.leaf, Arena.leafDeep], startPoint: .top, endPoint: .bottom)))
+                        .fill(LinearGradient(colors: [BattleTheme.leaf, BattleTheme.leafDeep], startPoint: .top, endPoint: .bottom)))
             }
             .buttonStyle(.plain)
             ctlButton(system: "forward.end.fill", label: "Step") { stepOnce() }
@@ -302,10 +291,10 @@ struct ArenaReplayView: View {
 
             Button { speedIndex = (speedIndex + 1) % speeds.count } label: {
                 HStack(spacing: 5) {
-                    Text("Speed").font(.system(size: 13, weight: .semibold, design: .rounded))
-                        .foregroundStyle(Arena.muted)
-                    Text(speedLabel).font(.system(size: 13, weight: .heavy, design: .rounded))
-                        .foregroundStyle(Arena.gold)
+                    Text("Speed").arenaFont(13, .semibold, .rounded)
+                        .foregroundStyle(BattleTheme.muted)
+                    Text(speedLabel).arenaFont(13, .heavy, .rounded)
+                        .foregroundStyle(BattleTheme.gold)
                 }
                 .padding(.horizontal, 14).frame(height: 40)
                 .background(RoundedRectangle(cornerRadius: 11, style: .continuous)
@@ -317,7 +306,7 @@ struct ArenaReplayView: View {
         .padding(.horizontal, 12).padding(.vertical, 9)
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
             .fill(Color(hex: 0x101A15))
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(Arena.panelLine, lineWidth: 1)))
+            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1)))
     }
 
     private var speedLabel: String {
@@ -327,8 +316,8 @@ struct ArenaReplayView: View {
     private func ctlButton(system: String, label: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: system)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundStyle(Arena.ink)
+                .arenaFont(15, .semibold)
+                .foregroundStyle(BattleTheme.ink)
                 .frame(width: 40, height: 40)
                 .background(RoundedRectangle(cornerRadius: 11, style: .continuous)
                     .fill(Color(hex: 0x1C2C23))
@@ -353,25 +342,25 @@ struct ArenaReplayView: View {
         return ZStack {
             Color.black.opacity(0.6).ignoresSafeArea()
             VStack(spacing: 8) {
-                Text(emoji).font(.system(size: 66))
+                Text(emoji).arenaFont(66)
                 Text(title)
-                    .font(.system(size: 40, weight: .heavy, design: .rounded))
-                    .foregroundStyle(youLost ? Arena.hpMid : Arena.ink)
+                    .arenaFont(40, .heavy, .rounded)
+                    .foregroundStyle(youLost ? BattleTheme.hpMid : BattleTheme.ink)
                 Text(sub)
-                    .font(.system(size: 16, weight: .bold, design: .rounded))
-                    .foregroundStyle(Arena.muted)
+                    .arenaFont(16, .bold, .rounded)
+                    .foregroundStyle(BattleTheme.muted)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
                 Button { restart() } label: {
                     Text("Watch again")
-                        .font(.system(size: 18, weight: .bold, design: .rounded))
-                        .foregroundStyle(youWon ? Color(hex: 0x0C130F) : Arena.ink)
+                        .arenaFont(18, .bold, .rounded)
+                        .foregroundStyle(youWon ? Color(hex: 0x0C130F) : BattleTheme.ink)
                         .padding(.horizontal, 34).padding(.vertical, 14)
                         .background {
                             if youWon {
-                                Capsule().fill(LinearGradient(colors: [Arena.gold, Color(hex: 0xDCAE4E)], startPoint: .top, endPoint: .bottom))
+                                Capsule().fill(LinearGradient(colors: [BattleTheme.gold, Color(hex: 0xDCAE4E)], startPoint: .top, endPoint: .bottom))
                             } else {
-                                Capsule().fill(Color(hex: 0x1C2C23)).overlay(Capsule().stroke(Arena.panelLine, lineWidth: 1))
+                                Capsule().fill(Color(hex: 0x1C2C23)).overlay(Capsule().stroke(BattleTheme.panelLine, lineWidth: 1))
                             }
                         }
                 }
@@ -451,11 +440,11 @@ struct ArenaReplayView: View {
             let before = hp[side], after = max(0, e.hpAfter[side])
             if after < before {
                 let d = before - after
-                spawnFloat(side: side, text: "-\(d)", color: Arena.dmg, big: d >= 35)
+                spawnFloat(side: side, text: "-\(d)", color: BattleTheme.dmg, big: d >= 35)
                 flinch(side)
                 if d >= 35 { shakeStage() }
             } else if after > before {
-                spawnFloat(side: side, text: "+\(after - before)", color: Arena.heal, big: false)
+                spawnFloat(side: side, text: "+\(after - before)", color: BattleTheme.heal, big: false)
             }
         }
         withAnimation(.easeOut(duration: 0.5)) {
@@ -514,6 +503,7 @@ struct ArenaReplayView: View {
     }
 
     private func lunge(_ side: Int) {
+        guard !reduceMotion else { return }
         let dx: CGFloat = side == 0 ? 46 : -46
         let dy: CGFloat = side == 0 ? -34 : 34
         withAnimation(.easeOut(duration: 0.16)) { lungeOffset[side] = CGSize(width: dx, height: dy) }
@@ -523,12 +513,14 @@ struct ArenaReplayView: View {
     private func flinch(_ side: Int) {
         withAnimation(.easeInOut(duration: 0.09)) { hurtOpacity[side] = 0.3 }
         withAnimation(.easeInOut(duration: 0.12).delay(0.09)) { hurtOpacity[side] = 1 }
+        guard !reduceMotion else { return }
         withAnimation(.easeInOut(duration: 0.06)) { hurtX[side] = -6 }
         withAnimation(.easeInOut(duration: 0.06).delay(0.1)) { hurtX[side] = 6 }
         withAnimation(.easeInOut(duration: 0.06).delay(0.2)) { hurtX[side] = 0 }
     }
 
     private func shakeStage() {
+        guard !reduceMotion else { return }
         withAnimation(.easeInOut(duration: 0.06)) { stageOffset = CGSize(width: 5, height: -3) }
         withAnimation(.easeInOut(duration: 0.06).delay(0.06)) { stageOffset = CGSize(width: -5, height: 3) }
         withAnimation(.easeInOut(duration: 0.06).delay(0.12)) { stageOffset = CGSize(width: 3, height: 2) }
@@ -542,37 +534,24 @@ private struct TokenView: View {
     let letter: String
     let color: Color
     let size: CGFloat
-    var image: UIImage? = nil
+    var portrait: BattlePortrait = .none
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var bob = false
 
     var body: some View {
-        ZStack {
-            if let image {
-                Image(uiImage: image)
-                    .resizable().scaledToFill()
-                    .frame(width: size, height: size)
-                    .clipShape(Circle())
-                    .overlay(Circle().stroke(color, lineWidth: 3))
-                    .shadow(color: .black.opacity(0.5), radius: 12, y: 8)
-            } else {
-                Circle()
-                    .fill(RadialGradient(colors: [color, color.darkened(0.45)],
-                                         center: .init(x: 0.35, y: 0.3),
-                                         startRadius: 2, endRadius: size))
-                    .overlay(Circle().stroke(.white.opacity(0.18), lineWidth: 1))
-                    .shadow(color: .black.opacity(0.5), radius: 12, y: 8)
-                Text(letter)
-                    .font(.system(size: size * 0.4, weight: .semibold, design: .rounded))
-                    .foregroundStyle(Color(hex: 0x0C130F).opacity(0.85))
+        PortraitFill(portrait: portrait, color: color, monogram: letter)
+            .frame(width: size, height: size)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(portrait.image != nil ? color : .white.opacity(0.18),
+                                     lineWidth: portrait.image != nil ? 3 : 1))
+            .shadow(color: .black.opacity(0.5), radius: 12, y: 8)
+            .frame(width: size, height: size)
+            .offset(y: bob ? -5 : 0)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) { bob = true }
             }
-        }
-        .frame(width: size, height: size)
-        .offset(y: bob ? -5 : 0)
-        .onAppear {
-            withAnimation(.easeInOut(duration: 3.0).repeatForever(autoreverses: true)) { bob = true }
-        }
     }
-
 }
 
 // MARK: - Floating number
@@ -599,7 +578,7 @@ private struct BadgeView: View {
 
     var body: some View {
         Text(badge.text)
-            .font(.system(size: 12.5, weight: .semibold, design: .rounded))
+            .arenaFont(12.5, .semibold, .rounded)
             .foregroundStyle(fg)
             .padding(.horizontal, 12).padding(.vertical, 5)
             .background(Capsule().fill(bg))
@@ -611,13 +590,13 @@ private struct BadgeView: View {
 
     private var bg: AnyShapeStyle {
         switch badge.style {
-        case .edge:    return AnyShapeStyle(LinearGradient(colors: [Arena.gold, Color(hex: 0xD9A94A)], startPoint: .top, endPoint: .bottom))
+        case .edge:    return AnyShapeStyle(LinearGradient(colors: [BattleTheme.gold, Color(hex: 0xD9A94A)], startPoint: .top, endPoint: .bottom))
         case .resist:  return AnyShapeStyle(Color(hex: 0x2E3A45))
         case .miss:    return AnyShapeStyle(Color(hex: 0x3A4A41))
         case .feint:   return AnyShapeStyle(Color(hex: 0x2F4A3A))
         case .guardUp: return AnyShapeStyle(Color(hex: 0x2F4A55))
         case .daze:    return AnyShapeStyle(LinearGradient(colors: [Color(hex: 0xC9A4EC), Color(hex: 0xA96FD0)], startPoint: .top, endPoint: .bottom))
-        case .blur:    return AnyShapeStyle(LinearGradient(colors: [Arena.sta, Color(hex: 0x3F9AA8)], startPoint: .top, endPoint: .bottom))
+        case .blur:    return AnyShapeStyle(LinearGradient(colors: [BattleTheme.sta, Color(hex: 0x3F9AA8)], startPoint: .top, endPoint: .bottom))
         }
     }
     private var fg: Color {
@@ -639,8 +618,8 @@ private struct BlinkingCursor: View {
     @State private var on = true
     var body: some View {
         Text("▸")
-            .font(.system(size: 15, weight: .bold, design: .rounded))
-            .foregroundStyle(Arena.gold)
+            .arenaFont(15, .bold, .rounded)
+            .foregroundStyle(BattleTheme.gold)
             .opacity(on ? 1 : 0)
             .onAppear { withAnimation(.linear(duration: 0.6).repeatForever(autoreverses: true)) { on = false } }
     }

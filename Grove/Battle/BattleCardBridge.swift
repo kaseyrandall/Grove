@@ -22,6 +22,18 @@ enum BattleTheme {
     static var panelFill: LinearGradient {
         LinearGradient(colors: [panel, panelLo], startPoint: .top, endPoint: .bottom)
     }
+
+    // The replay's meters and floaters.
+    static let sta    = Color(hex: 0x5FC7D6)
+    static let hpGood = Color(hex: 0x6FC07A)
+    static let hpMid  = Color(hex: 0xF0C24B)
+    static let hpLow  = Color(hex: 0xE8654F)
+    static let dmg    = Color(hex: 0xFFD9CF)
+    static let heal   = Color(hex: 0xC8F5CF)
+    static var stage: LinearGradient {
+        LinearGradient(colors: [Color(hex: 0x16261D), Color(hex: 0x0A1310)],
+                       startPoint: .top, endPoint: .bottom)
+    }
 }
 
 extension BattleType {
@@ -70,10 +82,13 @@ extension BattleType {
 }
 
 extension Archetype {
-    /// A friend's playstyle is fixed by its *kind*, deterministically — the same
-    /// species always fights the same way, and rarity never enters into it.
-    /// (Swift's own `Hasher` is per-run randomized, so we use a stable FNV-1a.)
+    /// A friend's playstyle is fixed by its *kind*: the same species always
+    /// fights the same way, and rarity never enters into it. Picked per kind
+    /// in `SpeciesPlaystyles`; anything missing falls back to a stable pick
+    /// from its id. (Swift's own `Hasher` is per-run randomized, so the
+    /// fallback uses a stable FNV-1a.)
     static func derived(fromSpeciesID id: String) -> Archetype {
+        if let picked = SpeciesPlaystyles.byID[id] { return picked }
         var h: UInt64 = 0xcbf29ce484222325
         for b in id.utf8 { h = (h ^ UInt64(b)) &* 0x100000001b3 }
         let all = Archetype.allCases
@@ -123,4 +138,37 @@ struct LazyView<Content: View>: View {
     let build: () -> Content
     init(@ViewBuilder _ build: @escaping () -> Content) { self.build = build }
     var body: some View { build() }
+}
+
+// MARK: - Arena type
+
+extension View {
+    /// The Arena's type: a fixed design size that still grows with the
+    /// player's text size setting (capped, so the arena layout holds). Large
+    /// display sizes (30pt and up: big numbers, emoji) stay as designed.
+    func arenaFont(_ size: CGFloat, _ weight: Font.Weight = .regular,
+                   _ design: Font.Design = .default) -> some View {
+        modifier(ArenaFont(size: size, weight: weight, design: design))
+    }
+}
+
+private struct ArenaFont: ViewModifier {
+    let size: CGFloat
+    let weight: Font.Weight
+    let design: Font.Design
+    @Environment(\.dynamicTypeSize) private var typeSize
+
+    /// Largest growth over the design size.
+    static let maxGrowth: CGFloat = 1.4
+
+    func body(content: Content) -> some View {
+        content.font(.system(size: scaled, weight: weight, design: design))
+    }
+
+    private var scaled: CGFloat {
+        guard size < 30 else { return size }
+        let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(typeSize))
+        let grown = UIFontMetrics(forTextStyle: .body).scaledValue(for: size, compatibleWith: traits)
+        return min(grown, size * Self.maxGrowth)
+    }
 }

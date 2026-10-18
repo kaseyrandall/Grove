@@ -33,7 +33,7 @@ struct BattlePlanEditorView: View {
                         }
                         addButton
                         Text("No rule matched? Your fighter just strikes.")
-                            .font(.system(size: 12, weight: .medium, design: .rounded))
+                            .arenaFont(12, .medium, .rounded)
                             .foregroundStyle(BattleTheme.muted.opacity(0.8))
                             .frame(maxWidth: .infinity, alignment: .center)
                             .padding(.top, 4)
@@ -60,10 +60,10 @@ struct BattlePlanEditorView: View {
     private var explainer: some View {
         VStack(alignment: .leading, spacing: 4) {
             Text("\(fighter.displayName)'s tactics")
-                .font(.system(size: 20, weight: .bold, design: .rounded))
+                .arenaFont(20, .bold, .rounded)
                 .foregroundStyle(BattleTheme.ink)
-            Text("Each turn, the first rule that's true runs. Drag priority top → bottom.")
-                .font(.system(size: 13, weight: .medium, design: .rounded))
+            Text("Each turn, the first rule that's true runs, top to bottom. Use the arrows to change the order.")
+                .arenaFont(13, .medium, .rounded)
                 .foregroundStyle(BattleTheme.muted)
         }
     }
@@ -79,7 +79,7 @@ struct BattlePlanEditorView: View {
     private func presetChip(_ title: String, _ action: @escaping () -> Void) -> some View {
         Button { withAnimation(.easeInOut(duration: 0.15)) { action() } } label: {
             Text(title)
-                .font(.system(size: 12.5, weight: .bold, design: .rounded))
+                .arenaFont(12.5, .bold, .rounded)
                 .foregroundStyle(BattleTheme.muted)
                 .padding(.horizontal, 13).padding(.vertical, 8)
                 .background(Capsule().fill(Color(hex: 0x1C2C23)).overlay(Capsule().stroke(BattleTheme.panelLine, lineWidth: 1)))
@@ -93,16 +93,16 @@ struct BattlePlanEditorView: View {
         VStack(alignment: .leading, spacing: 10) {
             HStack(spacing: 10) {
                 Text("\(idx + 1)")
-                    .font(.system(size: 12, weight: .heavy, design: .rounded))
+                    .arenaFont(12, .heavy, .rounded)
                     .foregroundStyle(BattleTheme.gold)
                     .frame(width: 20, height: 20)
                     .background(Circle().fill(Color.white.opacity(0.06)))
-                Text("IF").font(.system(size: 11, weight: .heavy, design: .rounded)).foregroundStyle(BattleTheme.muted)
+                Text("IF").arenaFont(11, .heavy, .rounded).foregroundStyle(BattleTheme.muted)
                 conditionMenu(idx)
                 Spacer(minLength: 0)
             }
             HStack(spacing: 10) {
-                Text("DO").font(.system(size: 11, weight: .heavy, design: .rounded))
+                Text("DO").arenaFont(11, .heavy, .rounded)
                     .foregroundStyle(BattleTheme.muted)
                     .padding(.leading, 30)
                 actionMenu(idx)
@@ -111,7 +111,7 @@ struct BattlePlanEditorView: View {
                 moveButton("chevron.down", disabled: idx == rules.count - 1) { move(idx, by: 1) }
                 Button { delete(idx) } label: {
                     Image(systemName: "trash")
-                        .font(.system(size: 13, weight: .semibold))
+                        .arenaFont(13, .semibold)
                         .foregroundStyle(Color(hex: 0xE8654F))
                         .frame(width: 30, height: 30)
                         .background(Circle().fill(Color.white.opacity(0.05)))
@@ -148,9 +148,9 @@ struct BattlePlanEditorView: View {
     private func chip(_ text: String, tint: Color) -> some View {
         HStack(spacing: 6) {
             Text(text).lineLimit(1)
-            Image(systemName: "chevron.down").font(.system(size: 9, weight: .bold))
+            Image(systemName: "chevron.down").arenaFont(9, .bold)
         }
-        .font(.system(size: 13, weight: .bold, design: .rounded))
+        .arenaFont(13, .bold, .rounded)
         .foregroundStyle(BattleTheme.ink)
         .padding(.horizontal, 11).padding(.vertical, 7)
         .background(
@@ -163,7 +163,7 @@ struct BattlePlanEditorView: View {
     private func moveButton(_ system: String, disabled: Bool, _ action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: system)
-                .font(.system(size: 13, weight: .bold))
+                .arenaFont(13, .bold)
                 .foregroundStyle(BattleTheme.muted)
                 .frame(width: 30, height: 30)
                 .background(Circle().fill(Color.white.opacity(0.05)))
@@ -183,7 +183,7 @@ struct BattlePlanEditorView: View {
                 Image(systemName: "plus.circle.fill")
                 Text("Add a rule")
             }
-            .font(.system(size: 15, weight: .bold, design: .rounded))
+            .arenaFont(15, .bold, .rounded)
             .foregroundStyle(BattleTheme.leaf)
             .frame(maxWidth: .infinity)
             .padding(.vertical, 13)
