@@ -19,6 +19,12 @@ struct RootView: View {
     #endif
     @ObservedObject private var quickActions = QuickActionRouter.shared
     @ObservedObject private var router = AppRouter.shared
+    /// Grove Frame (the half-folded Duo as a photo frame), and what it waits on.
+    @Environment(\.groveFold) private var fold
+    @ObservedObject private var idle = IdleClock.shared
+    @State private var showsFrame = false
+    /// Quiet seconds, half-folded, before the frame appears.
+    private static let frameDelay: TimeInterval = 30
     @ObservedObject private var updates = AppUpdates.shared
     @ObservedObject private var reviewPrompt = ReviewPrompt.shared
     /// Apple's own "Enjoying Grove?" rating prompt.
@@ -188,6 +194,26 @@ struct RootView: View {
         #if DEBUG
         .onAppear { applyDebugLaunchArguments() }
         #endif
+        .recordsTouches()
+        // Grove Frame: half-folded and left alone (and not mid-catch), the
+        // Duo becomes a photo frame. Any touch or unfolding ends it.
+        .task(id: frameGate) {
+            guard fold.isHalfFolded, hasOnboarded, selection != .catchTab else { return }
+            let wait = Self.frameDelay - Date.now.timeIntervalSince(idle.lastActivity)
+            if wait > 0 { try? await Task.sleep(for: .seconds(wait)) }
+            guard !Task.isCancelled, fold.isHalfFolded else { return }
+            withAnimation(.easeInOut(duration: 0.8)) { showsFrame = true }
+        }
+        .onChange(of: fold) { _, newFold in
+            if !newFold.isHalfFolded { withAnimation { showsFrame = false } }
+        }
+        .onChange(of: showsFrame) { _, showing in FrameKeepAwake.update(showing: showing) }
+        .overlay {
+            if showsFrame {
+                GroveFrameView { withAnimation(.easeInOut(duration: 0.4)) { showsFrame = false } }
+                    .transition(.opacity)
+            }
+        }
         .fullScreenCover(isPresented: onboardingBinding) {
             OnboardingView { hasOnboarded = true }
                 // Presented from here, outside the tab content, so hand the
@@ -211,6 +237,10 @@ struct RootView: View {
         }
         // `-GroveShowOnboarding` replays the intro (iCloud otherwise restores
         // "already onboarded" on launch).
+        // `-GroveShowFrame` opens Grove Frame right away.
+        if args.contains("-GroveShowFrame") {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { showsFrame = true }
+        }
         if args.contains("-GroveShowOnboarding") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { hasOnboarded = false }
         }
@@ -247,6 +277,11 @@ struct RootView: View {
     private var canShowReviewPrompt: Bool {
         hasOnboarded && selection == .grove && tabBarVisible
             && currentCoachStep == nil && updates.whatsNew == nil
+    }
+
+    /// Re-arms the frame's wait whenever the fold, the tab, or the last touch changes.
+    private var frameGate: String {
+        "\(fold.isHalfFolded)|\(selection)|\(idle.lastActivity.timeIntervalSince1970)|\(showsFrame)"
     }
 
     private var reviewGate: String {
