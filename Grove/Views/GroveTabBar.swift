@@ -37,23 +37,21 @@ struct GroveTabBar: View {
         .padding(.top, 28)
     }
 
-    /// The same bar stood on its end: a full-height capsule on the trailing
-    /// edge, with the Catch button raised out of it toward the content.
+    /// The same bar stood on its end: a capsule that hugs its tabs, centered
+    /// on the trailing edge, with the Catch button raised out of it toward the
+    /// content.
     private var verticalBar: some View {
         ZStack {
-            VStack(spacing: 18) {
-                Spacer(minLength: 0)
+            VStack(spacing: 14) {
                 TabBarItem(selection: $selection, tab: .grove, icon: "leaf.fill", label: "Grove")
                 TabBarItem(selection: $selection, tab: .map, icon: "map.fill", label: "Map")
-                Spacer().frame(height: 72) // room for the floating button
+                Spacer().frame(height: 64) // room for the floating button
                 TabBarItem(selection: $selection, tab: .journal, icon: "book.closed.fill", label: "Journal")
                 TabBarItem(selection: $selection, tab: .profile, icon: "person.crop.circle.fill", label: "Profile")
-                Spacer(minLength: 0)
             }
+            .padding(.vertical, 16)
             .frame(width: 66)
-            .frame(maxHeight: .infinity)
             .background(barBackground)
-            .padding(.vertical, 10)
 
             catchButton
                 .offset(x: -18)
