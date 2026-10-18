@@ -1,11 +1,14 @@
 import SwiftUI
 
-/// Choose your profile look — a wild-thing emoji and a cozy background color,
-/// split across two tabs whose labels are your current picks: the chosen emoji
-/// and a swatch of the chosen color. A live preview sits up top.
+/// Edit profile: your name, then your look — a wild-thing emoji and a cozy
+/// background color, split across two tabs whose labels are your current
+/// picks: the chosen emoji and a swatch of the chosen color. A live preview
+/// sits up top, with the name right under it.
 struct ProfileLookPicker: View {
     @Binding var emoji: String
     @Binding var colorHex: Int
+    @AppStorage(ProfileName.key) private var name = ""
+    @FocusState private var nameFocused: Bool
     @Environment(\.dismiss) private var dismiss
     /// Set when this opens as a right-page panel on the open Duo.
     @Environment(\.groveSheetClose) private var closePanel
@@ -35,22 +38,52 @@ struct ProfileLookPicker: View {
             Theme.background.ignoresSafeArea()
             VStack(spacing: 16) {
                 preview
+                nameField
+                    .padding(.horizontal, 40)
                 lookTabs
                     .padding(.horizontal)
 
                 ScrollView {
                     if tab == 0 { emojiGrid } else { colorTab }
                 }
+                .scrollDismissesKeyboard(.immediately)
             }
             .padding(.top, 10)
         }
-        .groveSheetChrome(title: "Choose your look",
+        .groveSheetChrome(title: "Edit profile",
                           confirm: SheetAction(title: "Done") { close() })
+        .onDisappear(perform: tidyName)
     }
 
     /// Close this sheet, or the right-page panel it opened as.
     private func close() {
+        tidyName()
         if let closePanel { closePanel() } else { dismiss() }
+    }
+
+    private var nameField: some View {
+        TextField(ProfileName.placeholder, text: $name)
+            .font(.system(size: 20, weight: .heavy, design: .rounded))
+            .foregroundStyle(Theme.ink)
+            .multilineTextAlignment(.center)
+            .submitLabel(.done)
+            .textInputAutocapitalization(.words)
+            .autocorrectionDisabled()
+            .focused($nameFocused)
+            .padding(.vertical, 10)
+            .padding(.horizontal, 16)
+            .background(Capsule().fill(.white))
+            .overlay(Capsule().stroke(nameFocused ? Theme.accent : Theme.ink.opacity(0.08),
+                                      lineWidth: nameFocused ? 2 : 1))
+            .onChange(of: name) { _, new in
+                if new.count > ProfileName.maxLength { name = String(new.prefix(ProfileName.maxLength)) }
+            }
+            .accessibilityLabel("Your name")
+    }
+
+    private func tidyName() {
+        nameFocused = false
+        name = name.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private var preview: some View {

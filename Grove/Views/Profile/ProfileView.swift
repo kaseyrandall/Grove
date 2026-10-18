@@ -9,9 +9,11 @@ struct ProfileView: View {
     @Query private var catches: [Catch]
     @Environment(\.modelContext) private var context
 
-    /// The player's chosen avatar look (emoji + background). Tap the header to change it.
+    /// The player's chosen avatar look (emoji + background). The pencil on the
+    /// avatar opens Edit profile, where the name lives too.
     @AppStorage("profileEmoji") private var profileEmoji = "🌿"
     @AppStorage("profileColorHex") private var profileColorHex = ProfileLookPicker.defaultColor
+    @AppStorage(ProfileName.key) private var profileName = ""
     @State private var showLookPicker = false
     @State private var showSettings = false
     @State private var showFavoritesPicker = false
@@ -82,7 +84,7 @@ struct ProfileView: View {
             .navigationDestination(isPresented: $showSettings) { SettingsView() }
             #if DEBUG
             // Test hooks: `-GroveProfileSection settings|about` opens that
-            // section; `-GroveOpenLook` opens Choose your look.
+            // section; `-GroveOpenLook` opens Edit profile.
             .onAppear {
                 let args = ProcessInfo.processInfo.arguments
                 if args.contains("-GroveOpenLook") { showLookPicker = true }
@@ -239,8 +241,11 @@ struct ProfileView: View {
                 }
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Change your look")
-            ProfileNameField()
+            .accessibilityLabel("Edit profile")
+            Text(ProfileName.display(profileName))
+                .font(.system(size: 22, weight: .heavy, design: .rounded))
+                .foregroundStyle(Theme.ink)
+                .lineLimit(1)
             ProfileStoryLine(catches: catches)
                 .padding(.top, 2)
         }

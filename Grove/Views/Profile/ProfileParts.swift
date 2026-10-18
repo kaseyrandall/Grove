@@ -7,63 +7,14 @@ import SwiftData
 
 // MARK: Name
 
-/// The player's name, renamed in place like a friend's: tap, type, done.
-/// Empty means they haven't chosen one, which shows as "Explorer".
-struct ProfileNameField: View {
-    @AppStorage("profileName") private var name = ""
-    @State private var isEditing = false
-    @State private var draft = ""
-    @FocusState private var focused: Bool
-
+/// The player's name, set in Edit profile. Empty means they haven't chosen
+/// one, which shows as "Explorer".
+enum ProfileName {
+    static let key = "profileName"
     static let placeholder = "Explorer"
+    static let maxLength = 24
 
-    var body: some View {
-        Group {
-            if isEditing {
-                TextField("Your name", text: $draft)
-                    .font(.system(size: 22, weight: .heavy, design: .rounded))
-                    .foregroundStyle(Theme.ink)
-                    .multilineTextAlignment(.center)
-                    .submitLabel(.done)
-                    .focused($focused)
-                    .onSubmit { isEditing = false }
-                    .padding(.vertical, 6)
-                    .padding(.horizontal, 16)
-                    .background(Capsule().fill(Theme.cream))
-                    .overlay(Capsule().stroke(Theme.accent, lineWidth: 2))
-                    .padding(.horizontal, 32)
-            } else {
-                Button { isEditing = true } label: {
-                    HStack(spacing: 8) {
-                        Text(name.isEmpty ? Self.placeholder : name)
-                            .font(.system(size: 22, weight: .heavy, design: .rounded))
-                            .foregroundStyle(Theme.ink)
-                            .lineLimit(1)
-                        Image(systemName: "pencil")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(Theme.accent)
-                            .frame(width: 24, height: 24)
-                            .background(Circle().fill(Theme.cream))
-                    }
-                    .contentShape(Rectangle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("\(name.isEmpty ? Self.placeholder : name), rename")
-            }
-        }
-        .onChange(of: isEditing) { _, editing in
-            if editing {
-                draft = name
-                focused = true
-            } else {
-                focused = false
-                name = String(draft.trimmingCharacters(in: .whitespacesAndNewlines).prefix(24))
-            }
-        }
-        .onChange(of: focused) { _, isFocused in
-            if !isFocused && isEditing { isEditing = false }
-        }
-    }
+    static func display(_ name: String) -> String { name.isEmpty ? placeholder : name }
 }
 
 // MARK: Your story
