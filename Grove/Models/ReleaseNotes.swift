@@ -30,7 +30,7 @@ struct ReleaseNotes: Identifiable, Equatable {
             Item(emoji: "🏡", title: "You choose where friends live",
                  detail: "Any friend can move into any zone. Change it any time from Edit."),
             Item(emoji: "🌱", title: "Inviting empty zones",
-                 detail: "Empty zones suggest who might visit and where to look. Tap one to go snap."),
+                 detail: "Empty zones suggest who might visit and where to look."),
         ]),
     ]
 }
