@@ -432,7 +432,7 @@ private struct TeamStatusCard: View {
     @ViewBuilder private var tag: some View {
         switch state {
         case .ready:
-            SlantTag(text: "Ready")
+            EmptyView() // the button already says Ready
         case .away(let t):
             SlantTag(text: "Away \(mmss(t))", ink: BattleTheme.leaf)
         case .resting(let t):
