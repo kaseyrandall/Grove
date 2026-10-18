@@ -436,7 +436,7 @@ private struct TeamStatusCard: View {
         case .away(let t):
             SlantTag(text: "Away \(mmss(t))", ink: BattleTheme.leaf)
         case .resting(let t):
-            SlantTag(text: "Napping \(mmss(t))", ink: BattleTheme.gold)
+            SlantTag(text: "Nap \(mmss(t))", ink: BattleTheme.gold)
         case .resultReady:
             SlantTag(text: "Finished", fill: BattleTheme.gold, ink: Color(hex: 0x120E02), outline: nil)
         }
