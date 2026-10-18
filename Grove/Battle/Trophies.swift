@@ -204,6 +204,7 @@ struct TrophiesTab: View {
                     groupLabel(group.rawValue)
                     ForEach(Trophy.allCases.filter { $0.group == group }) { t in
                         TrophyRow(trophy: t, ledger: ledger)
+                            .arenaEntrance((Trophy.allCases.firstIndex(of: t) ?? 0) + 1)
                     }
                 }
             }

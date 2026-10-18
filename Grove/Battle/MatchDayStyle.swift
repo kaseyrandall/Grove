@@ -281,3 +281,42 @@ struct HexPortrait: View {
         .frame(width: width, height: h)
     }
 }
+
+// MARK: - Motion
+
+/// Cards and rows press in a little when tapped.
+struct ArenaPress: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .brightness(configuration.isPressed ? -0.05 : 0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
+    }
+}
+
+extension View {
+    /// Springs in (rising, growing, fading up) the first time it appears,
+    /// `index` steps after the first. Nothing under Reduce Motion.
+    func arenaEntrance(_ index: Int = 0) -> some View {
+        modifier(ArenaEntrance(index: index))
+    }
+}
+
+private struct ArenaEntrance: ViewModifier {
+    let index: Int
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(shown || reduceMotion ? 1 : 0.9)
+            .offset(y: shown || reduceMotion ? 0 : 16)
+            .opacity(shown || reduceMotion ? 1 : 0)
+            .onAppear {
+                guard !shown, !reduceMotion else { return }
+                withAnimation(.spring(response: 0.5, dampingFraction: 0.75).delay(Double(min(index, 8)) * 0.07)) {
+                    shown = true
+                }
+            }
+    }
+}

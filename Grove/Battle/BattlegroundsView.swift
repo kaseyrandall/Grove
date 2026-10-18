@@ -44,6 +44,8 @@ struct BattlegroundsView: View {
                 default: arenaTab
                 }
             }
+            .id(tab)
+            .transition(.opacity.combined(with: .offset(y: 10)))
             // Long lists fade out under the clock and back button.
             if tab != 0 { topFade }
         }
@@ -120,6 +122,7 @@ struct BattlegroundsView: View {
                     HStack(alignment: .top, spacing: 9) {
                         ForEach(0..<roster.maxSlots, id: \.self) { i in
                             slot(i).frame(maxWidth: .infinity)
+                                .arenaEntrance(i + 1)
                         }
                     }
                     if !setupDone, let tip = coachTip {
@@ -136,7 +139,7 @@ struct BattlegroundsView: View {
                         } label: {
                             LastMatchCard(record: last, friend: roster.friend(for: last, in: catches))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(ArenaPress())
                     }
                 }
                 .padding()
@@ -236,6 +239,8 @@ struct BattlegroundsView: View {
                 .arenaDisplay(44)
                 .monospacedDigit()
                 .foregroundStyle(tint)
+                .contentTransition(.numericText())
+                .animation(.snappy, value: value)
                 .lineLimit(1)
                 .minimumScaleFactor(0.5)
             Text(label.uppercased())
@@ -290,7 +295,7 @@ struct BattlegroundsView: View {
                 NavigationLink { LazyView { resultReplay(for: f) } } label: {
                     TeamStatusCard(friend: f, progress: p, state: .resultReady(roster.pendingOutcome(f) ?? .loss))
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ArenaPress())
             } else if roster.isAway(f) {
                 #if DEBUG
                 TeamStatusCard(friend: f, progress: p, state: .away(roster.awayRemaining(f)),
@@ -309,7 +314,7 @@ struct BattlegroundsView: View {
                 NavigationLink { LazyView { FighterCardView(friend: f) } } label: {
                     TeamStatusCard(friend: f, progress: p, state: .ready)
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(ArenaPress())
             }
         } else {
             EmptySlotCard { showPromote = true }
@@ -345,7 +350,7 @@ struct BattlegroundsView: View {
                 LazyVStack(alignment: .leading, spacing: 10) {
                     sectionHeader("History", "Every match your team has fought. Tap to rewatch.")
                         .padding(.bottom, 2)
-                    ForEach(records) { rec in
+                    ForEach(Array(records.enumerated()), id: \.element.id) { n, rec in
                         NavigationLink {
                             LazyView {
                                 ArenaReplayView(result: rec.replay(),
@@ -354,7 +359,8 @@ struct BattlegroundsView: View {
                         } label: {
                             LastMatchCard(record: rec, friend: roster.friend(for: rec, in: catches))
                         }
-                        .buttonStyle(.plain)
+                        .buttonStyle(ArenaPress())
+                        .arenaEntrance(n)
                     }
                 }
                 .padding()
@@ -479,6 +485,15 @@ private struct TeamStatusCard: View {
     private var isResultReady: Bool {
         if case .resultReady = state { return true }; return false
     }
+    /// Which state, ignoring the ticking timers (so the tag pops only on a change).
+    private var stateKey: String {
+        switch state {
+        case .ready: "ready"
+        case .away: "away"
+        case .resultReady: "result"
+        case .resting: "resting"
+        }
+    }
     /// How far the card leans (points across its height).
     private let lean: CGFloat = 12
     private var shape: Slant { Slant(lead: lean, trail: lean) }
@@ -508,7 +523,12 @@ private struct TeamStatusCard: View {
         .clipShape(shape)
         .overlay(shape.stroke(edge, lineWidth: 2))
         .shadow(color: edge.opacity(glowOpacity), radius: glowRadius)
-        .overlay(alignment: .topLeading) { tag.offset(x: lean + 2, y: -12) }
+        .overlay(alignment: .topLeading) {
+            tag.offset(x: lean + 2, y: -12)
+                .id(stateKey)
+                .transition(.scale(scale: 0.6, anchor: .bottomLeading).combined(with: .opacity))
+        }
+        .animation(.spring(response: 0.4, dampingFraction: 0.6), value: stateKey)
         .padding(.top, 12)
         .contentShape(shape)
         .onAppear {
@@ -571,7 +591,7 @@ private struct TeamStatusCard: View {
     @ViewBuilder private var statusButton: some View {
         switch state {
         case .ready:       LeanButtonFace(text: "Ready", style: .action)
-        case .resultReady: LeanButtonFace(text: "Watch ▶", style: .reward)
+        case .resultReady: LeanButtonFace(text: "Watch ▶", style: .reward, shimmer: true)
         case .away:        LeanButtonFace(text: "In a match", style: .quiet)
         case .resting:     LeanButtonFace(text: "Resting", style: .quiet)
         }
@@ -625,7 +645,7 @@ private struct EmptySlotCard: View {
             .contentShape(shape)
             .padding(.top, 12)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ArenaPress())
         .accessibilityLabel("Open slot. Add a friend to the team.")
     }
 }
@@ -780,7 +800,7 @@ struct FighterCardView: View {
             .overlay(alignment: .leading) { Rectangle().fill(BattleTheme.gold).frame(width: 3) }
             .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
+        .buttonStyle(ArenaPress())
     }
 
     /// The pinned bottom bar: a fade over the scrolling card, the button and
@@ -821,7 +841,7 @@ struct FighterCardView: View {
         } label: {
             SendToBattleFace()
         }
-        .buttonStyle(PressDownStyle())
+        .buttonStyle(ArenaPress())
     }
 }
 
@@ -839,16 +859,6 @@ private struct SendToBattleFace: View {
                 withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { glow = true }
             }
             .accessibilityLabel("Send to battle")
-    }
-}
-
-/// Presses in a little, with a firm tap.
-private struct PressDownStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .scaleEffect(configuration.isPressed ? 0.96 : 1)
-            .brightness(configuration.isPressed ? -0.06 : 0)
-            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }
 
@@ -949,7 +959,7 @@ private struct PromotePickerSheet: View {
                             } label: {
                                 PromoteRow(friend: c, benched: roster.hasEverPromoted(c))
                             }
-                            .buttonStyle(.plain)
+                            .buttonStyle(ArenaPress())
                             .disabled(!roster.hasFreeSlot(among: catches))
                             .opacity(roster.hasFreeSlot(among: catches) ? 1 : 0.5)
                         }

@@ -339,6 +339,8 @@ struct SetupChecklist: View {
                 }
             }
             .frame(width: 20, height: 18)
+            .scaleEffect(done ? 1 : 0.85)
+            .animation(.spring(response: 0.35, dampingFraction: 0.5), value: done)
             Text(text)
                 .arenaFont(14, .bold, .rounded)
                 .strikethrough(done, color: BattleTheme.muted)
