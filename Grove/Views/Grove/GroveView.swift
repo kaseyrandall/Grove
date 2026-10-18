@@ -52,14 +52,14 @@ struct GroveView: View {
                     spreadLayout
                 } else {
                     ScrollView {
-                        PageTitle("Your Grove")
+                        PageTitle(title: "Your Grove") {
+                            if challengeDismissed {
+                                challengeButton
+                                    .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .trailing)))
+                            }
+                        }
 
-                        if challengeDismissed {
-                            challengePill
-                                .padding(.horizontal)
-                                .padding(.top, 8)
-                                .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .topLeading)))
-                        } else {
+                        if !challengeDismissed {
                             dailyChallengeCard
                                 .coachTarget(.dailyGoal)
                                 .padding(.horizontal)
@@ -164,9 +164,7 @@ struct GroveView: View {
 
                 VStack(spacing: spacing) {
                     ZStack(alignment: .top) {
-                        if challengeDismissed {
-                            challengePill
-                        } else {
+                        if !challengeDismissed {
                             dailyChallengeCard
                                 .coachTarget(.dailyGoal)
                                 .opacity(shown ? 1 : 0)
@@ -345,6 +343,10 @@ struct GroveView: View {
                 .foregroundStyle(Theme.ink)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 0)
+            if challengeDismissed {
+                challengeButton
+                    .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .trailing)))
+            }
         }
         .frame(minHeight: 44)
     }
@@ -388,43 +390,19 @@ struct GroveView: View {
         .softCard()
     }
 
-    /// The challenge card, collapsed: a small pill at the top of the page
-    /// that shows how today's goal is going. Tap to open the card again.
-    private var challengePill: some View {
+    /// The challenge card, collapsed: a round button beside the title (a
+    /// target, or a check once today's goal is done). Tap to open the card.
+    private var challengeButton: some View {
         let challenge = DailyChallenge.today()
         let todays = catches.filter { Calendar.current.isDateInToday($0.caughtAt) }
-        let stats = PlayerStats(catches: catches)
-        let complete = challenge.isComplete(todays, stats)
-        return Button {
+        let complete = challenge.isComplete(todays, PlayerStats(catches: catches))
+        return PageTitleButton(systemImage: complete ? "checkmark" : "target",
+                               label: complete ? "Show today's challenge, done" : "Show today's challenge") {
             withAnimation(.spring(response: 0.45, dampingFraction: 0.85)) {
                 challengeDismissed = false
             }
             challengeDismissedDay = 0
-        } label: {
-            HStack(spacing: 8) {
-                Image(systemName: complete ? "checkmark.circle.fill" : "target")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Theme.accent)
-                Text("Today's challenge")
-                    .font(.system(.subheadline, design: .rounded, weight: .bold))
-                    .foregroundStyle(Theme.ink)
-                Text(complete ? "Done" : "\(challenge.current(todays, stats)) of \(challenge.goal)")
-                    .font(.system(.subheadline, design: .rounded, weight: .semibold))
-                    .foregroundStyle(complete ? Theme.accent : Theme.ink.opacity(0.45))
-                    .monospacedDigit()
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(Theme.ink.opacity(0.3))
-            }
-            .padding(.horizontal, 14)
-            .padding(.vertical, 9)
-            .background(Capsule().fill(.white))
-            .shadow(color: Theme.ink.opacity(0.07), radius: 6, y: 3)
-            .contentShape(Capsule())
         }
-        .buttonStyle(.plain)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .accessibilityLabel(complete ? "Today's challenge, done. Show it" : "Today's challenge, \(challenge.current(todays, stats)) of \(challenge.goal). Show it")
     }
 
     /// Today's bite-sized goal — a fresh reason to open the app each day.
