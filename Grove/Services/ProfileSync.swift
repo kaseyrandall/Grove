@@ -13,7 +13,8 @@ final class ProfileSync {
     /// Settings that follow the player. Onboarding only ever syncs as "done",
     /// so replaying it on one device doesn't send another back to the start.
     private let mirroredKeys = ["profileEmoji", "profileColorHex", "profileName",
-                                BattleRoster.teamKey, BattleRoster.historyKey]
+                                BattleRoster.teamKey, BattleRoster.historyKey,
+                                BattleRoster.trophiesKey]
     private let onboardingKey = "hasCompletedOnboarding"
 
     private let cloud = NSUbiquitousKeyValueStore.default

@@ -141,10 +141,12 @@ final class BattleRoster {
 
     private(set) var team: [String] = []
     private(set) var history: [MatchRecord] = []
+    private(set) var trophies = TrophyLedger()
 
     /// Synced keys (mirrored to iCloud by `ProfileSync`).
     static let teamKey = "bg.team"
     static let historyKey = "bg.history"
+    static let trophiesKey = "bg.trophies"
     /// The pre-sync blob, moved onto friends by `prepare(with:)`.
     private let legacyKey = "bg.roster.v1"
 
@@ -282,6 +284,7 @@ final class BattleRoster {
     func settleDueMatches(from all: [Catch]) {
         let now = Date.now
         var newRecords: [MatchRecord] = []
+        var levels: [UUID: Int] = [:]
         for c in all where c.battleData != nil {
             var s = state(c)
             guard var pm = s.pending, !pm.settled, pm.resolvesAt <= now, s.progress != nil else { continue }
@@ -292,7 +295,9 @@ final class BattleRoster {
             pm.settled = true
             s.pending = pm
             setState(s, for: c)
-            newRecords.append(MatchRecord(id: UUID(), date: pm.resolvesAt, fighterKey: ensureID(c),
+            let id = UUID()
+            levels[id] = s.progress?.level
+            newRecords.append(MatchRecord(id: id, date: pm.resolvesAt, fighterKey: ensureID(c),
                                           fighterName: pm.fighter.name, fighterType: pm.fighter.type,
                                           fighterArchetype: pm.fighter.archetype, level: pm.level,
                                           plan: pm.plan, oppName: pm.oppName, oppType: pm.oppType,
@@ -300,6 +305,9 @@ final class BattleRoster {
                                           oppLevel: pm.oppLevel, oppSpeciesID: pm.oppSpeciesID))
         }
         guard !newRecords.isEmpty else { return }
+        for rec in newRecords.sorted(by: { $0.date < $1.date }) {
+            countForTrophies(rec, newLevel: levels[rec.id])
+        }
         history.insert(contentsOf: newRecords.sorted { $0.date > $1.date }, at: 0)
         if history.count > Self.historyLimit { history.removeLast(history.count - Self.historyLimit) }
         saveShared()
@@ -413,8 +421,62 @@ final class BattleRoster {
     func reset() {
         team = []
         history = []
+        trophies = TrophyLedger()
         saveShared()
     }
+
+    // MARK: - Trophies
+
+    private func countForTrophies(_ rec: MatchRecord, newLevel: Int?) {
+        trophies.record(outcome: rec.outcome, fighterName: rec.fighterName,
+                        archetype: rec.fighterArchetype, habitat: rec.fighterType, level: rec.level,
+                        oppName: rec.oppName, oppLevel: rec.oppLevel ?? rec.level,
+                        oppSpeciesID: rec.oppSpeciesID, newLevel: newLevel, at: rec.date)
+    }
+
+    /// Count matches played before trophies existed (from History, plus the
+    /// team's current levels), once.
+    private func backfillTrophies(_ all: [Catch]) {
+        guard !trophies.backfilled else { return }
+        for rec in history.reversed() { countForTrophies(rec, newLevel: nil) }
+        let best = teamCatches(from: all).map(\.progress.level).max() ?? 1
+        if best > trophies.bestLevel { trophies.bestLevel = best }
+        trophies.award(at: .now)
+        trophies.unseen = [] // old news; no "New" tags for these
+        trophies.backfilled = true
+        saveShared()
+    }
+
+    /// The Trophies tab was seen: clear the "New" tags.
+    func markTrophiesSeen() {
+        guard !trophies.unseen.isEmpty else { return }
+        trophies.unseen = []
+        saveShared()
+    }
+
+    var hasUnseenTrophies: Bool { !trophies.unseen.isEmpty }
+
+    #if DEBUG
+    /// Dev: a few days' worth of trophy progress, with one just earned.
+    func devSampleTrophies() {
+        var t = TrophyLedger()
+        let day: TimeInterval = 86_400
+        t.matches = 12; t.wins = 8; t.streak = 2; t.bestStreak = 2
+        t.rivals = Set(CreatureCatalog.all.prefix(9).map(\.id))
+        t.archetypes = ["trickster", "wall", "skirmisher"]
+        t.habitats = ["timber", "tide", "bloom"]
+        t.bestLevel = 10
+        t.giantSlain = true
+        t.earned = [Trophy.firstWin.rawValue: .now - 6 * day,
+                    Trophy.giantSlayer.rawValue: .now - 2 * day,
+                    Trophy.seasoned.rawValue: .now - 600]
+        t.notes = [Trophy.giantSlayer.rawValue: "vs Wild Badger", Trophy.seasoned.rawValue: "Ember"]
+        t.unseen = [Trophy.seasoned.rawValue]
+        t.backfilled = true
+        trophies = t
+        saveShared()
+    }
+    #endif
 
     // MARK: - XP & leveling
 
@@ -449,6 +511,7 @@ final class BattleRoster {
     /// then lands any matches that finished while you were away.
     func prepare(with all: [Catch]) {
         migrateLegacy(all)
+        backfillTrophies(all)
         settleDueMatches(from: all)
     }
 
@@ -459,8 +522,11 @@ final class BattleRoster {
         let newTeam = defaults.stringArray(forKey: Self.teamKey) ?? []
         let newHistory = defaults.data(forKey: Self.historyKey)
             .flatMap { try? JSONDecoder().decode([MatchRecord].self, from: $0) } ?? []
+        let newTrophies = defaults.data(forKey: Self.trophiesKey)
+            .flatMap { try? JSONDecoder().decode(TrophyLedger.self, from: $0) } ?? TrophyLedger()
         if newTeam != team { team = newTeam }
         if newHistory != history { history = newHistory }
+        if newTrophies != trophies { trophies = newTrophies }
     }
 
     private func saveShared() {
@@ -468,6 +534,7 @@ final class BattleRoster {
         defer { isSaving = false }
         defaults.set(team, forKey: Self.teamKey)
         defaults.set(try? JSONEncoder().encode(history), forKey: Self.historyKey)
+        defaults.set(try? JSONEncoder().encode(trophies), forKey: Self.trophiesKey)
     }
 
     // MARK: - Legacy (pre-sync) data

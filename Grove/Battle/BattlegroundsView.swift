@@ -39,6 +39,8 @@ struct BattlegroundsView: View {
                 default: arenaTab
                 }
             }
+            // Long lists fade out under the clock and back button.
+            if tab != 0 { topFade }
         }
         .safeAreaInset(edge: .bottom) { tabBar }
         .navigationTitle("")
@@ -46,7 +48,16 @@ struct BattlegroundsView: View {
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .groveTabBarHidden()
-        .onAppear { roster.prepare(with: catches) }
+        .onAppear {
+            roster.prepare(with: catches)
+            #if DEBUG
+            // Test hooks: `-GroveArenaTrophies` opens on Trophies;
+            // `-GroveSampleTrophies` fills in a few days of play.
+            let args = ProcessInfo.processInfo.arguments
+            if args.contains("-GroveSampleTrophies") { roster.devSampleTrophies() }
+            if args.contains("-GroveArenaTrophies") { tab = 2 }
+            #endif
+        }
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
             roster.settleDueMatches(from: catches)
         }
@@ -229,43 +240,22 @@ struct BattlegroundsView: View {
         }
     }
 
-    // MARK: Trophies tab (placeholder until achievements land)
-
-    private var trophiesTab: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 14) {
-                sectionHeader("Trophies", "Prestige, never power — earned by playing. Coming soon.")
-                    .padding(.bottom, 2)
-                lockedTrophy("🥇", "First blood", "Win your first match.")
-                lockedTrophy("🔥", "On a roll", "Win five matches in a row.")
-                lockedTrophy("🎭", "Full deck", "Win with every archetype.")
-                lockedTrophy("🧗", "Giant-slayer", "Beat a higher-level rival.")
-                lockedTrophy("🌳", "Seasoned", "Reach Trainer Lv 10.")
-            }
-            .padding()
+    private var topFade: some View {
+        GeometryReader { geo in
+            LinearGradient(stops: [.init(color: Color(hex: 0x0E1A14), location: 0),
+                                   .init(color: Color(hex: 0x0E1A14), location: 0.65),
+                                   .init(color: Color(hex: 0x0E1A14).opacity(0), location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+                .frame(height: geo.safeAreaInsets.top + 18)
+                .ignoresSafeArea(edges: .top)
         }
+        .allowsHitTesting(false)
     }
 
-    private func lockedTrophy(_ emoji: String, _ title: String, _ desc: String) -> some View {
-        HStack(spacing: 14) {
-            ZStack(alignment: .bottomTrailing) {
-                Circle().fill(Color.white.opacity(0.05)).frame(width: 52, height: 52)
-                    .overlay(Text(emoji).arenaFont(24).grayscale(1).opacity(0.55))
-                Image(systemName: "lock.fill").arenaFont(10, .bold)
-                    .foregroundStyle(BattleTheme.muted)
-                    .padding(4)
-                    .background(Circle().fill(BattleTheme.panel))
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).arenaFont(16, .bold, .rounded).foregroundStyle(BattleTheme.ink.opacity(0.85))
-                Text(desc).arenaFont(13.5, .semibold, .rounded).foregroundStyle(BattleTheme.muted)
-            }
-            Spacer()
-        }
-        .padding(14)
-        .background(RoundedRectangle(cornerRadius: 16, style: .continuous)
-            .fill(BattleTheme.panelFill)
-            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1)))
+    // MARK: Trophies tab
+
+    private var trophiesTab: some View {
+        TrophiesTab(ledger: roster.trophies) { roster.markTrophiesSeen() }
     }
 
     // MARK: Bottom tab bar
@@ -274,7 +264,7 @@ struct BattlegroundsView: View {
         HStack(spacing: 0) {
             tabItem(0, "bolt.shield.fill", "Arena")
             tabItem(1, "clock.arrow.circlepath", "History")
-            tabItem(2, "trophy.fill", "Trophies")
+            tabItem(2, "trophy.fill", "Trophies", dot: roster.hasUnseenTrophies && tab != 2)
         }
         .padding(.horizontal, 8).padding(.top, 10).padding(.bottom, 8)
         .background(
@@ -284,10 +274,16 @@ struct BattlegroundsView: View {
         )
     }
 
-    private func tabItem(_ i: Int, _ icon: String, _ label: String) -> some View {
+    private func tabItem(_ i: Int, _ icon: String, _ label: String, dot: Bool = false) -> some View {
         Button { withAnimation(.easeInOut(duration: 0.15)) { tab = i } } label: {
             VStack(spacing: 4) {
                 Image(systemName: icon).arenaFont(20, .semibold)
+                    // A gold dot: a trophy you haven't seen yet.
+                    .overlay(alignment: .topTrailing) {
+                        if dot {
+                            Circle().fill(TrophyStyle.gold).frame(width: 8, height: 8).offset(x: 5, y: -2)
+                        }
+                    }
                 Text(label).arenaFont(11, .bold, .rounded)
             }
             .foregroundStyle(tab == i ? BattleTheme.leaf : BattleTheme.muted)
