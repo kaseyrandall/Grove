@@ -3,12 +3,11 @@ import SwiftData
 import AVFoundation
 import PhotosUI
 import ImageIO
+import CoreLocation
 
-/// The main "go find friends" screen: a full-bleed, immersive camera. A catch
-/// can only come from a photo taken *right now* — no uploading saved or
-/// downloaded images. (In DEBUG builds only, a library picker is available so
-/// the loop stays testable in the Simulator, which has no camera. It is
-/// compiled out of release builds entirely.)
+/// The main "go find friends" screen: a full-bleed, immersive camera, plus
+/// the photo library (bottom-right) for friends you've already snapped, from
+/// any date.
 struct CatchView: View {
     /// Called when the player leaves the flow — the root slides to the Grove.
     /// Used by both the close button and the celebration's "Add to my Grove".
@@ -282,7 +281,7 @@ struct CatchView: View {
                 shutterButton
                 Spacer()
 
-                // Bottom-right opens the photo library (taken-today only),
+                // Bottom-right opens the photo library (any photo, any date),
                 // following the familiar camera pattern: your last catch shows
                 // as the thumbnail, or a photos glyph before your first.
                 sideSlot(alignment: .trailing) {
@@ -425,7 +424,7 @@ struct CatchView: View {
 
         camera.capturePhoto { image in
             guard let image else { return }
-            Task { await logCatch(image) }
+            Task { await logCatch(image, at: locationTaggingEnabled ? location.current : nil) }
         }
     }
 
@@ -435,7 +434,9 @@ struct CatchView: View {
     /// who it is on the celebration screen, where random animal confetti greets
     /// the new find.
     @MainActor
-    private func logCatch(_ image: UIImage) async {
+    /// `coord` is where you met: here and now for a live snap; for a library
+    /// photo, wherever the photo says it was taken (see `importFromLibrary`).
+    private func logCatch(_ image: UIImage, at coord: CLLocationCoordinate2D?) async {
         // Blocks a second capture while we work; the celebration sheet slides
         // up the moment the record is ready (no separate loading screen).
         isIdentifying = true
@@ -446,7 +447,6 @@ struct CatchView: View {
         let species = Species.mystery
         let isFirst = false
         let sparks = Progression.snapSparks
-        let coord = locationTaggingEnabled ? location.current : nil
 
         let record = Catch(
             speciesID: species.id,
@@ -487,31 +487,22 @@ struct CatchView: View {
         )
     }
 
-    /// A clear, blocking reason an uploaded photo couldn't be added — shown as an alert.
+    /// A clear reason an uploaded photo couldn't be added — shown as an alert.
     private enum UploadIssue: Identifiable {
-        case tooOld, loadFailed
-        var id: Int { self == .tooOld ? 0 : 1 }
-        var title: String {
-            switch self {
-            case .tooOld:     return "Only today's finds"
-            case .loadFailed: return "Couldn't open that photo"
-            }
-        }
-        var message: String {
-            switch self {
-            case .tooOld:     return "Grove is about what you're spotting right now. This photo is more than a day old — snap your friend live, or upload one taken in the last 24 hours."
-            case .loadFailed: return "Something went wrong opening that photo. Try another, or snap your friend live."
-            }
-        }
+        case loadFailed
+        var id: Int { 0 }
+        var title: String { "Couldn't open that photo" }
+        var message: String { "Something went wrong opening that photo. Try another, or snap your friend live." }
     }
 
-    // MARK: Gallery import (recent photos only)
+    // MARK: Gallery import
 
-    /// Bring in a photo from the library, keeping Grove's real-time spirit: we
-    /// only turn a photo away when its capture date positively shows it's more
-    /// than a day old. A photo whose date we can't read (screenshots, stripped
-    /// metadata) is let through — better to welcome a genuine recent find than
-    /// to block it on missing EXIF.
+    /// Bring in a photo from the library, from any date. Where you met comes
+    /// from the photo's own location when it has one; otherwise from here,
+    /// but only for a photo taken in the last day (or with no date), since
+    /// an older photo was probably taken somewhere else. The friend joins
+    /// your Grove today either way, so streaks and daily challenges stay
+    /// about what you do now.
     @MainActor
     private func importFromLibrary(_ item: PhotosPickerItem) async {
         defer { libraryItem = nil }
@@ -523,14 +514,27 @@ struct CatchView: View {
             return
         }
 
-        let dayOld: TimeInterval = 24 * 60 * 60
-        let tooOld = captureDate(from: data).map { Date().timeIntervalSince($0) > dayOld } ?? false
-        if tooOld {
-            if hapticsEnabled { UINotificationFeedbackGenerator().notificationOccurred(.warning) }
-            uploadIssue = .tooOld
-        } else {
-            await logCatch(image)
+        var coord: CLLocationCoordinate2D?
+        if locationTaggingEnabled {
+            let dayOld: TimeInterval = 24 * 60 * 60
+            let isRecent = captureDate(from: data).map { Date().timeIntervalSince($0) <= dayOld } ?? true
+            coord = photoLocation(from: data) ?? (isRecent ? location.current : nil)
         }
+        await logCatch(image, at: coord)
+    }
+
+    /// Where the photo was taken, from its GPS metadata, if present.
+    private func photoLocation(from data: Data) -> CLLocationCoordinate2D? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let gps = props[kCGImagePropertyGPSDictionary] as? [CFString: Any],
+              let lat = gps[kCGImagePropertyGPSLatitude] as? Double,
+              let lon = gps[kCGImagePropertyGPSLongitude] as? Double
+        else { return nil }
+        let south = (gps[kCGImagePropertyGPSLatitudeRef] as? String) == "S"
+        let west = (gps[kCGImagePropertyGPSLongitudeRef] as? String) == "W"
+        let coord = CLLocationCoordinate2D(latitude: south ? -lat : lat, longitude: west ? -lon : lon)
+        return CLLocationCoordinate2DIsValid(coord) ? coord : nil
     }
 
     /// The photo's original capture date from its EXIF/TIFF metadata, if present.
