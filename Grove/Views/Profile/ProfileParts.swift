@@ -172,12 +172,25 @@ struct FavoriteFriendsCard: View {
     }
 }
 
-/// Every friend in a grid; tap to pin or unpin, up to the limit.
+/// Every friend in a grid; tap to pin or unpin, up to the limit. Pinned
+/// friends come first, in Profile order, so the ones you'd unpin are right
+/// at the top instead of buried at the bottom edge. The order is fixed when
+/// the sheet opens, so tiles don't jump around while you tap.
 struct FavoritesPicker: View {
     @Query(sort: \Catch.caughtAt, order: .reverse) private var catches: [Catch]
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @Environment(\.groveSheetClose) private var closePanel
+    @State private var order: [PersistentIdentifier] = []
+
+    /// Friends in the order fixed when the sheet opened; any that arrive
+    /// later (an iCloud sync) go at the end.
+    private var ordered: [Catch] {
+        let rank = Dictionary(uniqueKeysWithValues: order.enumerated().map { ($1, $0) })
+        return catches.sorted {
+            (rank[$0.persistentModelID] ?? .max) < (rank[$1.persistentModelID] ?? .max)
+        }
+    }
 
     private let columns = [GridItem(.adaptive(minimum: 96), spacing: 14)]
 
@@ -195,13 +208,20 @@ struct FavoritesPicker: View {
                         .contentTransition(.numericText())
 
                     LazyVGrid(columns: columns, spacing: 16) {
-                        ForEach(catches) { friend in
+                        ForEach(ordered) { friend in
                             tile(friend, dimmed: full && friend.favoritedAt == nil)
                         }
                     }
                 }
                 .padding()
+                // Room to scroll the last row clear of the bottom edge, where
+                // the system's gestures (home, window resize) take taps.
+                .padding(.bottom, 40)
             }
+        }
+        .onAppear {
+            let pinned = Favorites.of(catches)
+            order = (pinned + catches.filter { $0.favoritedAt == nil }).map(\.persistentModelID)
         }
         .groveSheetChrome(title: "Favorite friends",
                           confirm: SheetAction(title: "Done") { close() })
