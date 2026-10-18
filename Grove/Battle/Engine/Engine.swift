@@ -3,8 +3,12 @@ import Foundation
 // MARK: - Result
 
 public struct BattleResult: Sendable, Equatable {
-    public enum Outcome: Sendable, Equatable { case win(String), draw }
+    /// Who won, by side (0 is always the player's friend), not by name: two
+    /// fighters can share a name.
+    public enum Outcome: Sendable, Equatable { case win(side: Int), draw }
     public var outcome: Outcome
+    /// The winning side, or nil for a draw.
+    public var winner: Int? { if case .win(let side) = outcome { return side } else { return nil } }
     public var turns: Int
     public var fighters: [Fighter]     // [side0, side1] — self-describing, for the UI
     public var events: [ReplayEvent]   // the ordered, structured play-by-play
@@ -120,12 +124,12 @@ public func simulate(_ aCard: BattleCard, _ aPlan: BattlePlan,
     let outcome: BattleResult.Outcome
     let dead0 = c[0].hp <= 0, dead1 = c[1].hp <= 0
     if dead0 && dead1 { outcome = .draw }
-    else if dead1 { outcome = .win(c[0].card.name) }
-    else if dead0 { outcome = .win(c[1].card.name) }
+    else if dead1 { outcome = .win(side: 0) }
+    else if dead0 { outcome = .win(side: 1) }
     else {
         let p0 = Double(c[0].hp) / Double(c[0].maxHP)
         let p1 = Double(c[1].hp) / Double(c[1].maxHP)
-        outcome = abs(p0 - p1) < 0.02 ? .draw : .win(p0 > p1 ? c[0].card.name : c[1].card.name)
+        outcome = abs(p0 - p1) < 0.02 ? .draw : .win(side: p0 > p1 ? 0 : 1)
     }
     return BattleResult(outcome: outcome, turns: turn,
                         fighters: [c[0].fighter, c[1].fighter],

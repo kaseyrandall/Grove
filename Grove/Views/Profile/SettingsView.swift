@@ -220,6 +220,7 @@ struct SettingsContent: View {
         if let all = try? context.fetch(FetchDescriptor<Catch>()) {
             for c in all { context.delete(c) }
             try? context.save()
+            BattleRoster.shared.reset()
         }
     }
 

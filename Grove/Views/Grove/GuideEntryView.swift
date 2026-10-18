@@ -117,6 +117,7 @@ struct GuideEntryView: View {
             // The edit sheet closed after a release request → remove the friend
             // now (nothing is holding the sheet), then leave the page.
             if !showing && wasReleased {
+                BattleRoster.shared.forget(friend)
                 context.delete(friend)
                 try? context.save()
                 dismiss()
@@ -342,11 +343,19 @@ struct GuideEntryView: View {
                 Text("Level \(p.level) · \(p.xp)/\(BattleRoster.xpNeeded(for: p.level)) XP")
                     .font(.system(.caption, design: .rounded, weight: .semibold))
                     .foregroundStyle(Theme.ink.opacity(0.6))
-                Button(role: .destructive) { roster.bench(friend) } label: {
-                    Text("Remove from team")
-                        .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                if roster.canBench(friend) {
+                    Button(role: .destructive) { roster.bench(friend) } label: {
+                        Text("Remove from team")
+                            .font(.system(.subheadline, design: .rounded, weight: .semibold))
+                    }
+                    .padding(.top, 2)
+                } else {
+                    Text("Away at a match. They can leave the team once they're back.")
+                        .font(.system(.caption, design: .rounded))
+                        .foregroundStyle(Theme.ink.opacity(0.5))
+                        .multilineTextAlignment(.center)
+                        .padding(.top, 2)
                 }
-                .padding(.top, 2)
             }
             .frame(maxWidth: .infinity)
             .padding()
@@ -410,6 +419,7 @@ private struct ArenaSwapSheet: View {
                             .multilineTextAlignment(.center)
                             .padding(.bottom, 2)
                         ForEach(team, id: \.persistentModelID) { member in
+                            let away = !BattleRoster.shared.canBench(member)
                             Button {
                                 BattleRoster.shared.swap(out: member, incoming: incoming)
                                 dismiss()
@@ -429,15 +439,16 @@ private struct ArenaSwapSheet: View {
                                         }
                                     }
                                     Spacer()
-                                    Text("Bench")
+                                    Text(away ? "Away" : "Bench")
                                         .font(.system(.subheadline, design: .rounded, weight: .bold))
-                                        .foregroundStyle(Theme.accent)
+                                        .foregroundStyle(away ? Theme.ink.opacity(0.35) : Theme.accent)
                                 }
                                 .padding()
                                 .contentShape(Rectangle())
                                 .softCard()
                             }
                             .buttonStyle(.plain)
+                            .disabled(away)
                         }
                     }
                     .padding()

@@ -115,3 +115,12 @@ struct Contender: Identifiable {
                          photoData: nil)
     }
 }
+
+/// Builds its content only when shown. NavigationLink builds its destination
+/// as soon as the link is drawn, which would re-simulate a whole match on
+/// every redraw of the Arena.
+struct LazyView<Content: View>: View {
+    let build: () -> Content
+    init(@ViewBuilder _ build: @escaping () -> Content) { self.build = build }
+    var body: some View { build() }
+}

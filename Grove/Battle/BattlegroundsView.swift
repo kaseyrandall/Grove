@@ -6,7 +6,7 @@ import SwiftData
 private enum SlotState {
     case ready
     case away(TimeInterval)
-    case resultReady(won: Bool)
+    case resultReady(BattleRoster.MatchOutcome)
     case resting(TimeInterval)
 }
 
@@ -46,7 +46,7 @@ struct BattlegroundsView: View {
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .groveTabBarHidden()
-        .onAppear { roster.prune(against: catches); roster.settleDueMatches(from: catches) }
+        .onAppear { roster.prepare(with: catches) }
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in
             roster.settleDueMatches(from: catches)
         }
@@ -95,7 +95,9 @@ struct BattlegroundsView: View {
             statTile(icon: streak > 0 ? "flame.fill" : "flame",
                      value: "\(streak)", label: "Win streak",
                      tint: streak > 0 ? Color(hex: 0xE8743B) : BattleTheme.muted)
-            statTile(icon: "rosette", value: "\(rec.wins)–\(rec.losses)", label: "Record", tint: BattleTheme.gold)
+            statTile(icon: "rosette",
+                     value: rec.draws > 0 ? "\(rec.wins)–\(rec.losses)–\(rec.draws)" : "\(rec.wins)–\(rec.losses)",
+                     label: "Record", tint: BattleTheme.gold)
         }
     }
 
@@ -150,8 +152,10 @@ struct BattlegroundsView: View {
             let f = team[i].friend
             let p = team[i].progress
             if roster.hasUnwatchedResult(f) {
-                NavigationLink { resultReplay(for: f) } label: {
-                    TeamStatusCard(friend: f, progress: p, state: .resultReady(won: roster.pendingWon(f) ?? false))
+                // Lazy, so the replay is only simulated when opened (not on
+                // every one-second redraw).
+                NavigationLink { LazyView { resultReplay(for: f) } } label: {
+                    TeamStatusCard(friend: f, progress: p, state: .resultReady(roster.pendingOutcome(f) ?? .loss))
                 }
                 .buttonStyle(.plain)
             } else if roster.isAway(f) {
@@ -164,7 +168,7 @@ struct BattlegroundsView: View {
             } else if roster.isResting(f) {
                 TeamStatusCard(friend: f, progress: p, state: .resting(roster.restRemaining(f)))
             } else {
-                NavigationLink { FighterCardView(friend: f) } label: {
+                NavigationLink { LazyView { FighterCardView(friend: f) } } label: {
                     TeamStatusCard(friend: f, progress: p, state: .ready)
                 }
                 .buttonStyle(.plain)
@@ -205,8 +209,10 @@ struct BattlegroundsView: View {
                         .padding(.bottom, 2)
                     ForEach(records) { rec in
                         NavigationLink {
-                            ArenaReplayView(result: rec.replay(),
-                                            portraits: [roster.friendPhoto(for: rec, in: catches), nil])
+                            LazyView {
+                                ArenaReplayView(result: rec.replay(),
+                                                portraits: [roster.friendPhoto(for: rec, in: catches), nil])
+                            }
                         } label: {
                             HistoryRow(record: rec, photo: roster.friendPhoto(for: rec, in: catches))
                         }
@@ -305,9 +311,10 @@ private struct HistoryRow: View {
                         .foregroundStyle(BattleTheme.muted).lineLimit(1)
                 }
                 HStack(spacing: 6) {
-                    Text(record.won ? "WON" : "LOST")
+                    Text(record.outcome == .win ? "WON" : record.outcome == .draw ? "DRAW" : "LOST")
                         .font(.system(size: 11, weight: .heavy, design: .rounded))
-                        .foregroundStyle(record.won ? BattleTheme.leaf : Color(hex: 0xE8654F))
+                        .foregroundStyle(record.outcome == .win ? BattleTheme.leaf
+                                         : record.outcome == .draw ? BattleTheme.gold : Color(hex: 0xE8654F))
                     Text("· \(record.date, format: .relative(presentation: .named))")
                         .font(.system(size: 12, weight: .semibold, design: .rounded))
                         .foregroundStyle(BattleTheme.muted)

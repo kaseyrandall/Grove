@@ -49,6 +49,14 @@ final class Catch {
     /// when it isn't one. Favorites show oldest-pinned first.
     var favoritedAt: Date?
 
+    /// Battlegrounds: a stable id (given the first time the friend joins the
+    /// team) that the synced team list and match history refer to.
+    var battleID: String?
+    /// Battlegrounds: this friend's level, XP, battle plan and any match in
+    /// progress, as JSON (see `BattleRoster.FriendState`). Kept on the friend
+    /// so it syncs with them and goes when they're released.
+    var battleData: Data?
+
     init(
         speciesID: String,
         caughtAt: Date = .now,

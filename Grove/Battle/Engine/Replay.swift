@@ -63,7 +63,7 @@ public func renderReplay(_ r: BattleResult) -> String {
 
     out += "\n──────────────────────────────────────────────────────────────\n"
     switch r.outcome {
-    case .win(let n): out += "  ★ \(n) wins in \(r.turns) rounds\n"
+    case .win(let side): out += "  ★ \(f[side].name) wins in \(r.turns) rounds\n"
     case .draw:       out += "  = draw after \(r.turns) rounds\n"
     }
     let last = r.events.last?.hpAfter ?? [f[0].maxHP, f[1].maxHP]

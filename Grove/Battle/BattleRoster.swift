@@ -2,19 +2,16 @@ import SwiftData
 import Foundation
 import Observation
 
-/// The player's Battlegrounds team — the persisted heart of the "Send to the
-/// Arena" ritual.
+/// The player's Battlegrounds team: the heart of the "Send to the Arena" ritual.
 ///
-/// Three things live here:
-///  • **progress** — a friend's earned level & XP (and rest timer), kept per
-///    friend forever (until released). Benching never wipes it.
-///  • **team** — the up-to-three friends who are active right now.
-///  • **pending** — a friend currently *away at a match* (dispatched): the
-///    result is computed and held until the away window resolves, then it lands.
-///
-/// Keyed by a stable value derived from each catch's immutable fields, not by
-/// `PersistentIdentifier` (which doesn't survive a JSON round-trip). Stored in
-/// UserDefaults, so the SwiftData store is never touched or migrated.
+/// Where things live, so they sync and can't be lost by accident:
+///  • **Per friend** (level, XP, rest, battle plan, a match in progress) is
+///    stored on the friend itself (`Catch.battleData`), so it syncs through
+///    iCloud with them and goes when they're released. Nothing ever has to be
+///    pruned, so a device still syncing can't wipe anyone's progress.
+///  • **The team** (who's active) and **match history** live in a small
+///    synced settings store (UserDefaults, mirrored to iCloud by
+///    `ProfileSync`), keyed by each friend's stable `battleID`.
 @Observable
 final class BattleRoster {
     static let shared = BattleRoster()
@@ -27,30 +24,65 @@ final class BattleRoster {
         var restingUntil: Date? = nil
     }
 
-    /// A friend dispatched to a match: the fight is already resolved (deterministic)
-    /// but held until `resolvesAt`, standing in for async pairing. Everything
-    /// needed to reproduce the exact replay is stored, so no live `BattleResult`
-    /// has to be persisted.
+    enum MatchOutcome: String, Codable, Hashable {
+        case win, loss, draw
+
+        /// XP for taking part; a draw is worth more than a loss.
+        var xp: Int {
+            switch self {
+            case .win:  return 100
+            case .draw: return 70
+            case .loss: return 45
+            }
+        }
+
+        init(_ result: BattleResult) {
+            switch result.winner {
+            case 0:  self = .win
+            case 1:  self = .loss
+            default: self = .draw
+            }
+        }
+    }
+
+    /// The friend as they were when sent. A match is locked to this, so
+    /// renaming a friend or changing their species or zone mid-match can't
+    /// change how the replay plays out.
+    struct FighterSnapshot: Codable, Hashable {
+        var name: String
+        var type: BattleType
+        var archetype: Archetype
+    }
+
+    /// A friend away at a match: the fight is already resolved (deterministic
+    /// from the seed) but held until `resolvesAt`, standing in for async
+    /// pairing. Everything needed to reproduce the exact replay is stored.
     struct PendingMatch: Codable, Hashable {
         var seed: UInt64
         var level: Int
         var plan: StoredPlan
+        var fighter: FighterSnapshot
         var oppName: String
         var oppType: BattleType
         var oppArchetype: Archetype
-        var hpFraction: Double     // fighter's end HP fraction → rest length
-        var won: Bool
+        var hpFraction: Double     // the fighter's end HP fraction → nap length
+        var outcome: MatchOutcome
         var resolvesAt: Date
-        var settled: Bool          // XP + rest applied?
+        var settled: Bool          // XP and nap applied?
         var watched: Bool          // replay seen?
+
+        func replay() -> BattleResult {
+            let f = BattleCard(name: fighter.name, type: fighter.type, archetype: fighter.archetype, level: level)
+            let o = BattleCard(name: oppName, type: oppType, archetype: oppArchetype, level: level)
+            return simulate(f, plan.battlePlan, vs: o, .defaultPlan(for: oppArchetype), seed: seed)
+        }
     }
 
-    /// A finished match, kept for the History tab. Stores everything needed to
-    /// reproduce the exact replay from the seed — no live BattleResult persisted.
+    /// A finished match, kept for the History tab.
     struct MatchRecord: Codable, Hashable, Identifiable {
         var id: UUID
         var date: Date
-        var fighterKey: String
+        var fighterKey: String     // the friend's battleID
         var fighterName: String
         var fighterType: BattleType
         var fighterArchetype: Archetype
@@ -60,7 +92,9 @@ final class BattleRoster {
         var oppType: BattleType
         var oppArchetype: Archetype
         var seed: UInt64
-        var won: Bool
+        var outcome: MatchOutcome
+
+        var won: Bool { outcome == .win }
 
         func replay() -> BattleResult {
             let f = BattleCard(name: fighterName, type: fighterType, archetype: fighterArchetype, level: level)
@@ -69,41 +103,86 @@ final class BattleRoster {
         }
     }
 
+    /// Everything Battlegrounds knows about one friend, stored on the friend.
+    struct FriendState: Codable, Hashable {
+        var progress: Progress?
+        var plan: StoredPlan?
+        var pending: PendingMatch?
+    }
+
     /// Active-team size. Starts at three; grows later with trainer level.
     let maxSlots = 3
-    /// How long a friend is "away" before the result is ready. Dev-scaled — a
+    /// How long a friend is "away" before the result is ready. Dev-scaled: a
     /// short beat standing in for real async pairing.
     let awaySeconds: TimeInterval = 20
+    /// How many finished matches History keeps.
+    static let historyLimit = 40
 
-    private(set) var progress: [String: Progress] = [:]
     private(set) var team: [String] = []
-    private(set) var plans: [String: StoredPlan] = [:]
-    private(set) var pending: [String: PendingMatch] = [:]
     private(set) var history: [MatchRecord] = []
 
-    private let storeKey = "bg.roster.v1"
-    private init() { load() }
+    /// Synced keys (mirrored to iCloud by `ProfileSync`).
+    static let teamKey = "bg.team"
+    static let historyKey = "bg.history"
+    /// The pre-sync blob, moved onto friends by `prepare(with:)`.
+    private let legacyKey = "bg.roster.v1"
 
-    private func key(for c: Catch) -> String {
-        let t = c.caughtAt.timeIntervalSinceReferenceDate.bitPattern
-        let la = (c.latitude ?? 0).bitPattern
-        let lo = (c.longitude ?? 0).bitPattern
-        return "\(t)-\(la)-\(lo)"
+    private let defaults = UserDefaults.standard
+    /// True while writing our own changes, so the change notification they
+    /// trigger doesn't reload half-written state over them.
+    private var isSaving = false
+
+    private init() {
+        loadShared()
+        // iCloud can update the team or history from another device.
+        NotificationCenter.default.addObserver(forName: UserDefaults.didChangeNotification,
+                                               object: defaults, queue: .main) { [weak self] _ in
+            self?.loadShared()
+        }
     }
+
     private func notifID(_ k: String) -> String { "grove.bg.\(k)" }
+
+    // MARK: - Per-friend state
+
+    private func state(_ c: Catch) -> FriendState {
+        guard let data = c.battleData,
+              let s = try? JSONDecoder().decode(FriendState.self, from: data) else { return FriendState() }
+        return s
+    }
+
+    private func setState(_ s: FriendState, for c: Catch) {
+        _ = ensureID(c)
+        c.battleData = try? JSONEncoder().encode(s)
+        try? c.modelContext?.save()
+    }
+
+    private func update(_ c: Catch, _ change: (inout FriendState) -> Void) {
+        var s = state(c)
+        change(&s)
+        setState(s, for: c)
+    }
+
+    /// The friend's stable id, given the first time it's needed.
+    private func ensureID(_ c: Catch) -> String {
+        if let id = c.battleID { return id }
+        let id = UUID().uuidString
+        c.battleID = id
+        return id
+    }
 
     // MARK: - Queries
 
-    func teamContains(_ c: Catch) -> Bool { team.contains(key(for: c)) }
-    func progress(for c: Catch) -> Progress? { progress[key(for: c)] }
-    func hasEverPromoted(_ c: Catch) -> Bool { progress[key(for: c)] != nil }
+    func teamContains(_ c: Catch) -> Bool { c.battleID.map(team.contains) ?? false }
+    func progress(for c: Catch) -> Progress? { state(c).progress }
+    func hasEverPromoted(_ c: Catch) -> Bool { progress(for: c) != nil }
     var hasFreeSlot: Bool { team.count < maxSlots }
     var isFull: Bool { team.count >= maxSlots }
 
     func teamCatches(from all: [Catch]) -> [(friend: Catch, progress: Progress)] {
-        let byKey = Dictionary(all.map { (key(for: $0), $0) }, uniquingKeysWith: { a, _ in a })
-        return team.compactMap { k in
-            guard let friend = byKey[k], let p = progress[k] else { return nil }
+        let byID = Dictionary(all.compactMap { c in c.battleID.map { ($0, c) } }, uniquingKeysWith: { a, _ in a })
+        return team.compactMap { id in
+            guard let friend = byID[id], let p = progress(for: friend) else { return nil }
             return (friend, p)
         }
     }
@@ -111,115 +190,99 @@ final class BattleRoster {
     // MARK: - Rest
 
     func isResting(_ c: Catch) -> Bool {
-        guard let u = progress(for: c)?.restingUntil else { return false }
-        return u > Date()
+        guard let until = progress(for: c)?.restingUntil else { return false }
+        return until > .now
     }
     func restRemaining(_ c: Catch) -> TimeInterval {
-        guard let u = progress(for: c)?.restingUntil else { return 0 }
-        return max(0, u.timeIntervalSinceNow)
+        guard let until = progress(for: c)?.restingUntil else { return 0 }
+        return max(0, until.timeIntervalSinceNow)
     }
-    /// Put a friend down for a nap — longer the more worn out they finished.
+    /// Put a friend down for a nap, longer the more worn out they finished.
     /// (Dev-scaled to seconds; the real game paces this at ~20–40 minutes.)
-    func beginRest(_ c: Catch, hpFraction: Double) {
-        let k = key(for: c)
-        guard var p = progress[k] else { return }
+    private func beginRest(_ s: inout FriendState, hpFraction: Double) {
         let worn = 1 - max(0, min(1, hpFraction))
-        p.restingUntil = Date().addingTimeInterval(30.0 + worn * 90.0)
-        progress[k] = p
-        save()
+        s.progress?.restingUntil = Date().addingTimeInterval(30.0 + worn * 90.0)
     }
 
-    // MARK: - Away matches (dispatch → resolve)
+    // MARK: - Away matches (send → resolve)
 
-    /// True while a friend is off at a match (dispatched, not yet resolved).
-    func isAway(_ c: Catch) -> Bool {
-        if let pm = pending[key(for: c)] { return !pm.settled }
-        return false
-    }
+    /// True while a friend is off at a match (sent, not yet resolved).
+    func isAway(_ c: Catch) -> Bool { state(c).pending.map { !$0.settled } ?? false }
     /// Seconds until the away match resolves.
     func awayRemaining(_ c: Catch) -> TimeInterval {
-        guard let pm = pending[key(for: c)], !pm.settled else { return 0 }
+        guard let pm = state(c).pending, !pm.settled else { return 0 }
         return max(0, pm.resolvesAt.timeIntervalSinceNow)
     }
     /// A resolved match whose replay hasn't been watched yet.
     func hasUnwatchedResult(_ c: Catch) -> Bool {
-        if let pm = pending[key(for: c)] { return pm.settled && !pm.watched }
-        return false
+        state(c).pending.map { $0.settled && !$0.watched } ?? false
     }
-    /// The stored outcome (win/loss) of the pending/last match, if any.
-    func pendingWon(_ c: Catch) -> Bool? { pending[key(for: c)]?.won }
+    /// The outcome of the pending or last match, if any.
+    func pendingOutcome(_ c: Catch) -> MatchOutcome? { state(c).pending?.outcome }
 
     /// Available to send: not already away, and not napping.
     func canSend(_ c: Catch) -> Bool { !isAway(c) && !isResting(c) }
 
-    /// Dispatch a friend to a match. The fight is resolved now (deterministic)
-    /// but held; XP and rest land when it resolves.
+    /// Send a friend to a match. The fight is resolved now (deterministic) but
+    /// held; XP and the nap land when it resolves.
     func send(_ c: Catch, opponent: Contender, level: Int, plan: StoredPlan,
               seed: UInt64, result: BattleResult) {
-        let k = key(for: c)
-        let won: Bool = { if case .win(let n) = result.outcome { return n == c.displayName } else { return false } }()
+        let k = ensureID(c)
+        let me = Contender.from(c)
         let maxHP = Double(max(1, result.fighters[0].maxHP))
         let endHP = Double(max(0, result.events.last?.hpAfter.first ?? result.fighters[0].maxHP))
         let resolvesAt = Date().addingTimeInterval(awaySeconds)
-        pending[k] = PendingMatch(seed: seed, level: level, plan: plan,
-                                  oppName: opponent.name, oppType: opponent.type,
-                                  oppArchetype: opponent.archetype,
-                                  hpFraction: endHP / maxHP, won: won,
-                                  resolvesAt: resolvesAt, settled: false, watched: false)
-        save()
+        update(c) { s in
+            s.pending = PendingMatch(seed: seed, level: level, plan: plan,
+                                     fighter: FighterSnapshot(name: me.name, type: me.type, archetype: me.archetype),
+                                     oppName: opponent.name, oppType: opponent.type,
+                                     oppArchetype: opponent.archetype,
+                                     hpFraction: endHP / maxHP, outcome: MatchOutcome(result),
+                                     resolvesAt: resolvesAt, settled: false, watched: false)
+        }
         NotificationManager.scheduleMatchResult(id: notifID(k), friendName: c.displayName, at: resolvesAt)
     }
 
-    /// Land any away matches whose window has passed: apply XP, start the nap.
-    /// Called lazily whenever the home is on screen (no background process).
+    /// Land any away matches whose window has passed: apply XP, start the
+    /// nap, log it to History. Called whenever the Arena is on screen.
     func settleDueMatches(from all: [Catch]) {
-        let now = Date()
-        var changed = false
-        for c in all {
-            let k = key(for: c)
-            guard var pm = pending[k], !pm.settled, pm.resolvesAt <= now else { continue }
-            _ = award(to: c, won: pm.won)
-            beginRest(c, hpFraction: pm.hpFraction)
+        let now = Date.now
+        var newRecords: [MatchRecord] = []
+        for c in all where c.battleData != nil {
+            var s = state(c)
+            guard var pm = s.pending, !pm.settled, pm.resolvesAt <= now, s.progress != nil else { continue }
+            award(&s, pm.outcome)
+            beginRest(&s, hpFraction: pm.hpFraction)
             pm.settled = true
-            pending[k] = pm
-            let cont = Contender.from(c)
-            history.insert(MatchRecord(id: UUID(), date: Date(), fighterKey: k,
-                                       fighterName: c.displayName, fighterType: cont.type,
-                                       fighterArchetype: cont.archetype, level: pm.level, plan: pm.plan,
-                                       oppName: pm.oppName, oppType: pm.oppType,
-                                       oppArchetype: pm.oppArchetype, seed: pm.seed, won: pm.won), at: 0)
-            if history.count > 40 { history.removeLast(history.count - 40) }
-            changed = true
+            s.pending = pm
+            setState(s, for: c)
+            newRecords.append(MatchRecord(id: UUID(), date: pm.resolvesAt, fighterKey: ensureID(c),
+                                          fighterName: pm.fighter.name, fighterType: pm.fighter.type,
+                                          fighterArchetype: pm.fighter.archetype, level: pm.level,
+                                          plan: pm.plan, oppName: pm.oppName, oppType: pm.oppType,
+                                          oppArchetype: pm.oppArchetype, seed: pm.seed, outcome: pm.outcome))
         }
-        if changed { save() }
+        guard !newRecords.isEmpty else { return }
+        history.insert(contentsOf: newRecords.sorted { $0.date > $1.date }, at: 0)
+        if history.count > Self.historyLimit { history.removeLast(history.count - Self.historyLimit) }
+        saveShared()
     }
 
-    /// Mark the resolved match's replay as watched (clears the "result ready" badge).
+    /// Mark the resolved match's replay as watched (clears "Result ready").
     func markWatched(_ c: Catch) {
-        let k = key(for: c)
-        guard var pm = pending[k], pm.settled, !pm.watched else { return }
-        pm.watched = true
-        pending[k] = pm
-        save()
-        NotificationManager.cancelMatchResult(id: notifID(k))
+        guard let pm = state(c).pending, pm.settled, !pm.watched else { return }
+        update(c) { $0.pending?.watched = true }
+        if let k = c.battleID { NotificationManager.cancelMatchResult(id: notifID(k)) }
     }
 
-    /// Reproduce the exact replay of a friend's pending/last match.
-    func replayResult(for c: Catch) -> BattleResult? {
-        guard let pm = pending[key(for: c)] else { return nil }
-        let fighter = Contender.from(c).card(level: pm.level)
-        let opp = BattleCard(name: pm.oppName, type: pm.oppType, archetype: pm.oppArchetype, level: pm.level)
-        return simulate(fighter, pm.plan.battlePlan, vs: opp, .defaultPlan(for: pm.oppArchetype), seed: pm.seed)
-    }
+    /// Reproduce the exact replay of a friend's pending or last match.
+    func replayResult(for c: Catch) -> BattleResult? { state(c).pending?.replay() }
 
     #if DEBUG
     /// Dev: collapse an away friend's window so it resolves on the next tick.
     func devResolveNow(_ c: Catch) {
-        let k = key(for: c)
-        guard var pm = pending[k], !pm.settled else { return }
-        pm.resolvesAt = Date()
-        pending[k] = pm
-        save()
+        guard let pm = state(c).pending, !pm.settled else { return }
+        update(c) { $0.pending?.resolvesAt = .now }
     }
     #endif
 
@@ -233,114 +296,199 @@ final class BattleRoster {
         return n
     }
 
-    /// Lifetime win/loss record across every recorded match.
-    var record: (wins: Int, losses: Int) {
-        let w = history.lazy.filter(\.won).count
-        return (w, history.count - w)
+    /// Lifetime record across every recorded match.
+    var record: (wins: Int, losses: Int, draws: Int) {
+        (history.lazy.filter { $0.outcome == .win }.count,
+         history.lazy.filter { $0.outcome == .loss }.count,
+         history.lazy.filter { $0.outcome == .draw }.count)
     }
 
     /// The fighter's current photo for a record, if the friend still exists.
     func friendPhoto(for record: MatchRecord, in all: [Catch]) -> Data? {
-        all.first { key(for: $0) == record.fighterKey }?.photoData
+        friend(for: record, in: all)?.photoData
+    }
+    func friend(for record: MatchRecord, in all: [Catch]) -> Catch? {
+        all.first { $0.battleID == record.fighterKey }
     }
 
-    // MARK: - Mutations
+    // MARK: - Team
 
     @discardableResult
     func promote(_ c: Catch) -> Bool {
-        let k = key(for: c)
+        let k = ensureID(c)
         guard !team.contains(k), hasFreeSlot else { return false }
-        if progress[k] == nil { progress[k] = Progress(level: 1, xp: 0, promotedAt: .now) }
+        if progress(for: c) == nil {
+            update(c) { $0.progress = Progress(level: 1, xp: 0, promotedAt: .now) }
+        } else {
+            try? c.modelContext?.save()
+        }
         team.append(k)
-        save()
+        saveShared()
         return true
     }
 
-    func bench(_ c: Catch) {
-        team.removeAll { $0 == key(for: c) }
-        save()
+    /// Whether a friend can leave the team: not while they're away at a match
+    /// (their result would have nowhere to land).
+    func canBench(_ c: Catch) -> Bool { !isAway(c) }
+
+    @discardableResult
+    func bench(_ c: Catch) -> Bool {
+        guard canBench(c), let k = c.battleID else { return false }
+        team.removeAll { $0 == k }
+        saveShared()
+        return true
     }
 
-    func swap(out: Catch, incoming: Catch) {
-        let outK = key(for: out), inK = key(for: incoming)
-        guard let idx = team.firstIndex(of: outK) else { promote(incoming); return }
-        if progress[inK] == nil { progress[inK] = Progress(level: 1, xp: 0, promotedAt: .now) }
+    @discardableResult
+    func swap(out: Catch, incoming: Catch) -> Bool {
+        guard canBench(out), let outK = out.battleID, let idx = team.firstIndex(of: outK) else {
+            return promote(incoming)
+        }
+        let inK = ensureID(incoming)
+        if progress(for: incoming) == nil {
+            update(incoming) { $0.progress = Progress(level: 1, xp: 0, promotedAt: .now) }
+        }
         team.remove(at: idx)
         team.removeAll { $0 == inK }
         team.insert(inK, at: min(idx, team.count))
-        save()
+        saveShared()
+        return true
+    }
+
+    /// A friend was released: take them off the team (their own battle data
+    /// goes with them).
+    func forget(_ c: Catch) {
+        guard let k = c.battleID else { return }
+        NotificationManager.cancelMatchResult(id: notifID(k))
+        if team.contains(k) {
+            team.removeAll { $0 == k }
+            saveShared()
+        }
+    }
+
+    /// The whole Grove was erased.
+    func reset() {
+        team = []
+        history = []
+        saveShared()
     }
 
     // MARK: - XP & leveling
 
     static func xpNeeded(for level: Int) -> Int { 60 + (level - 1) * 40 }
+    static let maxLevel = 30
 
-    @discardableResult
-    func award(to c: Catch, won: Bool) -> Int {
-        let k = key(for: c)
-        guard var p = progress[k] else { return 0 }
-        p.xp += won ? 100 : 45
-        var gained = 0
-        while p.level < 30 && p.xp >= Self.xpNeeded(for: p.level) {
+    private func award(_ s: inout FriendState, _ outcome: MatchOutcome) {
+        guard var p = s.progress else { return }
+        p.xp += outcome.xp
+        while p.level < Self.maxLevel && p.xp >= Self.xpNeeded(for: p.level) {
             p.xp -= Self.xpNeeded(for: p.level)
             p.level += 1
-            gained += 1
         }
-        progress[k] = p
-        save()
-        return gained
+        s.progress = p
     }
 
     // MARK: - Battle plans
 
     func storedPlan(for c: Catch, archetype: Archetype) -> StoredPlan {
-        plans[key(for: c)] ?? StoredPlan(.defaultPlan(for: archetype))
+        state(c).plan ?? StoredPlan(.defaultPlan(for: archetype))
     }
-    func hasCustomPlan(_ c: Catch) -> Bool { plans[key(for: c)] != nil }
     func setPlan(_ plan: StoredPlan, for c: Catch) {
-        plans[key(for: c)] = plan
-        save()
+        update(c) { $0.plan = plan }
     }
     func battlePlan(for c: Catch, archetype: Archetype) -> BattlePlan {
         storedPlan(for: c, archetype: archetype).battlePlan
     }
 
-    // MARK: - Housekeeping
+    // MARK: - Setup
 
-    func prune(against all: [Catch]) {
-        let live = Set(all.map { key(for: $0) })
-        let before = (team.count, progress.count, pending.count)
-        team.removeAll { !live.contains($0) }
-        progress = progress.filter { live.contains($0.key) }
-        plans = plans.filter { live.contains($0.key) }
-        pending = pending.filter { live.contains($0.key) }
-        if (team.count, progress.count, pending.count) != before { save() }
+    /// Call when the Arena opens: moves pre-sync data onto friends (once),
+    /// then lands any matches that finished while you were away.
+    func prepare(with all: [Catch]) {
+        migrateLegacy(all)
+        settleDueMatches(from: all)
     }
 
-    // MARK: - Persistence
+    // MARK: - Persistence (team + history)
 
-    private struct Blob: Codable {
+    private func loadShared() {
+        guard !isSaving else { return }
+        let newTeam = defaults.stringArray(forKey: Self.teamKey) ?? []
+        let newHistory = defaults.data(forKey: Self.historyKey)
+            .flatMap { try? JSONDecoder().decode([MatchRecord].self, from: $0) } ?? []
+        if newTeam != team { team = newTeam }
+        if newHistory != history { history = newHistory }
+    }
+
+    private func saveShared() {
+        isSaving = true
+        defer { isSaving = false }
+        defaults.set(team, forKey: Self.teamKey)
+        defaults.set(try? JSONEncoder().encode(history), forKey: Self.historyKey)
+    }
+
+    // MARK: - Legacy (pre-sync) data
+
+    private struct LegacyPending: Codable {
+        var seed: UInt64; var level: Int; var plan: StoredPlan
+        var oppName: String; var oppType: BattleType; var oppArchetype: Archetype
+        var hpFraction: Double; var won: Bool; var resolvesAt: Date
+        var settled: Bool; var watched: Bool
+    }
+    private struct LegacyRecord: Codable {
+        var id: UUID; var date: Date; var fighterKey: String; var fighterName: String
+        var fighterType: BattleType; var fighterArchetype: Archetype; var level: Int
+        var plan: StoredPlan; var oppName: String; var oppType: BattleType
+        var oppArchetype: Archetype; var seed: UInt64; var won: Bool
+    }
+    private struct LegacyBlob: Codable {
         var team: [String]
         var progress: [String: Progress]
         var plans: [String: StoredPlan]?
-        var pending: [String: PendingMatch]?
-        var history: [MatchRecord]?
+        var pending: [String: LegacyPending]?
+        var history: [LegacyRecord]?
     }
 
-    private func load() {
-        guard let data = UserDefaults.standard.data(forKey: storeKey),
-              let blob = try? JSONDecoder().decode(Blob.self, from: data) else { return }
-        team = blob.team
-        progress = blob.progress
-        plans = blob.plans ?? [:]
-        pending = blob.pending ?? [:]
-        history = blob.history ?? []
+    /// The old per-device key: the bits of a catch's date and coordinates.
+    private func legacyKey(for c: Catch) -> String {
+        let t = c.caughtAt.timeIntervalSinceReferenceDate.bitPattern
+        let la = (c.latitude ?? 0).bitPattern
+        let lo = (c.longitude ?? 0).bitPattern
+        return "\(t)-\(la)-\(lo)"
     }
 
-    private func save() {
-        let blob = Blob(team: team, progress: progress, plans: plans, pending: pending, history: history)
-        if let data = try? JSONEncoder().encode(blob) {
-            UserDefaults.standard.set(data, forKey: storeKey)
+    private func migrateLegacy(_ all: [Catch]) {
+        guard !all.isEmpty, let data = defaults.data(forKey: legacyKey),
+              let blob = try? JSONDecoder().decode(LegacyBlob.self, from: data) else { return }
+        var newID: [String: String] = [:]
+        for c in all {
+            let old = legacyKey(for: c)
+            guard blob.progress[old] != nil || blob.plans?[old] != nil || blob.pending?[old] != nil else { continue }
+            let id = ensureID(c)
+            newID[old] = id
+            let me = Contender.from(c)
+            var s = state(c)
+            s.progress = s.progress ?? blob.progress[old]
+            s.plan = s.plan ?? blob.plans?[old]
+            if s.pending == nil, let lp = blob.pending?[old] {
+                s.pending = PendingMatch(seed: lp.seed, level: lp.level, plan: lp.plan,
+                                         fighter: FighterSnapshot(name: me.name, type: me.type, archetype: me.archetype),
+                                         oppName: lp.oppName, oppType: lp.oppType, oppArchetype: lp.oppArchetype,
+                                         hpFraction: lp.hpFraction, outcome: lp.won ? .win : .loss,
+                                         resolvesAt: lp.resolvesAt, settled: lp.settled, watched: lp.watched)
+            }
+            setState(s, for: c)
         }
+        for old in blob.team { if let id = newID[old], !team.contains(id), team.count < maxSlots { team.append(id) } }
+        let oldRecords = (blob.history ?? []).compactMap { r -> MatchRecord? in
+            guard let id = newID[r.fighterKey] else { return nil }
+            return MatchRecord(id: r.id, date: r.date, fighterKey: id, fighterName: r.fighterName,
+                               fighterType: r.fighterType, fighterArchetype: r.fighterArchetype, level: r.level,
+                               plan: r.plan, oppName: r.oppName, oppType: r.oppType, oppArchetype: r.oppArchetype,
+                               seed: r.seed, outcome: r.won ? .win : .loss)
+        }
+        history = Array((history + oldRecords).sorted { $0.date > $1.date }.prefix(Self.historyLimit))
+        saveShared()
+        defaults.removeObject(forKey: legacyKey)
     }
 }

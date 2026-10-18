@@ -343,8 +343,8 @@ struct ArenaReplayView: View {
     private var banner: some View {
         // Side 0 is always the player's friend, so the result reads from their side.
         let you = result.fighters[0], foe = result.fighters[1]
-        let youWon: Bool = { if case .win(let n) = result.outcome { return n == you.name } else { return false } }()
-        let youLost: Bool = { if case .win(let n) = result.outcome { return n == foe.name } else { return false } }()
+        let youWon = result.winner == 0
+        let youLost = result.winner == 1
         let emoji = youWon ? "🏆" : (youLost ? "😴" : "🤝")
         let title = youWon ? "Victory!" : (youLost ? "Tuckered out" : "A draw")
         let sub = youWon ? "\(you.name) wins in \(result.turns) rounds"

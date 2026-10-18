@@ -41,6 +41,7 @@ struct GroveView: View {
     @Environment(\.groveFoldX) private var foldX
     #if DEBUG
     @State private var debugFriend: Catch?
+    @State private var debugArena = false
     #endif
 
     var body: some View {
@@ -109,6 +110,11 @@ struct GroveView: View {
             #if DEBUG
             // Test hook: `-GroveOpenFriend` opens your rarest friend's page on launch.
             .navigationDestination(item: $debugFriend) { GuideEntryView(friend: $0) }
+            // Test hook: `-GroveOpenArena` opens Battlegrounds on launch.
+            .navigationDestination(isPresented: $debugArena) { BattlegroundsView() }
+            .onAppear {
+                if ProcessInfo.processInfo.arguments.contains("-GroveOpenArena") { debugArena = true }
+            }
             .task {
                 guard ProcessInfo.processInfo.arguments.contains("-GroveOpenFriend") else { return }
                 try? await Task.sleep(for: .milliseconds(600)) // let sample data land first
