@@ -334,6 +334,12 @@ final class BattleRoster {
         if let k = c.battleID { NotificationManager.cancelMatchResult(id: notifID(k)) }
     }
 
+    /// A finished match whose result hasn't been watched yet.
+    func isUnwatched(_ rec: MatchRecord, in all: [Catch]) -> Bool {
+        guard let c = friend(for: rec, in: all), let pm = state(c).pending else { return false }
+        return pm.settled && !pm.watched && pm.seed == rec.seed
+    }
+
     /// Reproduce the exact replay of a friend's pending or last match.
     func replayResult(for c: Catch) -> BattleResult? { state(c).pending?.replay() }
     /// The rival in a friend's pending or last match, as drawn in the replay.

@@ -74,6 +74,29 @@ struct Slant: InsettableShape {
     }
 }
 
+/// A rectangle with its bottom-right corner cut off at 45°, for tall cards
+/// (a full-height lean would eat into the content).
+struct CutCorner: InsettableShape {
+    var cut: CGFloat = 22
+    var insetAmount: CGFloat = 0
+
+    func path(in rect: CGRect) -> Path {
+        let r = rect.insetBy(dx: insetAmount, dy: insetAmount)
+        var p = Path()
+        p.move(to: CGPoint(x: r.minX, y: r.minY))
+        p.addLine(to: CGPoint(x: r.maxX, y: r.minY))
+        p.addLine(to: CGPoint(x: r.maxX, y: r.maxY - cut))
+        p.addLine(to: CGPoint(x: r.maxX - cut, y: r.maxY))
+        p.addLine(to: CGPoint(x: r.minX, y: r.maxY))
+        p.closeSubpath()
+        return p
+    }
+
+    func inset(by amount: CGFloat) -> CutCorner {
+        var c = self; c.insetAmount += amount; return c
+    }
+}
+
 /// A leaning parallelogram, for bars and buttons.
 struct Lean: Shape {
     var amount: CGFloat = 6
