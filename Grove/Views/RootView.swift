@@ -17,6 +17,11 @@ struct RootView: View {
     @Environment(\.modelContext) private var context
     #endif
     @ObservedObject private var quickActions = QuickActionRouter.shared
+    @ObservedObject private var updates = AppUpdates.shared
+    @ObservedObject private var surveys = SurveyCenter.shared
+    /// The survey on screen. Separate from `surveys.pending` so the sheet can
+    /// wait for a calm moment, and stay up for its thank-you once answered.
+    @State private var shownSurvey: Survey?
     @State private var selection: RootTab = .grove
     @State private var tabBarVisible = true
     /// The floating bar's measured size. Its height (or width, when it stands on
@@ -129,13 +134,42 @@ struct RootView: View {
         }
         // Retention reminders: reschedule on launch, when a catch lands, and
         // whenever we come back to the foreground.
-        .task { refreshReminders() }
+        .task {
+            refreshReminders()
+            noteAppActive()
+        }
         .onChange(of: catches.count) { _, _ in refreshReminders() }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
+            switch phase {
+            case .active:
                 refreshReminders()
+                noteAppActive()
                 handleQuickAction() // a warm-launch shortcut may be waiting
+            case .background:
+                AppUpdates.scheduleBackgroundRefresh()
+            default:
+                break
             }
+        }
+        // A survey waits until the player is back on the Grove with nothing
+        // else on screen, then shows after a beat.
+        .task(id: surveyGate) {
+            guard canShowSurvey, shownSurvey == nil, let survey = surveys.pending else { return }
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            shownSurvey = survey
+            surveys.markShown(survey)
+        }
+        .sheet(item: $shownSurvey, onDismiss: {
+            // Swiped away without an answer: same as "Not now".
+            if let survey = surveys.pending { surveys.snooze(survey) }
+        }) { survey in
+            SurveySheet(survey: survey,
+                        onAnswer: { surveys.answer(survey, score: $0) },
+                        onNotNow: { surveys.snooze(survey) })
+        }
+        .sheet(item: whatsNewBinding, onDismiss: { updates.dismissWhatsNew() }) { notes in
+            WhatsNewView(notes: notes) { updates.dismissWhatsNew() }
         }
         .onChange(of: quickActions.pending) { _, _ in handleQuickAction() }
         .onAppear { handleQuickAction() } // catch a cold-launch shortcut
@@ -184,6 +218,30 @@ struct RootView: View {
             withAnimation(.easeInOut(duration: 0.22)) { selection = .catchTab }
             hasSeenSnapCoach = true
         }
+    }
+
+    private func noteAppActive() {
+        updates.appBecameActive()
+        surveys.appBecameActive()
+    }
+
+    /// Nothing else is asking for the player's attention: they're on the
+    /// Grove's root page, with no coach mark, intro or What's New up.
+    private var canShowSurvey: Bool {
+        hasOnboarded && selection == .grove && tabBarVisible
+            && currentCoachStep == nil && updates.whatsNew == nil
+    }
+
+    private var surveyGate: String {
+        "\(surveys.pending?.id ?? "-")|\(canShowSurvey)"
+    }
+
+    /// What's New only after the intro; a brand-new player has nothing to compare.
+    private var whatsNewBinding: Binding<ReleaseNotes?> {
+        Binding(
+            get: { hasOnboarded ? updates.whatsNew : nil },
+            set: { if $0 == nil { updates.dismissWhatsNew() } }
+        )
     }
 
     private func refreshReminders() {

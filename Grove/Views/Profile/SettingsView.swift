@@ -33,6 +33,9 @@ struct SettingsContent: View {
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("locationTaggingEnabled") private var locationTaggingEnabled = true
     @AppStorage("notificationsEnabled") private var notificationsEnabled = true
+    @AppStorage(AppUpdates.alertsEnabledKey) private var updateAlertsEnabled = true
+    @ObservedObject private var updates = AppUpdates.shared
+    @Environment(\.openURL) private var openURL
 
     @Environment(\.modelContext) private var context
     @Query private var catches: [Catch]
@@ -41,9 +44,11 @@ struct SettingsContent: View {
 
     var body: some View {
         VStack(spacing: 20) {
+            if let release = updates.storeRelease { updateCard(release) }
             ICloudStatusCard()
             preferencesCard
             introCard
+            if let notes = ReleaseNotes.forVersion(AppUpdates.currentVersion) { whatsNewCard(notes) }
             if showsAbout { aboutCard }
             dangerZone
         }
@@ -74,6 +79,14 @@ struct SettingsContent: View {
                     NotificationManager.cancelAll()
                 }
             }
+
+            Divider().padding(.leading, 56)
+
+            Toggle(isOn: $updateAlertsEnabled) {
+                settingLabel("Update alerts", systemImage: "app.badge.fill")
+            }
+            .tint(Theme.accent)
+            .padding()
 
             Divider().padding(.leading, 56)
 
@@ -112,6 +125,59 @@ struct SettingsContent: View {
                     .font(.system(.body, design: .rounded, weight: .semibold))
                     .foregroundStyle(Theme.ink)
                 Spacer()
+            }
+            .padding()
+            .contentShape(Rectangle())
+            .softCard()
+        }
+        .buttonStyle(.plain)
+    }
+
+    /// A newer Grove is on the App Store.
+    private func updateCard(_ release: AppUpdates.StoreRelease) -> some View {
+        HStack(spacing: 14) {
+            Image(systemName: "arrow.down.app.fill")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(Theme.accent)
+                .frame(width: 26)
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Grove \(release.version) is here")
+                    .font(.system(.body, design: .rounded, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                Text("Update for the newest features and fixes.")
+                    .font(.system(.footnote, design: .rounded))
+                    .foregroundStyle(Theme.ink.opacity(0.6))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            Spacer(minLength: 8)
+            Button("Update") { openURL(release.trackViewUrl) }
+                .font(.system(.subheadline, design: .rounded, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+                .background(Capsule().fill(Theme.accent))
+                .buttonStyle(BouncyButtonStyle())
+        }
+        .padding()
+        .softCard()
+    }
+
+    private func whatsNewCard(_ notes: ReleaseNotes) -> some View {
+        Button {
+            updates.showWhatsNew()
+        } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "gift.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 26)
+                Text("What's new in \(notes.version)")
+                    .font(.system(.body, design: .rounded, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.ink.opacity(0.25))
             }
             .padding()
             .contentShape(Rectangle())

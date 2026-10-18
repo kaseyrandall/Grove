@@ -393,7 +393,45 @@ struct ProfileView: View {
             .tint(Theme.accent)
             .padding()
             .softCard()
+
+            feedbackTools
         }
+    }
+
+    /// Show the update and survey screens on demand, and see what's been answered.
+    private var feedbackTools: some View {
+        VStack(spacing: 0) {
+            Menu {
+                ForEach(SurveyCatalog.all) { survey in
+                    Button(survey.question) {
+                        SurveyCenter.shared.forceShow(survey)
+                    }
+                }
+            } label: {
+                row(icon: "face.smiling.inverse", title: "Ask a survey (shows on Grove)")
+            }
+            Divider().padding(.leading, 56)
+            Button { AppUpdates.shared.showWhatsNew() } label: {
+                row(icon: "gift.fill", title: "Show What's New")
+            }
+            Divider().padding(.leading, 56)
+            Button {
+                AppUpdates.shared.resetForTesting()
+                SurveyCenter.shared.resetForTesting()
+            } label: {
+                row(icon: "arrow.counterclockwise", title: "Reset updates & surveys")
+            }
+            Divider().padding(.leading, 56)
+            let answers = SurveyCenter.shared.responses
+            Text(answers.isEmpty ? "No survey answers yet"
+                 : answers.map { "\($0.surveyID): \($0.score)" }.joined(separator: "\n"))
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(Theme.ink.opacity(0.6))
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding()
+        }
+        .buttonStyle(.plain)
+        .softCard()
     }
     #endif
 }

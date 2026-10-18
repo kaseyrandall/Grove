@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import UserNotifications
 
 /// Home Screen quick actions — the shortcuts that appear when you long-press
 /// Grove's app icon. Right now there's one: jump straight to the camera.
@@ -57,6 +58,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
     ) -> Bool {
         // Registered dynamically so we don't need a hand-maintained Info.plist.
         application.shortcutItems = [QuickAction.snap.shortcutItem]
+        UNUserNotificationCenter.current().delegate = NotificationTapHandler.shared
+        AppUpdates.registerBackgroundRefresh()
         return true
     }
 
