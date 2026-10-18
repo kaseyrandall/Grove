@@ -61,6 +61,19 @@ struct DiscoveryMapView: View {
                 .onMapCameraChange(frequency: .onEnd) { context in
                     span = context.region.span
                 }
+                // The page title, like the other tabs (see `PageTitle`), over
+                // a soft fade so the map still shows through. As a safe-area
+                // inset it also keeps the map's controls clear of it.
+                .safeAreaInset(edge: .top, spacing: 0) {
+                    PageTitle("Discovery Map")
+                        .padding(.bottom, 10)
+                        .background(alignment: .top) {
+                            LinearGradient(colors: [Theme.cream, Theme.cream.opacity(0.85), Theme.cream.opacity(0)],
+                                           startPoint: .top, endPoint: .bottom)
+                                .ignoresSafeArea(edges: .top)
+                                .allowsHitTesting(false)
+                        }
+                }
 
                 if geotagged.isEmpty {
                     emptyState
@@ -95,8 +108,10 @@ struct DiscoveryMapView: View {
                 }
             }
             #endif
+            // Kept for the back button on pushed pages; the page draws its
+            // own title.
             .navigationTitle("Discovery Map")
-            .navigationBarTitleDisplayMode(.inline)
+            .toolbar(.hidden, for: .navigationBar)
             .sheet(item: isSpread ? .constant(nil) : $selected) { friend in
                 NavigationStack { GuideEntryView(friend: friend) }
                     .presentationDetents([.medium, .large])

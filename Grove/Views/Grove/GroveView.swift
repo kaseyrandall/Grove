@@ -506,8 +506,10 @@ struct ZoneCard: View {
             }
 
             if residents.isEmpty {
+                // Hints sit at the top, under the zone's name, even when the
+                // card is stretched tall (the open Duo's equal-height rows).
                 emptyInvite
-                    .frame(maxHeight: fillsHeight ? .infinity : nil)
+                    .frame(maxWidth: .infinity, maxHeight: fillsHeight ? .infinity : nil, alignment: .topLeading)
             } else {
                 LazyVGrid(columns: [GridItem(.adaptive(minimum: 52), spacing: 8)], spacing: 10) {
                     ForEach(Array(residents.enumerated()), id: \.element.persistentModelID) { index, friend in

@@ -24,6 +24,8 @@ struct ProfileView: View {
     @Environment(\.groveIsSpread) private var isSpread
     @Environment(\.groveFoldX) private var foldX
     @State private var section: ProfileSection = .achievements
+    /// Wide displays (the open Duo turned upright) get two columns.
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     private var stats: PlayerStats { PlayerStats(catches: catches) }
 
@@ -47,19 +49,20 @@ struct ProfileView: View {
                             }
                         }
 
-                        VStack(spacing: 20) {
-                            headerCard
-                            FavoriteFriendsCard(catches: catches) { showFavoritesPicker = true }
-                            if !catches.isEmpty { RecentFriendsCard(catches: catches) }
-                            achievementsCard
-                            privacyFooter
-                            #if DEBUG
-                            arenaCard
-                            developerCard
-                            #endif
-                            versionLabel
+                        if DuoSpread.isEnabled && sizeClass == .regular {
+                            // You on the left; achievements and the rest on the right.
+                            HStack(alignment: .top, spacing: 20) {
+                                VStack(spacing: 20) { aboutYouCards }
+                                VStack(spacing: 20) { moreCards }
+                            }
+                            .padding()
+                        } else {
+                            VStack(spacing: 20) {
+                                aboutYouCards
+                                moreCards
+                            }
+                            .padding()
                         }
-                        .padding()
                     }
                     .statusBarFade()
                 }
@@ -98,6 +101,24 @@ struct ProfileView: View {
                 FavoritesPicker()
             }
         }
+    }
+
+    /// Who you are: the header, favorites, and who you met lately.
+    @ViewBuilder private var aboutYouCards: some View {
+        headerCard
+        FavoriteFriendsCard(catches: catches) { showFavoritesPicker = true }
+        if !catches.isEmpty { RecentFriendsCard(catches: catches) }
+    }
+
+    /// Achievements, the privacy note, and (in DEBUG) the developer tools.
+    @ViewBuilder private var moreCards: some View {
+        achievementsCard
+        privacyFooter
+        #if DEBUG
+        arenaCard
+        developerCard
+        #endif
+        versionLabel
     }
 
     private func openSettingsIfAsked(_ place: ReleaseNotes.Destination?) {

@@ -555,10 +555,11 @@ struct Confetti: View {
                             x: CGFloat.random(in: 0...geo.size.width),
                             y: animate ? geo.size.height + 40 : -40
                         )
+                        // One burst that falls clear, rather than raining
+                        // forever across the friend's name and the pickers.
                         .animation(
                             .easeIn(duration: Double.random(in: 1.8...3.2))
-                            .repeatForever(autoreverses: false)
-                            .delay(Double.random(in: 0...1.5)),
+                            .delay(Double.random(in: 0...1.2)),
                             value: animate
                         )
                 }
