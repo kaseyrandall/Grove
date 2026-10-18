@@ -117,10 +117,10 @@ struct GroveView: View {
             .navigationDestination(item: $debugFriend) { GuideEntryView(friend: $0) }
             // Test hook: `-GroveOpenArena` opens Battlegrounds on launch.
             .onAppear {
-                if ProcessInfo.processInfo.arguments.contains("-GroveOpenArena") { openArena = true }
+                if LaunchFlag.once("-GroveOpenArena") { openArena = true }
             }
             .task {
-                guard ProcessInfo.processInfo.arguments.contains("-GroveOpenFriend") else { return }
+                guard LaunchFlag.once("-GroveOpenFriend") else { return }
                 try? await Task.sleep(for: .milliseconds(600)) // let sample data land first
                 debugFriend = catches.max { $0.species.rarity < $1.species.rarity }
             }

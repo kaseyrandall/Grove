@@ -111,7 +111,7 @@ struct CatchView: View {
         // Test hook: `-GroveShowCatchResult` shows the celebration for one of
         // your sample friends, as a not-yet-named Mystery Friend.
         .task {
-            guard ProcessInfo.processInfo.arguments.contains("-GroveShowCatchResult") else { return }
+            guard LaunchFlag.once("-GroveShowCatchResult") else { return }
             try? await Task.sleep(for: .milliseconds(800))
             if let friend = allCatches.first(where: { $0.photoData != nil }),
                let data = friend.photoData, let image = UIImage(data: data) {

@@ -70,7 +70,7 @@ struct JournalView: View {
                 if router.pending == .fieldGuide { router.pending = nil; openGuide = true }
                 #if DEBUG
                 // Test hook: `-GroveOpenFieldGuide` opens the Field Guide on launch.
-                if ProcessInfo.processInfo.arguments.contains("-GroveOpenFieldGuide") { openGuide = true }
+                if LaunchFlag.once("-GroveOpenFieldGuide") { openGuide = true }
                 #endif
             }
             .onChange(of: router.pending) { _, place in

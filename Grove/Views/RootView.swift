@@ -209,6 +209,8 @@ struct RootView: View {
     /// command line): `-GroveSeedSample` fills in the sample Grove, and
     /// `-GroveTab map|catch|journal|profile` opens that tab.
     private func applyDebugLaunchArguments() {
+        // Once per launch (Root can appear again after a full-screen cover).
+        guard LaunchFlag.first("RootView.launchArguments") else { return }
         let args = ProcessInfo.processInfo.arguments
         if args.contains("-GroveSeedSample"), !SeedData.isPresent(in: catches) {
             SeedData.fill(context: context)

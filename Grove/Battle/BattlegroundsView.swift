@@ -55,9 +55,8 @@ struct BattlegroundsView: View {
             #if DEBUG
             // Test hooks: `-GroveArenaTrophies` opens on Trophies;
             // `-GroveSampleTrophies` fills in a few days of play.
-            let args = ProcessInfo.processInfo.arguments
-            if args.contains("-GroveSampleTrophies") { roster.devSampleTrophies() }
-            if args.contains("-GroveArenaTrophies") { tab = 2 }
+            if LaunchFlag.once("-GroveSampleTrophies") { roster.devSampleTrophies() }
+            if LaunchFlag.once("-GroveArenaTrophies") { tab = 2 }
             #endif
         }
         .onReceive(Timer.publish(every: 1, on: .main, in: .common).autoconnect()) { _ in

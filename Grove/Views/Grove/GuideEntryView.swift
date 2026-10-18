@@ -102,7 +102,7 @@ struct GuideEntryView: View {
         #if DEBUG
         // Test hook: `-GroveOpenEdit` opens Edit on the first friend page shown.
         .onAppear {
-            if ProcessInfo.processInfo.arguments.contains("-GroveOpenEdit") { showEdit = true }
+            if LaunchFlag.once("-GroveOpenEdit") { showEdit = true }
         }
         #endif
         .groveSheet(isPresented: $showEdit) {
