@@ -73,7 +73,6 @@ struct CatchView: View {
             if !laptop { setStakeout(false) }
         }
         .onDisappear { setStakeout(false) }
-        .sheet(isPresented: $showCameraHelp) { DuoFeatureSheet(feature: .halfFoldCamera) }
         .sheet(isPresented: $showVisitors) {
             StakeoutVisitorsSheet(visitors: $visitors) { visitor in
                 showVisitors = false
@@ -386,49 +385,61 @@ struct CatchView: View {
                 .onTapGesture { snapWithTimer() }
                 .accessibilityHidden(true)
 
-            VStack(spacing: 22) {
-                if lensStops.count > 1 { lensButtons(vertical: false) }
+            if showCameraHelp {
+                // The how-to sits right here on the deck (a sheet would drape
+                // across the fold).
+                DuoHelpPanel(feature: .halfFoldCamera, onDark: true) {
+                    withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { showCameraHelp = false }
+                }
+                .padding(.horizontal, 24)
+            } else {
+                VStack(spacing: 22) {
+                    if lensStops.count > 1 { lensButtons(vertical: false) }
 
-                HStack(spacing: 44) {
-                    libraryButton
-                    Button { snapWithTimer() } label: {
-                        ZStack {
-                            Circle().strokeBorder(.white, lineWidth: 5).frame(width: 104, height: 104)
-                            Circle().fill(Theme.accent).frame(width: 82, height: 82)
-                                .shadow(color: Theme.accent.opacity(0.5), radius: 10, y: 3)
-                            Image(systemName: countdown == nil ? "camera.fill" : "xmark")
-                                .font(.system(size: 30, weight: .bold))
-                                .foregroundStyle(.white)
+                    HStack(spacing: 44) {
+                        libraryButton
+                        Button { snapWithTimer() } label: {
+                            ZStack {
+                                Circle().strokeBorder(.white, lineWidth: 5).frame(width: 104, height: 104)
+                                Circle().fill(Theme.accent).frame(width: 82, height: 82)
+                                    .shadow(color: Theme.accent.opacity(0.5), radius: 10, y: 3)
+                                Image(systemName: countdown == nil ? "camera.fill" : "xmark")
+                                    .font(.system(size: 30, weight: .bold))
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                        .buttonStyle(BouncyButtonStyle())
+                        .disabled(!cameraIsLive || isIdentifying)
+                        .opacity(cameraIsLive ? 1 : 0.45)
+                        .accessibilityLabel(countdown == nil ? "Take photo" : "Cancel timer")
+                        sideSlot(alignment: .center) {
+                            if cameraIsLive {
+                                circleButton("arrow.triangle.2.circlepath") { camera.flip() }
+                            }
                         }
                     }
-                    .buttonStyle(BouncyButtonStyle())
-                    .disabled(!cameraIsLive || isIdentifying)
-                    .opacity(cameraIsLive ? 1 : 0.45)
-                    .accessibilityLabel(countdown == nil ? "Take photo" : "Cancel timer")
-                    sideSlot(alignment: .center) {
-                        if cameraIsLive {
-                            circleButton("arrow.triangle.2.circlepath") { camera.flip() }
-                        }
+
+                    HStack(spacing: 12) {
+                        timerPicker
+                        if Stakeout.isEnabled { stakeoutButton }
                     }
-                }
 
-                HStack(spacing: 12) {
-                    timerPicker
-                    if Stakeout.isEnabled { stakeoutButton }
-                }
+                    if stakeoutOn || !visitors.isEmpty {
+                        stakeoutStatus
+                    }
 
-                if stakeoutOn || !visitors.isEmpty {
-                    stakeoutStatus
+                    Text(countdown == nil ? "Tap anywhere here to snap" : "Tap to cancel")
+                        .font(.system(size: 13, weight: .semibold, design: .rounded))
+                        .foregroundStyle(.white.opacity(0.45))
                 }
-
-                Text(countdown == nil ? "Tap anywhere here to snap" : "Tap to cancel")
-                    .font(.system(size: 13, weight: .semibold, design: .rounded))
-                    .foregroundStyle(.white.opacity(0.45))
+                .padding(.bottom, 10)
             }
-            .padding(.bottom, 10)
         }
         .overlay(alignment: .topTrailing) {
-            Button { showCameraHelp = true } label: {
+            if !showCameraHelp {
+            Button {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { showCameraHelp = true }
+            } label: {
                 Image(systemName: "info.circle")
                     .font(.system(size: 20, weight: .semibold))
                     .foregroundStyle(.white.opacity(0.7))
@@ -438,6 +449,7 @@ struct CatchView: View {
             .buttonStyle(.plain)
             .padding(10)
             .accessibilityLabel("How the half-fold camera works")
+            }
         }
     }
 
@@ -545,6 +557,7 @@ struct CatchView: View {
 
     /// Snap now, or after the self-timer; a tap during a countdown cancels it.
     private func snapWithTimer() {
+        guard !showCameraHelp else { return }
         guard cameraIsLive, !isIdentifying else { return }
         if countdown != nil { cancelCountdown(); return }
         guard timerSeconds > 0 else { capture(); return }

@@ -202,7 +202,8 @@ struct RootView: View {
         // The Duo intro waits for the intro, What's New and the camera to be out of the way.
         .task(id: "\(fold != .none)|\(hasOnboarded)|\(updates.whatsNew == nil)|\(selection)|\(showsFrame)") {
             guard fold != .none, hasOnboarded, updates.whatsNew == nil,
-                  selection != .catchTab, !showsFrame, !hasSeenDuoIntro else { return }
+                  selection != .catchTab, !showsFrame, !fold.isHalfFolded,
+                  !hasSeenDuoIntro else { return }
             try? await Task.sleep(for: .seconds(1))
             guard !Task.isCancelled else { return }
             showsDuoIntro = true

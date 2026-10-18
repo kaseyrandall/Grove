@@ -54,14 +54,29 @@ struct GroveFrameView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .padding(28)
                     // The "base" half: the time and today's goal.
-                    basePane(current, count: list.count)
+                    Group {
+                        if showsLearnMore {
+                            // On the base half, not a sheet across the fold.
+                            DuoHelpPanel(feature: .groveFrame) {
+                                withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { showsLearnMore = false }
+                            }
+                        } else {
+                            basePane(current, count: list.count)
+                        }
+                    }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .padding(24)
                 }
             }
         }
         .contentShape(Rectangle())
-        .onTapGesture(perform: onDismiss)
+        .onTapGesture {
+            if showsLearnMore {
+                withAnimation { showsLearnMore = false }
+            } else {
+                onDismiss()
+            }
+        }
         .statusBarHidden()
         .persistentSystemOverlays(.hidden)
         .task(id: list.count) {
@@ -72,9 +87,14 @@ struct GroveFrameView: View {
                 withAnimation(.easeInOut(duration: 1.4)) { index += 1 }
             }
         }
-        .onAppear { showsHint = !hasSeenHint }
+        .onAppear {
+            showsHint = !hasSeenHint
+            #if DEBUG
+            // Test hook: `-GroveFrameHelp` opens the frame's how-to.
+            if ProcessInfo.processInfo.arguments.contains("-GroveFrameHelp") { showsLearnMore = true }
+            #endif
+        }
         .onDisappear { hasSeenHint = true }
-        .sheet(isPresented: $showsLearnMore) { DuoFeatureSheet(feature: .groveFrame) }
         .accessibilityHint("Tap to go back to Grove")
     }
 
@@ -182,7 +202,9 @@ struct GroveFrameView: View {
                 HStack(spacing: 6) {
                     Text("This is Grove Frame · Tap to go back ·")
                         .foregroundStyle(Theme.ink.opacity(0.55))
-                    Button("Learn more") { showsLearnMore = true }
+                    Button("Learn more") {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) { showsLearnMore = true }
+                    }
                         .foregroundStyle(Theme.accent)
                 }
                 .font(.system(.footnote, design: .rounded, weight: .semibold))

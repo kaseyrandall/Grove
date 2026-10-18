@@ -277,3 +277,59 @@ struct DuoIntroSheet: View {
         if let closePanel { closePanel() } else { dismiss() }
     }
 }
+
+/// A feature's how-to drawn right on the screen, for places where a sheet
+/// would be awkward: on a half-folded Duo a sheet drapes across the fold and
+/// its grab handle lands on the upright half. This sits on the flat half,
+/// where your thumb already is, with a big "Got it".
+struct DuoHelpPanel: View {
+    let feature: DuoFeature
+    /// White text, for the camera's dark deck.
+    var onDark = false
+    let onDone: () -> Void
+
+    private var text: Color { onDark ? .white : Theme.ink }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            HStack(spacing: 14) {
+                DuoPoseIllustration(pose: feature.pose, size: 56)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(feature.title)
+                        .font(.system(.title3, design: .rounded, weight: .heavy))
+                        .foregroundStyle(text)
+                    Text(feature.summary)
+                        .font(.system(.subheadline, design: .rounded))
+                        .foregroundStyle(text.opacity(0.65))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            VStack(alignment: .leading, spacing: 10) {
+                ForEach(Array(feature.steps.enumerated()), id: \.offset) { i, step in
+                    HStack(alignment: .top, spacing: 10) {
+                        Text("\(i + 1)")
+                            .font(.system(.caption, design: .rounded, weight: .bold))
+                            .foregroundStyle(.white)
+                            .frame(width: 22, height: 22)
+                            .background(Circle().fill(Theme.accent))
+                        Text(step)
+                            .font(.system(.subheadline, design: .rounded))
+                            .foregroundStyle(text.opacity(0.9))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                }
+            }
+            Button(action: onDone) {
+                Text("Got it")
+                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 14)
+                    .background(Capsule().fill(Theme.accent))
+            }
+            .buttonStyle(BouncyButtonStyle())
+        }
+        .frame(maxWidth: 520)
+        .transition(.opacity.combined(with: .move(edge: .bottom)))
+    }
+}
