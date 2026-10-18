@@ -30,6 +30,14 @@ struct ReleaseNotes: Identifiable, Equatable {
     }
 
     static let all: [ReleaseNotes] = [
+        ReleaseNotes(version: "1.4", items: [
+            Item(emoji: "🖼️", title: "A Grove widget",
+                 detail: "Your favorite friends on your Home Screen and in StandBy, a new one every half hour."),
+            Item(emoji: "📖", title: "Made for iPhone Duo",
+                 detail: "Open it flat for two-page spreads, stand it up for a hands-free camera, or leave it on your desk as a photo frame of your favorite friends."),
+            Item(emoji: "🗺️", title: "Little touches",
+                 detail: "A tidier Map, calmer catch confetti, and hints that sit neatly in empty zones."),
+        ]),
         ReleaseNotes(version: "1.3", items: [
             Item(emoji: "🐾", title: "Lots of new friends to meet",
                  detail: "Opossums, chipmunks, toads, herons, moose and many more have joined the Field Guide.",
