@@ -226,22 +226,18 @@ struct ProfileView: View {
 
     private var headerCard: some View {
         VStack(spacing: 12) {
+            // Tapping the avatar opens Edit profile too; the pencil in the
+            // corner is the visible way in.
             Button {
                 showLookPicker = true
             } label: {
-                ZStack(alignment: .bottomTrailing) {
-                    ZStack {
-                        Circle().fill(Color(hex: UInt(profileColorHex))).frame(width: 96, height: 96)
-                        Text(profileEmoji).font(.system(size: 44))
-                    }
-                    Image(systemName: "pencil.circle.fill")
-                        .font(.system(size: 26))
-                        .foregroundStyle(Theme.accent)
-                        .background(Circle().fill(.white).frame(width: 24, height: 24))
+                ZStack {
+                    Circle().fill(Color(hex: UInt(profileColorHex))).frame(width: 96, height: 96)
+                    Text(profileEmoji).font(.system(size: 44))
                 }
             }
             .buttonStyle(.plain)
-            .accessibilityLabel("Edit profile")
+            .accessibilityHidden(true)
             Text(ProfileName.display(profileName))
                 .font(.system(size: 22, weight: .heavy, design: .rounded))
                 .foregroundStyle(Theme.ink)
@@ -252,6 +248,20 @@ struct ProfileView: View {
         .padding(.horizontal)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
+        .overlay(alignment: .topTrailing) {
+            Button {
+                showLookPicker = true
+            } label: {
+                Image(systemName: "pencil")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 38, height: 38)
+                    .background(Circle().fill(Theme.cream))
+            }
+            .buttonStyle(.plain)
+            .padding(12)
+            .accessibilityLabel("Edit profile")
+        }
         .softCard()
     }
 
