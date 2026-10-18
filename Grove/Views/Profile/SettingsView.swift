@@ -31,6 +31,9 @@ struct SettingsContent: View {
     @AppStorage(NotificationManager.memoriesEnabledKey) private var memoriesEnabled = true
     @AppStorage(AppUpdates.alertsEnabledKey) private var updateAlertsEnabled = true
     @ObservedObject private var updates = AppUpdates.shared
+    /// Only an iPhone Duo reports a hinge; it gets an "iPhone Duo" row.
+    @Environment(\.groveFold) private var fold
+    @State private var showDuoIntro = false
     @Environment(\.openURL) private var openURL
 
     @Environment(\.modelContext) private var context
@@ -42,6 +45,7 @@ struct SettingsContent: View {
             if let release = updates.storeRelease { updateCard(release) }
             preferencesCard
             if let notes = ReleaseNotes.forVersion(AppUpdates.currentVersion) { whatsNewCard(notes) }
+            if fold != .none { duoCard }
             if showsAbout { aboutCard }
             dangerZone
         }
@@ -157,6 +161,30 @@ struct SettingsContent: View {
             .softCard()
         }
         .buttonStyle(.plain)
+    }
+
+    /// "iPhone Duo": the Duo's special modes, explained (Duo only).
+    private var duoCard: some View {
+        Button { showDuoIntro = true } label: {
+            HStack(spacing: 14) {
+                Image(systemName: "book.pages.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 26)
+                Text("iPhone Duo features")
+                    .font(.system(.body, design: .rounded, weight: .semibold))
+                    .foregroundStyle(Theme.ink)
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundStyle(Theme.ink.opacity(0.25))
+            }
+            .padding()
+            .contentShape(Rectangle())
+            .softCard()
+        }
+        .buttonStyle(.plain)
+        .groveSheet(isPresented: $showDuoIntro) { DuoIntroSheet() }
     }
 
     private var aboutCard: some View {

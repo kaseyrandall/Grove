@@ -44,6 +44,8 @@ struct CatchView: View {
     /// Photos Stakeout took, waiting to be kept or let go.
     @State private var visitors: [StakeoutVisitor] = []
     @State private var showVisitors = false
+    /// "How the half-fold camera works."
+    @State private var showCameraHelp = false
     @State private var showOptions = false
     @State private var flashOpacity: Double = 0
     @State private var focusPoint: CGPoint?
@@ -71,6 +73,7 @@ struct CatchView: View {
             if !laptop { setStakeout(false) }
         }
         .onDisappear { setStakeout(false) }
+        .sheet(isPresented: $showCameraHelp) { DuoFeatureSheet(feature: .halfFoldCamera) }
         .sheet(isPresented: $showVisitors) {
             StakeoutVisitorsSheet(visitors: $visitors) { visitor in
                 showVisitors = false
@@ -125,6 +128,12 @@ struct CatchView: View {
                 withAnimation { visitors.append(StakeoutVisitor(image: backdrop, location: nil)) }
             }
             if ProcessInfo.processInfo.arguments.contains("-GroveShowVisitors") { showVisitors = true }
+        }
+        // Test hook: `-GroveShowCameraHelp` opens the half-fold camera's help.
+        .task {
+            guard ProcessInfo.processInfo.arguments.contains("-GroveShowCameraHelp") else { return }
+            try? await Task.sleep(for: .milliseconds(1500))
+            showCameraHelp = true
         }
         // Test hook: `-GroveStartTimer` starts a 3-second self-timer.
         .task {
@@ -417,6 +426,18 @@ struct CatchView: View {
                     .foregroundStyle(.white.opacity(0.45))
             }
             .padding(.bottom, 10)
+        }
+        .overlay(alignment: .topTrailing) {
+            Button { showCameraHelp = true } label: {
+                Image(systemName: "info.circle")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.7))
+                    .frame(width: 44, height: 44)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .padding(10)
+            .accessibilityLabel("How the half-fold camera works")
         }
     }
 

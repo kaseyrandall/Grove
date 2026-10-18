@@ -23,6 +23,9 @@ struct RootView: View {
     @Environment(\.groveFold) private var fold
     @ObservedObject private var idle = IdleClock.shared
     @State private var showsFrame = false
+    /// "Made for iPhone Duo", shown once the first time Grove runs on a Duo.
+    @AppStorage("hasSeenDuoIntro") private var hasSeenDuoIntro = false
+    @State private var showsDuoIntro = false
     /// Quiet seconds, half-folded, before the frame appears.
     private static let frameDelay: TimeInterval = 30
     @ObservedObject private var updates = AppUpdates.shared
@@ -196,6 +199,18 @@ struct RootView: View {
         .onAppear { applyDebugLaunchArguments() }
         #endif
         .recordsTouches()
+        // The Duo intro waits for the intro, What's New and the camera to be out of the way.
+        .task(id: "\(fold != .none)|\(hasOnboarded)|\(updates.whatsNew == nil)|\(selection)|\(showsFrame)") {
+            guard fold != .none, hasOnboarded, updates.whatsNew == nil,
+                  selection != .catchTab, !showsFrame, !hasSeenDuoIntro else { return }
+            try? await Task.sleep(for: .seconds(1))
+            guard !Task.isCancelled else { return }
+            showsDuoIntro = true
+        }
+        .groveSheet(isPresented: $showsDuoIntro) {
+            DuoIntroSheet()
+                .onAppear { hasSeenDuoIntro = true }
+        }
         // Grove Frame: half-folded and left alone (and not mid-catch), the
         // Duo becomes a photo frame. Any touch or unfolding ends it.
         .task(id: frameGate) {
@@ -238,6 +253,8 @@ struct RootView: View {
         }
         // `-GroveShowOnboarding` replays the intro (iCloud otherwise restores
         // "already onboarded" on launch).
+        // `-GroveShowDuoIntro` shows the Duo intro again.
+        if args.contains("-GroveShowDuoIntro") { hasSeenDuoIntro = false }
         // `-GroveShowFrame` opens Grove Frame right away.
         if args.contains("-GroveShowFrame") {
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { showsFrame = true }

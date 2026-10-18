@@ -14,6 +14,10 @@ struct GroveFrameView: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var index = 0
     @State private var zoomed = false
+    /// The first visit says what this is, with a way to learn more.
+    @AppStorage("hasSeenGroveFrameHint") private var hasSeenHint = false
+    @State private var showsHint = false
+    @State private var showsLearnMore = false
 
     /// Seconds each friend stays up.
     static let interval: TimeInterval = 9
@@ -68,9 +72,10 @@ struct GroveFrameView: View {
                 withAnimation(.easeInOut(duration: 1.4)) { index += 1 }
             }
         }
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
-        .accessibilityHint("Double-tap to go back to Grove")
+        .onAppear { showsHint = !hasSeenHint }
+        .onDisappear { hasSeenHint = true }
+        .sheet(isPresented: $showsLearnMore) { DuoFeatureSheet(feature: .groveFrame) }
+        .accessibilityHint("Tap to go back to Grove")
     }
 
     @ViewBuilder
@@ -172,9 +177,20 @@ struct GroveFrameView: View {
                 .accessibilityHidden(true)
             }
 
-            Text("Tap to return to your Grove")
+            if showsHint {
+                // First visit: what this is, and a way to learn more.
+                HStack(spacing: 6) {
+                    Text("This is Grove Frame · Tap to go back ·")
+                        .foregroundStyle(Theme.ink.opacity(0.55))
+                    Button("Learn more") { showsLearnMore = true }
+                        .foregroundStyle(Theme.accent)
+                }
                 .font(.system(.footnote, design: .rounded, weight: .semibold))
-                .foregroundStyle(Theme.ink.opacity(0.4))
+            } else {
+                Text("Tap to return to your Grove")
+                    .font(.system(.footnote, design: .rounded, weight: .semibold))
+                    .foregroundStyle(Theme.ink.opacity(0.4))
+            }
         }
     }
 }
