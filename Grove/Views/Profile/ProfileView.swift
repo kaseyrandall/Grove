@@ -1,8 +1,8 @@
 import SwiftUI
 import SwiftData
 
-/// The player's profile: a bit about them, a way into Settings, and (in DEBUG)
-/// the developer test tools. Account/social features will grow from here.
+/// The player's profile: a bit about them, Settings behind the gear in the
+/// top-right, and (in DEBUG) the developer test tools. Account/social features will grow from here.
 struct ProfileView: View {
     @Query private var catches: [Catch]
     @Environment(\.modelContext) private var context
@@ -11,6 +11,7 @@ struct ProfileView: View {
     @AppStorage("profileEmoji") private var profileEmoji = "🌿"
     @AppStorage("profileColorHex") private var profileColorHex = ProfileLookPicker.defaultColor
     @State private var showLookPicker = false
+    @State private var showSettings = false
 
     /// The open Duo in landscape: the menu on the left page, the chosen
     /// section on the right.
@@ -34,10 +35,13 @@ struct ProfileView: View {
                     spreadLayout
                 } else {
                     ScrollView {
+                        titleRow
+                            .padding(.horizontal)
+                            .padding(.top, 8)
+
                         VStack(spacing: 20) {
                             headerCard
                             achievementsCard
-                            menuCard
                             privacyCard
                             #if DEBUG
                             arenaCard
@@ -47,12 +51,25 @@ struct ProfileView: View {
                         }
                         .padding()
                     }
+                    // With no navigation bar, fade the page out under the
+                    // status bar so scrolled content doesn't run into the clock.
+                    .overlay(alignment: .top) {
+                        GeometryReader { geo in
+                            LinearGradient(colors: [Theme.cream, Theme.cream.opacity(0)],
+                                           startPoint: .top, endPoint: .bottom)
+                                .frame(height: geo.safeAreaInsets.top + 14)
+                                .ignoresSafeArea(edges: .top)
+                        }
+                        .allowsHitTesting(false)
+                    }
                 }
             }
             .clearsGroveTabBar()
+            // Kept for the back button on pushed pages; the page draws its own
+            // title (with the Settings button beside it), like the Grove.
             .navigationTitle("Profile")
-            // The spread draws its own titles on each page.
-            .toolbar(isSpread ? .hidden : .automatic, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(isPresented: $showSettings) { SettingsView() }
             #if DEBUG
             // Test hooks: `-GroveProfileSection settings|about` opens that
             // section; `-GroveOpenLook` opens Choose your look.
@@ -61,6 +78,7 @@ struct ProfileView: View {
                 if args.contains("-GroveOpenLook") { showLookPicker = true }
                 if let i = args.firstIndex(of: "-GroveProfileSection"), i + 1 < args.count {
                     section = args[i + 1] == "settings" ? .settings : args[i + 1] == "about" ? .about : .achievements
+                    if section == .settings, !isSpread { showSettings = true }
                 }
             }
             #endif
@@ -281,16 +299,31 @@ struct ProfileView: View {
         }
     }
 
-    // MARK: Menu
+    // MARK: Title
 
-    private var menuCard: some View {
-        NavigationLink {
-            SettingsView()
-        } label: {
-            row(icon: "gearshape.fill", title: "Settings & Preferences")
-                .softCard()
+    /// The page title with the Settings button in the top-right, matching the
+    /// Grove's title and calendar button. Scrolls away with the page.
+    private var titleRow: some View {
+        HStack(alignment: .center, spacing: 12) {
+            Text("Profile")
+                .font(.system(.largeTitle, design: .rounded, weight: .bold))
+                .foregroundStyle(Theme.ink)
+                .accessibilityAddTraits(.isHeader)
+            Spacer(minLength: 0)
+            Button {
+                showSettings = true
+            } label: {
+                Image(systemName: "gearshape.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundStyle(Theme.accent)
+                    .frame(width: 42, height: 42)
+                    .background(Circle().fill(.white))
+                    .shadow(color: Theme.ink.opacity(0.1), radius: 8, y: 4)
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Settings")
         }
-        .buttonStyle(.plain)
+        .frame(minHeight: 44)
     }
 
     // MARK: Privacy — a gentle reassurance that the Grove is theirs alone

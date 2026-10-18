@@ -22,6 +22,14 @@ struct ReleaseNotes: Identifiable, Equatable {
     }
 
     static let all: [ReleaseNotes] = [
+        ReleaseNotes(version: "1.3", items: [
+            Item(emoji: "🎁", title: "News when Grove updates",
+                 detail: "A heads-up when a new version is out, and a peek at what's new once you update."),
+            Item(emoji: "☁️", title: "iCloud backup in Settings",
+                 detail: "See whether your Grove is backed up, or turn iCloud backup off to keep it on this iPhone only."),
+            Item(emoji: "⚙️", title: "Settings, one tap away",
+                 detail: "Find Settings behind the gear at the top of your Profile."),
+        ]),
         ReleaseNotes(version: "1.2", items: [
             Item(emoji: "☁️", title: "Backed up to iCloud",
                  detail: "Your Grove lives in your own iCloud now, so it comes back on a new phone or after reinstalling."),
