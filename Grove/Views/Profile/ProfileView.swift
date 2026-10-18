@@ -253,9 +253,9 @@ struct ProfileView: View {
                 showLookPicker = true
             } label: {
                 Image(systemName: "pencil")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundStyle(Theme.accent)
-                    .frame(width: 38, height: 38)
+                    .frame(width: 46, height: 46)
                     .background(Circle().fill(Theme.cream))
             }
             .buttonStyle(.plain)
