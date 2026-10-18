@@ -92,14 +92,26 @@ struct FavoriteFriendsCard: View {
 
     var body: some View {
         let favorites = Favorites.of(catches)
-        VStack(alignment: .leading, spacing: 12) {
+        VStack(alignment: .leading, spacing: 16) {
             HStack {
                 ProfileCardHeader(title: "Favorite friends", systemImage: "heart.fill")
                 Spacer()
                 if !favorites.isEmpty {
-                    Button("Edit", action: onEdit)
-                        .font(.system(.subheadline, design: .rounded, weight: .bold))
-                        .foregroundStyle(Theme.accent)
+                    // A real pill with a full-size tap area: bare "Edit" text
+                    // was so small that taps (especially on iPad, where the
+                    // app is scaled up) fell through to the photo below it.
+                    Button(action: onEdit) {
+                        Text("Edit")
+                            .font(.system(.subheadline, design: .rounded, weight: .bold))
+                            .foregroundStyle(Theme.accent)
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 8)
+                            .background(Capsule().fill(Theme.cream))
+                            .frame(minHeight: 44)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(.vertical, -6)
                 }
             }
 
