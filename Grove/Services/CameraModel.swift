@@ -37,6 +37,8 @@ final class CameraModel: NSObject, ObservableObject {
     private let maxDisplayZoom: CGFloat = 15.0
 
     private let output = AVCapturePhotoOutput()
+    /// Stakeout's motion detector, attached to the session only while watching.
+    private let motion = MotionWatcher()
     private let sessionQueue = DispatchQueue(label: "com.grove.camera.session")
     private var captureHandler: ((UIImage?) -> Void)?
     private var currentInput: AVCaptureDeviceInput?
@@ -58,6 +60,26 @@ final class CameraModel: NSObject, ObservableObject {
             }
         default:
             DispatchQueue.main.async { self.status = .denied }
+        }
+    }
+
+    /// Start or stop Stakeout: watch the live video for a visitor, calling
+    /// `onMotion` (on the main queue) when one arrives.
+    func setWatching(_ on: Bool, onMotion: (() -> Void)? = nil) {
+        motion.onMotion = onMotion
+        sessionQueue.async { [weak self] in
+            guard let self else { return }
+            let attached = self.session.outputs.contains(self.motion.output)
+            if on, !attached, self.session.canAddOutput(self.motion.output) {
+                self.session.beginConfiguration()
+                self.session.addOutput(self.motion.output)
+                self.session.commitConfiguration()
+                self.motion.reset()
+            } else if !on, attached {
+                self.session.beginConfiguration()
+                self.session.removeOutput(self.motion.output)
+                self.session.commitConfiguration()
+            }
         }
     }
 

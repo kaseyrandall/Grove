@@ -39,6 +39,11 @@ struct CatchView: View {
     /// The countdown in progress, if any.
     @State private var countdown: Int?
     @State private var countdownTask: Task<Void, Never>?
+    /// Stakeout: the half-folded Duo watching for visitors on its own.
+    @State private var stakeoutOn = false
+    /// Photos Stakeout took, waiting to be kept or let go.
+    @State private var visitors: [StakeoutVisitor] = []
+    @State private var showVisitors = false
     @State private var showOptions = false
     @State private var flashOpacity: Double = 0
     @State private var focusPoint: CGPoint?
@@ -61,7 +66,17 @@ struct CatchView: View {
             return CGSize(width: proxy.size.width + insets.leading + insets.trailing,
                           height: proxy.size.height + insets.top + insets.bottom)
         } action: { windowSize = $0 }
-        .onChange(of: isLaptopPose) { _, _ in cancelCountdown() }
+        .onChange(of: isLaptopPose) { _, laptop in
+            cancelCountdown()
+            if !laptop { setStakeout(false) }
+        }
+        .onDisappear { setStakeout(false) }
+        .sheet(isPresented: $showVisitors) {
+            StakeoutVisitorsSheet(visitors: $visitors) { visitor in
+                showVisitors = false
+                Task { await logCatch(visitor.image, at: visitor.location) }
+            }
+        }
         // The iPhone Duo's outer screen, facing the subject, while the camera
         // is in use (see `CoverScreenPreview`). No-op on other phones.
         .coverScreenPreview(session: camera.session, countdown: countdown)
@@ -97,6 +112,19 @@ struct CatchView: View {
             })
         }
         #if DEBUG
+        // Test hook: `-GroveStakeoutDemo` turns Stakeout on and adds three
+        // visitors (the backdrop photo), since the Simulator has no video.
+        .task {
+            guard ProcessInfo.processInfo.arguments.contains("-GroveStakeoutDemo"),
+                  let backdrop = Self.debugBackdrop else { return }
+            try? await Task.sleep(for: .milliseconds(1500))
+            setStakeout(true)
+            for _ in 0..<3 {
+                try? await Task.sleep(for: .seconds(1))
+                withAnimation { visitors.append(StakeoutVisitor(image: backdrop, location: nil)) }
+            }
+            if ProcessInfo.processInfo.arguments.contains("-GroveShowVisitors") { showVisitors = true }
+        }
         // Test hook: `-GroveStartTimer` starts a 3-second self-timer.
         .task {
             guard ProcessInfo.processInfo.arguments.contains("-GroveStartTimer") else { return }
@@ -374,7 +402,14 @@ struct CatchView: View {
                     }
                 }
 
-                timerPicker
+                HStack(spacing: 12) {
+                    timerPicker
+                    stakeoutButton
+                }
+
+                if stakeoutOn || !visitors.isEmpty {
+                    stakeoutStatus
+                }
 
                 Text(countdown == nil ? "Tap anywhere here to snap" : "Tap to cancel")
                     .font(.system(size: 13, weight: .semibold, design: .rounded))
@@ -408,6 +443,82 @@ struct CatchView: View {
         .background(Capsule().fill(.white.opacity(0.1)))
         .accessibilityElement(children: .contain)
         .accessibilityLabel("Self-timer")
+    }
+
+    private var stakeoutButton: some View {
+        Button { setStakeout(!stakeoutOn) } label: {
+            Label("Stakeout", systemImage: "binoculars.fill")
+                .font(.system(size: 14, weight: .bold, design: .rounded))
+                .foregroundStyle(stakeoutOn ? Color(hex: 0x16211A) : .white.opacity(0.8))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 12)
+                .background(Capsule().fill(stakeoutOn ? Theme.mint : .white.opacity(0.1)))
+        }
+        .buttonStyle(.plain)
+        .disabled(!cameraIsLive)
+        .accessibilityAddTraits(stakeoutOn ? .isSelected : [])
+        .accessibilityHint("Leave Grove watching; it snaps a photo when something moves")
+    }
+
+    /// "Watching for visitors…" and the tray of photos it took.
+    private var stakeoutStatus: some View {
+        Button { showVisitors = true } label: {
+            HStack(spacing: 10) {
+                if stakeoutOn {
+                    Circle().fill(Theme.mint).frame(width: 8, height: 8)
+                        .phaseAnimator([0.3, 1]) { dot, opacity in dot.opacity(opacity) }
+                }
+                Text(stakeoutOn
+                     ? (visitors.isEmpty ? "Watching for visitors…" : "Watching · \(visitors.count) visitor\(visitors.count == 1 ? "" : "s")")
+                     : "\(visitors.count) visitor\(visitors.count == 1 ? "" : "s") to look at")
+                    .font(.system(size: 14, weight: .semibold, design: .rounded))
+                    .foregroundStyle(.white.opacity(0.85))
+                if !visitors.isEmpty {
+                    HStack(spacing: -10) {
+                        ForEach(visitors.suffix(3)) { visitor in
+                            Image(uiImage: visitor.image)
+                                .resizable().scaledToFill()
+                                .frame(width: 30, height: 30)
+                                .clipShape(Circle())
+                                .overlay(Circle().strokeBorder(.white, lineWidth: 1.5))
+                        }
+                    }
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 11, weight: .bold))
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(Capsule().fill(.white.opacity(0.08)))
+        }
+        .buttonStyle(.plain)
+        .disabled(visitors.isEmpty)
+    }
+
+    /// Turn Stakeout on or off. While it's on the screen stays awake (the
+    /// camera stops if the phone locks).
+    private func setStakeout(_ on: Bool) {
+        guard on != stakeoutOn else { return }
+        stakeoutOn = on
+        UIApplication.shared.isIdleTimerDisabled = on
+        camera.setWatching(on) { stakeoutSnap() }
+        if hapticsEnabled { UISelectionFeedbackGenerator().selectionChanged() }
+    }
+
+    /// Something moved in: take a quiet photo for the tray (no celebration
+    /// yet; the player picks who to keep later).
+    private func stakeoutSnap() {
+        guard stakeoutOn, !isIdentifying, visitors.count < StakeoutVisitor.limit else { return }
+        let here = locationTaggingEnabled ? location.current : nil
+        camera.capturePhoto { image in
+            guard let image else { return }
+            DispatchQueue.main.async {
+                withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
+                    visitors.append(StakeoutVisitor(image: image, location: here))
+                }
+            }
+        }
     }
 
     /// Snap now, or after the self-timer; a tap during a countdown cancels it.
