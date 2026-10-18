@@ -436,9 +436,9 @@ private struct TeamStatusCard: View {
         case .away(let t):
             SlantTag(text: "Away \(mmss(t))", ink: BattleTheme.leaf)
         case .resting(let t):
-            SlantTag(text: "Nap \(mmss(t))", ink: BattleTheme.gold)
+            SlantTag(text: "Napping \(mmss(t))", ink: BattleTheme.gold)
         case .resultReady:
-            SlantTag(text: "Result", fill: BattleTheme.gold, ink: Color(hex: 0x120E02), outline: nil)
+            SlantTag(text: "Finished", fill: BattleTheme.gold, ink: Color(hex: 0x120E02), outline: nil)
         }
     }
 
@@ -483,7 +483,7 @@ private struct TeamStatusCard: View {
         case .ready:       LeanButtonFace(text: "Ready", style: .action)
         case .resultReady: LeanButtonFace(text: "Watch ▶", style: .reward)
         case .away:        LeanButtonFace(text: "In a match", style: .quiet)
-        case .resting:     LeanButtonFace(text: "Napping", style: .quiet)
+        case .resting:     LeanButtonFace(text: "Resting", style: .quiet)
         }
     }
 
