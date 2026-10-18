@@ -65,6 +65,9 @@ final class BattleRoster {
         var oppName: String
         var oppType: BattleType
         var oppArchetype: Archetype
+        /// The rival's level (older matches: same as the fighter's) and animal.
+        var oppLevel: Int? = nil
+        var oppSpeciesID: String? = nil
         var hpFraction: Double     // the fighter's end HP fraction → nap length
         var outcome: MatchOutcome
         var resolvesAt: Date
@@ -73,8 +76,12 @@ final class BattleRoster {
 
         func replay() -> BattleResult {
             let f = BattleCard(name: fighter.name, type: fighter.type, archetype: fighter.archetype, level: level)
-            let o = BattleCard(name: oppName, type: oppType, archetype: oppArchetype, level: level)
+            let o = BattleCard(name: oppName, type: oppType, archetype: oppArchetype, level: oppLevel ?? level)
             return simulate(f, plan.battlePlan, vs: o, .defaultPlan(for: oppArchetype), seed: seed)
+        }
+
+        var rivalPortrait: BattlePortrait {
+            BattlePortrait(species: oppSpeciesID.flatMap(CreatureCatalog.species(for:)))
         }
     }
 
@@ -93,13 +100,19 @@ final class BattleRoster {
         var oppArchetype: Archetype
         var seed: UInt64
         var outcome: MatchOutcome
+        var oppLevel: Int? = nil
+        var oppSpeciesID: String? = nil
 
         var won: Bool { outcome == .win }
 
         func replay() -> BattleResult {
             let f = BattleCard(name: fighterName, type: fighterType, archetype: fighterArchetype, level: level)
-            let o = BattleCard(name: oppName, type: oppType, archetype: oppArchetype, level: level)
+            let o = BattleCard(name: oppName, type: oppType, archetype: oppArchetype, level: oppLevel ?? level)
             return simulate(f, plan.battlePlan, vs: o, .defaultPlan(for: oppArchetype), seed: seed)
+        }
+
+        var rivalPortrait: BattlePortrait {
+            BattlePortrait(species: oppSpeciesID.flatMap(CreatureCatalog.species(for:)))
         }
     }
 
@@ -112,9 +125,17 @@ final class BattleRoster {
 
     /// Active-team size. Starts at three; grows later with trainer level.
     let maxSlots = 3
-    /// How long a friend is "away" before the result is ready. Dev-scaled: a
-    /// short beat standing in for real async pairing.
-    let awaySeconds: TimeInterval = 20
+    /// Developer builds can run the clock fast (`-GroveFastArena`): seconds
+    /// instead of minutes, for testing.
+    static var fastPace: Bool {
+        #if DEBUG
+        return ProcessInfo.processInfo.arguments.contains("-GroveFastArena")
+        #else
+        return false
+        #endif
+    }
+    /// How long a friend is away at a match before the result is ready.
+    var awaySeconds: TimeInterval { Self.fastPace ? 20 : 20 * 60 }
     /// How many finished matches History keeps.
     static let historyLimit = 40
 
@@ -197,11 +218,12 @@ final class BattleRoster {
         guard let until = progress(for: c)?.restingUntil else { return 0 }
         return max(0, until.timeIntervalSinceNow)
     }
-    /// Put a friend down for a nap, longer the more worn out they finished.
-    /// (Dev-scaled to seconds; the real game paces this at ~20–40 minutes.)
-    private func beginRest(_ s: inout FriendState, hpFraction: Double) {
+    /// Put a friend down for a nap after a match: 20 minutes fresh, up to 40
+    /// when they finished worn out (seconds in fast pace).
+    private func beginRest(_ s: inout FriendState, hpFraction: Double, from start: Date) {
         let worn = 1 - max(0, min(1, hpFraction))
-        s.progress?.restingUntil = Date().addingTimeInterval(30.0 + worn * 90.0)
+        let nap = Self.fastPace ? 30 + worn * 90 : (20 + worn * 20) * 60
+        s.progress?.restingUntil = start.addingTimeInterval(nap)
     }
 
     // MARK: - Away matches (send → resolve)
@@ -225,7 +247,7 @@ final class BattleRoster {
 
     /// Send a friend to a match. The fight is resolved now (deterministic) but
     /// held; XP and the nap land when it resolves.
-    func send(_ c: Catch, opponent: Contender, level: Int, plan: StoredPlan,
+    func send(_ c: Catch, opponent: Contender, opponentLevel: Int, level: Int, plan: StoredPlan,
               seed: UInt64, result: BattleResult) {
         let k = ensureID(c)
         let me = Contender.from(c)
@@ -237,10 +259,22 @@ final class BattleRoster {
                                      fighter: FighterSnapshot(name: me.name, type: me.type, archetype: me.archetype),
                                      oppName: opponent.name, oppType: opponent.type,
                                      oppArchetype: opponent.archetype,
+                                     oppLevel: opponentLevel, oppSpeciesID: opponent.speciesID,
                                      hpFraction: endHP / maxHP, outcome: MatchOutcome(result),
                                      resolvesAt: resolvesAt, settled: false, watched: false)
         }
         NotificationManager.scheduleMatchResult(id: notifID(k), friendName: c.displayName, at: resolvesAt)
+    }
+
+    /// Re-plan the "match is done" pings for friends still away (after the
+    /// Reminders switch changes).
+    func refreshNotifications(from all: [Catch]) {
+        let now = Date.now
+        let due = all.compactMap { c -> (id: String, friendName: String, date: Date)? in
+            guard let k = c.battleID, let pm = state(c).pending, !pm.settled, pm.resolvesAt > now else { return nil }
+            return (notifID(k), c.displayName, pm.resolvesAt)
+        }
+        NotificationManager.refreshMatchResults(due)
     }
 
     /// Land any away matches whose window has passed: apply XP, start the
@@ -252,7 +286,9 @@ final class BattleRoster {
             var s = state(c)
             guard var pm = s.pending, !pm.settled, pm.resolvesAt <= now, s.progress != nil else { continue }
             award(&s, pm.outcome)
-            beginRest(&s, hpFraction: pm.hpFraction)
+            // The nap starts when the match ended, even if you open the
+            // Arena much later.
+            beginRest(&s, hpFraction: pm.hpFraction, from: pm.resolvesAt)
             pm.settled = true
             s.pending = pm
             setState(s, for: c)
@@ -260,7 +296,8 @@ final class BattleRoster {
                                           fighterName: pm.fighter.name, fighterType: pm.fighter.type,
                                           fighterArchetype: pm.fighter.archetype, level: pm.level,
                                           plan: pm.plan, oppName: pm.oppName, oppType: pm.oppType,
-                                          oppArchetype: pm.oppArchetype, seed: pm.seed, outcome: pm.outcome))
+                                          oppArchetype: pm.oppArchetype, seed: pm.seed, outcome: pm.outcome,
+                                          oppLevel: pm.oppLevel, oppSpeciesID: pm.oppSpeciesID))
         }
         guard !newRecords.isEmpty else { return }
         history.insert(contentsOf: newRecords.sorted { $0.date > $1.date }, at: 0)
@@ -277,12 +314,18 @@ final class BattleRoster {
 
     /// Reproduce the exact replay of a friend's pending or last match.
     func replayResult(for c: Catch) -> BattleResult? { state(c).pending?.replay() }
+    /// The rival in a friend's pending or last match, as drawn in the replay.
+    func rivalPortrait(for c: Catch) -> BattlePortrait { state(c).pending?.rivalPortrait ?? .none }
 
     #if DEBUG
     /// Dev: collapse an away friend's window so it resolves on the next tick.
     func devResolveNow(_ c: Catch) {
         guard let pm = state(c).pending, !pm.settled else { return }
         update(c) { $0.pending?.resolvesAt = .now }
+    }
+    /// Dev: wake a napping friend.
+    func devWake(_ c: Catch) {
+        update(c) { $0.progress?.restingUntil = nil }
     }
     #endif
 

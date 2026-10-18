@@ -66,6 +66,7 @@ struct SettingsContent: View {
             .padding()
             .onChange(of: notificationsEnabled) { _, on in
                 NotificationManager.refresh(catches: catches, enabled: on)
+                BattleRoster.shared.refreshNotifications(from: catches)
             }
 
             Divider().padding(.leading, 56)

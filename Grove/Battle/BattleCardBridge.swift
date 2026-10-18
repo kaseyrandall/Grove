@@ -107,6 +107,8 @@ struct Contender: Identifiable {
     var type: BattleType
     var archetype: Archetype
     var photoData: Data?
+    /// The animal a wild rival is (drawn with its art in the replay).
+    var speciesID: String? = nil
 
     func card(level: Int) -> BattleCard {
         BattleCard(name: name, type: type, archetype: archetype, level: level)
@@ -117,6 +119,42 @@ struct Contender: Identifiable {
                   type: BattleType(habitat: c.effectiveZone),
                   archetype: .derived(fromSpeciesID: c.speciesID),
                   photoData: c.photoData)
+    }
+
+    /// A wild rival for a friend at `level`: a real animal from the catalog
+    /// (rarer ones turn up more as you climb), within a level or two of
+    /// yours, fighting the way its kind does. Deterministic from the seed.
+    static func rival(near level: Int, avoiding name: String, seed: UInt64) -> (contender: Contender, level: Int) {
+        var rng = SeededRNG(seed: seed ^ 0x9E3779B97F4A7C15)
+        // Usually even, sometimes a step up or down, now and then a stretch.
+        let offsets = [-1, 0, 0, 0, 1, 1, 2]
+        let offset = offsets[min(offsets.count - 1, Int(rng.unit() * Double(offsets.count)))]
+        let rivalLevel = min(max(level + offset, 1), BattleRoster.maxLevel)
+
+        let climb = Double(min(level, 20)) / 20 // 0 at Lv 1 … 1 at Lv 20+
+        func weight(_ r: Rarity) -> Double {
+            switch r {
+            case .common:    return 10 - 4 * climb
+            case .uncommon:  return 6
+            case .rare:      return 2 + 3 * climb
+            case .epic:      return 0.6 + 2 * climb
+            case .legendary: return 0.1 + 0.9 * climb
+            }
+        }
+        let pool = CreatureCatalog.all.filter { "Wild \($0.name)" != name }
+        let total = pool.reduce(0) { $0 + weight($1.rarity) }
+        var pick = rng.unit() * total
+        var species = pool.last!
+        for s in pool {
+            pick -= weight(s.rarity)
+            if pick <= 0 { species = s; break }
+        }
+        let rival = Contender(name: "Wild \(species.name)",
+                              type: BattleType(habitat: species.zone),
+                              archetype: .derived(fromSpeciesID: species.id),
+                              photoData: nil,
+                              speciesID: species.id)
+        return (rival, rivalLevel)
     }
 
     /// A generated stand-in when the player has no second friend to face yet.

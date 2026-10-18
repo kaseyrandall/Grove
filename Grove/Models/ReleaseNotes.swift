@@ -17,7 +17,7 @@ struct ReleaseNotes: Identifiable, Equatable {
 
     /// Places a notification can open.
     enum Destination: String {
-        case fieldGuide, profile, settings
+        case fieldGuide, profile, settings, arena
     }
 
     /// Marketing version, e.g. "1.2".

@@ -46,16 +46,22 @@ enum NotificationManager {
 
     /// A one-off "your fighter's match is done" ping, fired when an away match
     /// resolves. Best-effort: silently no-ops without notification permission.
-    static func scheduleMatchResult(id: String, friendName: String, at date: Date) {
-        let interval = date.timeIntervalSinceNow
+    /// Follows the Reminders switch and quiet hours (a match that ends at
+    /// night waits for the morning); tapping it opens the Arena.
+    static func scheduleMatchResult(id: String, friendName: String, at date: Date,
+                                    calendar: Calendar = .current) {
+        guard UserDefaults.standard.object(forKey: remindersEnabledKey) as? Bool ?? true else { return }
+        let when = nextDaytime(after: date, calendar: calendar) ?? date
+        let interval = when.timeIntervalSinceNow
         guard interval > 0.5 else { return }
         center.getNotificationSettings { settings in
             switch settings.authorizationStatus {
             case .authorized, .provisional, .ephemeral:
                 let content = UNMutableNotificationContent()
-                content.title = "\(friendName)'s match is done"
+                content.title = "\(friendName)'s match is done 🏆"
                 content.body = "Come see how it went in the Arena."
                 content.sound = .default
+                content.userInfo = TapAction.open(.arena).userInfo
                 let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)
                 center.add(UNNotificationRequest(identifier: id, content: content, trigger: trigger))
             default:
@@ -157,6 +163,19 @@ enum NotificationManager {
 
     static func cancelMatchResult(id: String) {
         center.removePendingNotificationRequests(withIdentifiers: [id])
+    }
+
+    /// The Reminders switch in Settings.
+    static let remindersEnabledKey = "notificationsEnabled"
+
+    /// Re-plan every Arena "match is done" ping (when Reminders is switched):
+    /// clear them all, then schedule the ones still to come if it's on.
+    static func refreshMatchResults(_ matches: [(id: String, friendName: String, date: Date)]) {
+        center.getPendingNotificationRequests { requests in
+            let old = requests.map(\.identifier).filter { $0.hasPrefix("grove.bg.") }
+            center.removePendingNotificationRequests(withIdentifiers: old)
+            for m in matches { scheduleMatchResult(id: m.id, friendName: m.friendName, at: m.date) }
+        }
     }
 
     /// Clear everything (e.g. when the player turns reminders off).

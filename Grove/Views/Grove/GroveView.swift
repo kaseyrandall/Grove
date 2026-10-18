@@ -39,9 +39,11 @@ struct GroveView: View {
     /// The open Duo in landscape: the Grove lays out as a two-page spread.
     @Environment(\.groveIsSpread) private var isSpread
     @Environment(\.groveFoldX) private var foldX
+    /// Opens the Arena when a "match is done" notification is tapped.
+    @State private var openArena = false
+    @ObservedObject private var router = AppRouter.shared
     #if DEBUG
     @State private var debugFriend: Catch?
-    @State private var debugArena = false
     #endif
 
     var body: some View {
@@ -107,13 +109,15 @@ struct GroveView: View {
             // own title (see `PageTitle`).
             .navigationTitle("Your Grove")
             .toolbar(.hidden, for: .navigationBar)
+            .navigationDestination(isPresented: $openArena) { BattlegroundsView() }
+            .onAppear { openArenaIfAsked(router.pending) }
+            .onChange(of: router.pending) { _, place in openArenaIfAsked(place) }
             #if DEBUG
             // Test hook: `-GroveOpenFriend` opens your rarest friend's page on launch.
             .navigationDestination(item: $debugFriend) { GuideEntryView(friend: $0) }
             // Test hook: `-GroveOpenArena` opens Battlegrounds on launch.
-            .navigationDestination(isPresented: $debugArena) { BattlegroundsView() }
             .onAppear {
-                if ProcessInfo.processInfo.arguments.contains("-GroveOpenArena") { debugArena = true }
+                if ProcessInfo.processInfo.arguments.contains("-GroveOpenArena") { openArena = true }
             }
             .task {
                 guard ProcessInfo.processInfo.arguments.contains("-GroveOpenFriend") else { return }
@@ -296,6 +300,12 @@ struct GroveView: View {
                 .delay(0.1 + Double(item.index) * 0.07),
                 value: shown
             )
+    }
+
+    private func openArenaIfAsked(_ place: ReleaseNotes.Destination?) {
+        guard place == .arena else { return }
+        router.pending = nil
+        openArena = true
     }
 
     #if DEBUG

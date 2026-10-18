@@ -166,7 +166,12 @@ struct BattlegroundsView: View {
                 TeamStatusCard(friend: f, progress: p, state: .away(roster.awayRemaining(f)))
                 #endif
             } else if roster.isResting(f) {
+                #if DEBUG
+                TeamStatusCard(friend: f, progress: p, state: .resting(roster.restRemaining(f)),
+                               devResolve: { roster.devWake(f) })
+                #else
                 TeamStatusCard(friend: f, progress: p, state: .resting(roster.restRemaining(f)))
+                #endif
             } else {
                 NavigationLink { LazyView { FighterCardView(friend: f) } } label: {
                     TeamStatusCard(friend: f, progress: p, state: .ready)
@@ -180,7 +185,7 @@ struct BattlegroundsView: View {
 
     @ViewBuilder private func resultReplay(for c: Catch) -> some View {
         if let r = roster.replayResult(for: c) {
-            ArenaReplayView(result: r, portraits: [BattlePortrait(friend: c), .none])
+            ArenaReplayView(result: r, portraits: [BattlePortrait(friend: c), roster.rivalPortrait(for: c)])
                 .onAppear { roster.markWatched(c) }
         }
     }
@@ -211,7 +216,7 @@ struct BattlegroundsView: View {
                         NavigationLink {
                             LazyView {
                                 ArenaReplayView(result: rec.replay(),
-                                                portraits: [BattlePortrait(friend: roster.friend(for: rec, in: catches)), .none])
+                                                portraits: [BattlePortrait(friend: roster.friend(for: rec, in: catches)), rec.rivalPortrait])
                             }
                         } label: {
                             HistoryRow(record: rec, friend: roster.friend(for: rec, in: catches))
@@ -444,18 +449,7 @@ private struct TeamStatusCard: View {
         case .away(let t):
             HStack(spacing: 8) {
                 pill(text: "In a match · \(mmss(t))", color: Color(hex: 0x5FC7D6), dot: true)
-                #if DEBUG
-                if let devResolve {
-                    Button(action: devResolve) {
-                        Image(systemName: "forward.end.fill")
-                            .arenaFont(11, .bold)
-                            .foregroundStyle(BattleTheme.muted)
-                            .padding(6)
-                            .background(Circle().stroke(BattleTheme.panelLine, lineWidth: 1))
-                    }
-                    .buttonStyle(.plain)
-                }
-                #endif
+                devSkipButton
             }
         case .resultReady:
             HStack(spacing: 5) {
@@ -467,8 +461,27 @@ private struct TeamStatusCard: View {
             .padding(.horizontal, 12).padding(.vertical, 8)
             .background(Capsule().fill(BattleTheme.gold))
         case .resting(let t):
-            pill(text: "Resting \(mmss(t))", color: BattleTheme.gold, dot: true)
+            HStack(spacing: 8) {
+                pill(text: "Resting \(mmss(t))", color: BattleTheme.gold, dot: true)
+                devSkipButton
+            }
         }
+    }
+
+    /// Dev: skip the wait (finish the match, or wake from the nap).
+    @ViewBuilder private var devSkipButton: some View {
+        #if DEBUG
+        if let devResolve {
+            Button(action: devResolve) {
+                Image(systemName: "forward.end.fill")
+                    .arenaFont(11, .bold)
+                    .foregroundStyle(BattleTheme.muted)
+                    .padding(6)
+                    .background(Circle().stroke(BattleTheme.panelLine, lineWidth: 1))
+            }
+            .buttonStyle(.plain)
+        }
+        #endif
     }
 
     private func pill(text: String, color: Color, dot: Bool) -> some View {
@@ -537,7 +550,6 @@ struct FighterCardView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var seed: UInt64
-    @State private var opponent: Contender
     @State private var showPlan = false
     @State private var dispatching = false
 
@@ -547,9 +559,7 @@ struct FighterCardView: View {
 
     init(friend: Catch) {
         self.friend = friend
-        let s = UInt64.random(in: 0 ..< UInt64.max)
-        _seed = State(initialValue: s)
-        _opponent = State(initialValue: .wildRival(seed: s))
+        _seed = State(initialValue: UInt64.random(in: 0 ..< UInt64.max))
     }
 
     var body: some View {
@@ -632,10 +642,12 @@ struct FighterCardView: View {
     private var sendButton: some View {
         Button {
             let plan = roster.storedPlan(for: friend, archetype: contender.archetype)
+            let rival = Contender.rival(near: level, avoiding: contender.name, seed: seed)
             let r = simulate(contender.card(level: level), plan.battlePlan,
-                             vs: opponent.card(level: level), .defaultPlan(for: opponent.archetype),
+                             vs: rival.contender.card(level: rival.level), .defaultPlan(for: rival.contender.archetype),
                              seed: seed)
-            roster.send(friend, opponent: opponent, level: level, plan: plan, seed: seed, result: r)
+            roster.send(friend, opponent: rival.contender, opponentLevel: rival.level, level: level,
+                        plan: plan, seed: seed, result: r)
             withAnimation(.easeInOut(duration: 0.25)) { dispatching = true }
             Task { @MainActor in
                 try? await Task.sleep(for: .milliseconds(1500))

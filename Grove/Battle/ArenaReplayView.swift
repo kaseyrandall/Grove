@@ -155,6 +155,15 @@ struct ArenaReplayView: View {
                 Text("Lv\(f.level)")
                     .arenaFont(11, .bold, .rounded)
                     .foregroundStyle(BattleTheme.muted)
+                    .fixedSize()
+                Spacer(minLength: 0)
+            }
+            // The habitat sits with the playstyle so long names
+            // ("Wild Salamander") keep the whole top line.
+            HStack(spacing: 7) {
+                Text(f.archetype.rawValue.capitalized)
+                    .arenaFont(10.5, .bold, .rounded)
+                    .foregroundStyle(BattleTheme.muted)
                 Spacer(minLength: 4)
                 Text(f.type.rawValue.uppercased())
                     .arenaFont(9, .heavy, .rounded)
@@ -163,9 +172,6 @@ struct ArenaReplayView: View {
                     .padding(.horizontal, 7).padding(.vertical, 3)
                     .background(Capsule().fill(f.type.color))
             }
-            Text(f.archetype.rawValue.capitalized)
-                .arenaFont(10.5, .bold, .rounded)
-                .foregroundStyle(BattleTheme.muted)
 
             hpBar(frac: frac)
             Text("\(max(0, hp[side])) / \(f.maxHP)")

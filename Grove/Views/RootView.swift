@@ -181,7 +181,11 @@ struct RootView: View {
         .onChange(of: router.pending) { _, place in
             guard let place, hasOnboarded else { return }
             withAnimation(.easeInOut(duration: 0.22)) {
-                selection = place == .fieldGuide ? .journal : .profile
+                switch place {
+                case .fieldGuide: selection = .journal
+                case .arena:      selection = .grove
+                default:          selection = .profile
+                }
             }
         }
         .onAppear { handleQuickAction() } // catch a cold-launch shortcut
