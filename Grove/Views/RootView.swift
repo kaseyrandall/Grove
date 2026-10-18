@@ -164,6 +164,7 @@ struct RootView: View {
                 handleQuickAction() // a warm-launch shortcut may be waiting
             case .background:
                 AppUpdates.scheduleBackgroundRefresh()
+                WidgetSnapshotWriter.refresh(catches: catches) // favorites may have changed
             default:
                 break
             }
@@ -298,6 +299,7 @@ struct RootView: View {
 
     private func refreshReminders() {
         NotificationManager.refresh(catches: catches, enabled: notificationsEnabled)
+        WidgetSnapshotWriter.refresh(catches: catches)
     }
 
     /// Whether a step's target is on-screen enough to point at. `.snap` is
