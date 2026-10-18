@@ -91,7 +91,7 @@ struct EditFriendView: View {
                     if let data = friend.photoData, let ui = UIImage(data: data) {
                         FriendPhoto(image: ui, framing: framing)
                     } else {
-                        Text(species.emoji).font(.system(size: 64))
+                        SpeciesGlyph(species: species, size: 64)
                     }
                 }
             }
@@ -285,7 +285,7 @@ struct SpeciesTile: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 6) {
-                Text(species.emoji).font(.system(size: 30))
+                SpeciesGlyph(species: species, size: 30)
                 Text(species.name)
                     .font(.system(.caption, design: .rounded, weight: .semibold))
                     .foregroundStyle(Theme.ink)

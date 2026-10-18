@@ -30,8 +30,7 @@ struct FriendAnimalSection: View {
             FriendSectionLabel(text: "Animal")
             Button(action: action) {
                 HStack(spacing: 12) {
-                    Text(isMystery ? "❓" : species.emoji)
-                        .font(.system(size: 22))
+                    SpeciesGlyph(species: isMystery ? .mystery : species, size: 22)
                     VStack(alignment: .leading, spacing: 1) {
                         Text(isMystery ? "Choose your friend" : species.name)
                             .font(.system(.body, design: .rounded, weight: .bold))

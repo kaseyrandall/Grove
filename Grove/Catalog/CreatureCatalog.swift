@@ -88,6 +88,14 @@ enum CreatureCatalog {
                 blurb: "Gorgeous stripes. Admire from a respectful distance.",
                 habitatNote: "Backyards at dusk",
                 matchKeywords: ["skunk", "polecat"]),
+        // No opossum emoji exists, so it has its own art; 🐾 stands in
+        // wherever art can't go (titles, lines of text).
+        Species(id: "opossum", name: "Opossum", emoji: "🐾",
+                rarity: .uncommon, zone: .garden,
+                blurb: "Plays dead when nervous, eats ticks when not. A true backyard hero.",
+                habitatNote: "Fences & yards at night",
+                matchKeywords: ["opossum", "possum"],
+                art: "species-opossum"),
 
         // MARK: The Pond — freshwater regulars
         Species(id: "fish", name: "Fish", emoji: "🐟",

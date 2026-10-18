@@ -134,6 +134,6 @@ enum Habitat: String, CaseIterable, Codable, Identifiable {
         // Emoji are shared by some kinds (several birds are 🐦), so skip
         // repeats — three identical bubbles would read as one hint.
         var seen = Set<String>()
-        return Array(rotated.filter { seen.insert($0.emoji).inserted }.prefix(count))
+        return Array(rotated.filter { seen.insert($0.art ?? $0.emoji).inserted }.prefix(count))
     }
 }

@@ -146,8 +146,7 @@ private struct GuideTile: View {
     var body: some View {
         Button(action: onTap) {
             VStack(spacing: 6) {
-                Text(species.emoji)
-                    .font(.system(size: 34))
+                SpeciesGlyph(species: species, size: 34)
                     .grayscale(met ? 0 : 1)
                     .opacity(met ? 1 : 0.45)
                 Text(species.name)
@@ -253,8 +252,7 @@ private struct SpeciesPage: View {
                     if let ui = heroImage {
                         Image(uiImage: ui).resizable().scaledToFill()
                     } else {
-                        Text(species.emoji)
-                            .font(.system(size: 92))
+                        SpeciesGlyph(species: species, size: 92)
                             .grayscale(met ? 0 : 1)
                             .opacity(met ? 1 : 0.45)
                     }
@@ -312,8 +310,7 @@ private struct SpeciesGuideSheet: View {
                     Circle()
                         .fill(met ? species.rarity.tint.opacity(0.5) : Theme.ink.opacity(0.06))
                         .frame(width: 96, height: 96)
-                    Text(species.emoji)
-                        .font(.system(size: 48))
+                    SpeciesGlyph(species: species, size: 48)
                         .grayscale(met ? 0 : 1)
                         .opacity(met ? 1 : 0.45)
                 }

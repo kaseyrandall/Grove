@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <radialGradient id="ear" cx="0.4" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#5E5964"/><stop offset="1" stop-color="#232027"/>
+    </radialGradient>
+    <radialGradient id="earIn" cx="0.45" cy="0.4" r="0.7">
+      <stop offset="0" stop-color="#F9C2CE"/><stop offset="1" stop-color="#D9798F"/>
+    </radialGradient>
+    <radialGradient id="head" cx="0.42" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#FFFFFF"/><stop offset="0.55" stop-color="#F4F0F2"/><stop offset="1" stop-color="#C9C0C7"/>
+    </radialGradient>
+    <linearGradient id="under" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0.55" stop-color="#B8AEB6" stop-opacity="0"/><stop offset="1" stop-color="#B8AEB6" stop-opacity="0.55"/>
+    </linearGradient>
+    <linearGradient id="crown" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#9D95A0"/><stop offset="0.7" stop-color="#B4ACB6" stop-opacity="0.6"/><stop offset="1" stop-color="#C8C1C9" stop-opacity="0"/>
+    </linearGradient>
+    <radialGradient id="eye" cx="0.35" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#3C3842"/><stop offset="1" stop-color="#0C0A0F"/>
+    </radialGradient>
+    <radialGradient id="patch" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0.5" stop-color="#857D88" stop-opacity="0.5"/><stop offset="1" stop-color="#857D88" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="nose" cx="0.4" cy="0.3" r="0.8">
+      <stop offset="0" stop-color="#FFB8C8"/><stop offset="1" stop-color="#D95A82"/>
+    </radialGradient>
+    <radialGradient id="cheek" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F6A3B6" stop-opacity="0.5"/><stop offset="1" stop-color="#F6A3B6" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="headClip">
+      <path d="M64 30 C 93 30 111 46 109 64 C 107 80 88 93 77 106 C 72 112 56 112 51 106 C 40 93 21 80 19 64 C 17 46 35 30 64 30 Z"/>
+    </clipPath>
+  </defs>
+  <g transform="translate(64 68) scale(1.16) translate(-64 -70)">
+    <g transform="rotate(-18 33 37)">
+      <ellipse cx="33" cy="37" rx="17" ry="20" fill="url(#ear)"/>
+      <ellipse cx="34" cy="39" rx="10" ry="13" fill="url(#earIn)"/>
+    </g>
+    <g transform="rotate(18 95 37)">
+      <ellipse cx="95" cy="37" rx="17" ry="20" fill="url(#ear)"/>
+      <ellipse cx="94" cy="39" rx="10" ry="13" fill="url(#earIn)"/>
+    </g>
+    <path d="M64 30 C 93 30 111 46 109 64 C 107 80 88 93 77 106 C 72 112 56 112 51 106 C 40 93 21 80 19 64 C 17 46 35 30 64 30 Z" fill="url(#head)"/>
+    <g clip-path="url(#headClip)">
+      <rect x="0" y="30" width="128" height="84" fill="url(#under)"/>
+      <path d="M64 28 C 75 28 78 38 72 54 C 69 61 59 61 56 54 C 50 38 53 28 64 28 Z" fill="url(#crown)"/>
+    </g>
+    <ellipse cx="45" cy="64" rx="12" ry="9" transform="rotate(25 45 64)" fill="url(#patch)"/>
+    <ellipse cx="83" cy="64" rx="12" ry="9" transform="rotate(-25 83 64)" fill="url(#patch)"/>
+    <ellipse cx="46" cy="64.5" rx="6" ry="7" fill="url(#eye)"/>
+    <ellipse cx="82" cy="64.5" rx="6" ry="7" fill="url(#eye)"/>
+    <circle cx="48.3" cy="61.6" r="2.1" fill="#FFFFFF"/>
+    <circle cx="84.3" cy="61.6" r="2.1" fill="#FFFFFF"/>
+    <ellipse cx="38" cy="81" rx="9" ry="6" fill="url(#cheek)"/>
+    <ellipse cx="90" cy="81" rx="9" ry="6" fill="url(#cheek)"/>
+    <g stroke="#A79EA8" stroke-width="0.9" stroke-linecap="round" fill="none" opacity="0.8">
+      <path d="M54 99 C 44 96 34 96 24 99"/><path d="M54 102 C 44 102 35 104 27 108"/>
+      <path d="M74 99 C 84 96 94 96 104 99"/><path d="M74 102 C 84 102 93 104 101 108"/>
+    </g>
+    <ellipse cx="64" cy="104" rx="10" ry="7" fill="url(#nose)"/>
+    <ellipse cx="60.5" cy="101.5" rx="3.4" ry="1.8" fill="#FFFFFF" opacity="0.75"/>
+  </g>
+</svg>

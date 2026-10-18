@@ -16,6 +16,10 @@ struct Species: Identifiable, Hashable {
     /// "kitten", "feline" for a cat), so a player who types a synonym still
     /// finds it. Purely a search aid — keep these simple.
     let matchKeywords: [String]
+    /// Custom art in the asset catalog, for kinds with no emoji (the
+    /// opossum…). Drawn by `SpeciesGlyph`; `emoji` stays as the stand-in
+    /// wherever art can't go, like inside a line of text.
+    var art: String? = nil
 
     /// The friendly placeholder every catch starts as, until the player picks
     /// which friend it is — so a snap is *always* rewarding, even before it's

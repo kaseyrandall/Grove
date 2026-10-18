@@ -152,8 +152,7 @@ struct MapPin: View {
     let species: Species
 
     var body: some View {
-        Text(species.emoji)
-            .font(.system(size: 22))
+        SpeciesGlyph(species: species, size: 22)
             .padding(8)
             .background(
                 Circle()
@@ -191,7 +190,7 @@ struct ClusterBubble: View {
             if let data = c.photoData, let ui = UIImage(data: data) {
                 FriendPhoto(image: ui, framing: c.framing).clipShape(Circle()).padding(3)
             } else {
-                Text(c.species.emoji).font(.system(size: 18))
+                SpeciesGlyph(species: c.species, size: 18)
             }
         }
         .frame(width: 40, height: 40)
@@ -247,7 +246,7 @@ struct MapFriendRow: View {
                 if let data = friend.photoData, let ui = UIImage(data: data) {
                     FriendPhoto(image: ui, framing: friend.framing).clipShape(Circle()).padding(2)
                 } else {
-                    Text(friend.species.emoji).font(.system(size: 22))
+                    SpeciesGlyph(species: friend.species, size: 22)
                 }
             }
             .frame(width: 46, height: 46)
@@ -339,7 +338,7 @@ struct MapSidePanel: View {
                         if let data = friend.photoData, let ui = UIImage(data: data) {
                             FriendPhoto(image: ui, framing: friend.framing)
                         } else {
-                            Text(species.emoji).font(.system(size: 72))
+                            SpeciesGlyph(species: species, size: 72)
                         }
                     }
                 }

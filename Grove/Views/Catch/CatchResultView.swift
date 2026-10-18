@@ -277,7 +277,7 @@ struct CatchResultView: View {
                         correct(to: candidate)
                     } label: {
                         VStack(spacing: 4) {
-                            Text(candidate.emoji).font(.system(size: 28))
+                            SpeciesGlyph(species: candidate, size: 28)
                             Text(candidate.name)
                                 .font(.system(.caption, design: .rounded, weight: .semibold))
                                 .foregroundStyle(Theme.ink)
@@ -374,8 +374,7 @@ struct CatchResultView: View {
                 .padding(12)
             }
             .overlay(alignment: .bottomTrailing) {
-                Text(species.emoji)
-                    .font(.system(size: 40))
+                SpeciesGlyph(species: species, size: 40)
                     .padding(8)
                     .background(Circle().fill(.white))
                     .offset(x: -4, y: 14) // inside the edge now the photo is full width
@@ -542,7 +541,7 @@ struct Confetti: View {
     /// A shuffled handful of real catalog animal emoji, dotted with sparkles,
     /// for the "friend found!" moment before it's been identified.
     private static func randomAnimalPieces() -> [String] {
-        let animals = CreatureCatalog.all.map(\.emoji).shuffled().prefix(9)
+        let animals = CreatureCatalog.all.filter { $0.art == nil }.map(\.emoji).shuffled().prefix(9)
         return Array(animals) + ["✨", "🎉", "⭐️"]
     }
 

@@ -77,7 +77,7 @@ private struct FriendThumb<S: Shape>: View {
                 FriendPhoto(image: ui, framing: friend.framing)
                     .clipShape(shape)
             } else {
-                Text(friend.species.emoji).font(.system(size: emojiSize))
+                SpeciesGlyph(species: friend.species, size: emojiSize)
             }
         }
     }

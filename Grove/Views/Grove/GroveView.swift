@@ -373,8 +373,7 @@ struct GroveView: View {
                 .foregroundStyle(Theme.ink)
             HStack(spacing: 8) {
                 ForEach(easyFinds) { species in
-                    Text(species.emoji)
-                        .font(.system(size: 22))
+                    SpeciesGlyph(species: species, size: 22)
                         .frame(width: 40, height: 40)
                         .background(Circle().fill(Theme.cream))
                 }
@@ -600,8 +599,7 @@ private struct VisitorHint: View {
     @State private var floating = false
 
     var body: some View {
-        Text(species.emoji)
-            .font(.system(size: 20))
+        SpeciesGlyph(species: species, size: 20)
             .opacity(0.75)
             .frame(width: 38, height: 38)
             .background(Circle().fill(.white.opacity(0.45)))
@@ -640,7 +638,7 @@ struct ResidentPortrait: View {
                     .clipShape(Circle())
                     .padding(3)
             } else {
-                Text(friend.species.emoji).font(.system(size: 26))
+                SpeciesGlyph(species: friend.species, size: 26)
             }
         }
         .frame(width: 56, height: 56)
@@ -649,8 +647,7 @@ struct ResidentPortrait: View {
         // Skipped when there's no photo, since the avatar is already the emoji.
         .overlay(alignment: .bottomTrailing) {
             if friend.photoData != nil {
-                Text(friend.species.emoji)
-                    .font(.system(size: 13))
+                SpeciesGlyph(species: friend.species, size: 13)
                     .frame(width: 22, height: 22)
                     .background(Circle().fill(.white))
                     .overlay(Circle().stroke(friend.species.rarity.tint.opacity(0.6), lineWidth: 1.5))

@@ -175,8 +175,7 @@ struct GuideEntryView: View {
                     if let ui = heroImage {
                         FriendPhoto(image: ui, framing: friend.framing)
                     } else {
-                        Text(species.emoji)
-                            .font(.system(size: 92))
+                        SpeciesGlyph(species: species, size: 92)
                     }
                 }
             }
