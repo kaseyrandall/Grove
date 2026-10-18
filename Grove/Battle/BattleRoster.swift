@@ -147,6 +147,11 @@ final class BattleRoster {
     static let teamKey = "bg.team"
     static let historyKey = "bg.history"
     static let trophiesKey = "bg.trophies"
+    /// First-run: the intro was seen; the Get set up checklist was finished
+    /// (or dismissed); the quick first match was used.
+    static let introSeenKey = "bg.introSeen"
+    static let setupDoneKey = "bg.setupDone"
+    static let firstMatchKey = "bg.firstMatchSent"
     /// The pre-sync blob, moved onto friends by `prepare(with:)`.
     private let legacyKey = "bg.roster.v1"
 
@@ -269,7 +274,11 @@ final class BattleRoster {
         let me = Contender.from(c)
         let maxHP = Double(max(1, result.fighters[0].maxHP))
         let endHP = Double(max(0, result.events.last?.hpAfter.first ?? result.fighters[0].maxHP))
-        let resolvesAt = Date().addingTimeInterval(awaySeconds)
+        // A brand-new player's first match is quick (a minute), so they see
+        // how it works right away.
+        let firstEver = history.isEmpty && trophies.matches == 0 && !defaults.bool(forKey: Self.firstMatchKey)
+        defaults.set(true, forKey: Self.firstMatchKey)
+        let resolvesAt = Date().addingTimeInterval(firstEver ? min(awaySeconds, 60) : awaySeconds)
         update(c) { s in
             s.pending = PendingMatch(seed: seed, level: level, plan: plan,
                                      fighter: FighterSnapshot(name: me.name, type: me.type, archetype: me.archetype),
@@ -443,6 +452,7 @@ final class BattleRoster {
         team = []
         history = []
         trophies = TrophyLedger()
+        for key in [Self.introSeenKey, Self.setupDoneKey, Self.firstMatchKey] { defaults.removeObject(forKey: key) }
         saveShared()
     }
 

@@ -19,6 +19,9 @@ struct BattlegroundsView: View {
     @Query(sort: \Catch.caughtAt, order: .reverse) private var catches: [Catch]
     @State private var tab = 0
     @State private var showPromote = false
+    @State private var showIntro = false
+    @AppStorage(BattleRoster.introSeenKey) private var introSeen = false
+    @AppStorage(BattleRoster.setupDoneKey) private var setupDone = false
 
     private var roster: BattleRoster { .shared }
     private var team: [(friend: Catch, progress: BattleRoster.Progress)] {
@@ -50,8 +53,35 @@ struct BattlegroundsView: View {
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
         .groveTabBarHidden()
+        .toolbar {
+            if tab == 0 {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button { showIntro = true } label: { Image(systemName: "info.circle") }
+                        .tint(BattleTheme.ink)
+                        .accessibilityLabel("How the Arena works")
+                }
+            }
+        }
+        .fullScreenCover(isPresented: $showIntro) {
+            ArenaIntroView(friends: introFriends,
+                           featured: introFriends.first.map { BattleType(habitat: $0.effectiveZone) } ?? .meadow,
+                           finishTitle: team.isEmpty ? "Build my team" : "Let's go") {
+                let firstTime = !introSeen
+                introSeen = true
+                showIntro = false
+                // Straight into picking a first fighter.
+                if firstTime && team.isEmpty {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) { showPromote = true }
+                }
+            }
+        }
         .onAppear {
             roster.prepare(with: catches)
+            if !introSeen {
+                // Someone already playing doesn't need the checklist.
+                if setup.isComplete { setupDone = true }
+                showIntro = true
+            }
             #if DEBUG
             // Test hooks: `-GroveArenaTrophies` opens on Trophies;
             // `-GroveSampleTrophies` fills in a few days of play.
@@ -79,13 +109,21 @@ struct BattlegroundsView: View {
                                 .offset(x: 16, y: -12)
                                 .accessibilityHidden(true)
                         }
-                    scoreboard
+                    if !setupDone {
+                        SetupChecklist(setup: setup) { withAnimation { setupDone = true } }
+                    }
+                    // A 0–0 scoreboard means nothing yet; it appears after the
+                    // first result.
+                    if setupDone || !seenHistory.isEmpty { scoreboard }
                     groupLabel("Your team", detail: "\(team.count) / \(roster.maxSlots)")
                     // Three friends side by side, like a party lineup.
                     HStack(alignment: .top, spacing: 9) {
                         ForEach(0..<roster.maxSlots, id: \.self) { i in
                             slot(i).frame(maxWidth: .infinity)
                         }
+                    }
+                    if !setupDone, let tip = coachTip {
+                        CoachTip(title: tip.title, detail: tip.detail)
                     }
                     if let last = seenHistory.first {
                         groupLabel("Last match")
@@ -104,6 +142,58 @@ struct BattlegroundsView: View {
                 .padding()
             }
         }
+    }
+
+    // MARK: Getting started
+
+    /// Friends for the intro's first screen: the team, else the Grove's
+    /// rarest friends with photos.
+    private var introFriends: [Catch] {
+        if !team.isEmpty { return team.map(\.friend) }
+        let withPhotos = catches.filter { $0.photoData != nil }
+        let pool = (withPhotos.isEmpty ? catches : withPhotos).sorted { $0.species.rarity > $1.species.rarity }
+        // Three different habitats when possible, so the colors vary.
+        var picks: [Catch] = []
+        for c in pool where !picks.contains(where: { $0.effectiveZone == c.effectiveZone }) {
+            picks.append(c)
+            if picks.count == 3 { break }
+        }
+        for c in pool where picks.count < 3 && !picks.contains(where: { $0 === c }) { picks.append(c) }
+        return picks
+    }
+
+    private var setup: ArenaSetup {
+        let members = team.map(\.friend)
+        let sentNow = members.contains { roster.isAway($0) || roster.hasUnwatchedResult($0) }
+        return ArenaSetup(picked: !team.isEmpty || !roster.matchHistory().isEmpty,
+                          sent: sentNow || !roster.matchHistory().isEmpty,
+                          watched: !seenHistory.isEmpty,
+                          fullTeam: team.count >= roster.maxSlots)
+    }
+
+    /// What to tap next, while getting set up.
+    private var coachTip: (title: String, detail: String?)? {
+        let s = setup
+        let members = team.map(\.friend)
+        if !s.picked {
+            return ("Tap an open slot", "Pick your first fighter from your Grove.")
+        }
+        if !s.sent, let f = members.first(where: { roster.canSend($0) }) {
+            return ("Tap Ready to send \(f.displayName)", "Your first match is quick: back in a minute.")
+        }
+        if !s.watched {
+            if let f = members.first(where: { roster.hasUnwatchedResult($0) }) {
+                return ("Tap Watch to see how \(f.displayName) did", nil)
+            }
+            if let f = members.first(where: { roster.isAway($0) }) {
+                return ("\(f.displayName) is in a match", "Back in \(mmss(roster.awayRemaining(f))). Stay here or come back later.")
+            }
+        }
+        if !s.fullTeam {
+            let left = roster.maxSlots - team.count
+            return ("Add \(left) more friend\(left == 1 ? "" : "s")", "Tap an open slot to fill your team of three.")
+        }
+        return nil
     }
 
     // MARK: Scoreboard (record · streak · power)
