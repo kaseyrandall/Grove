@@ -28,6 +28,7 @@ struct SettingsContent: View {
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("locationTaggingEnabled") private var locationTaggingEnabled = true
     @AppStorage("notificationsEnabled") private var notificationsEnabled = true
+    @AppStorage(NotificationManager.memoriesEnabledKey) private var memoriesEnabled = true
     @AppStorage(AppUpdates.alertsEnabledKey) private var updateAlertsEnabled = true
     @ObservedObject private var updates = AppUpdates.shared
     @Environment(\.openURL) private var openURL
@@ -64,11 +65,18 @@ struct SettingsContent: View {
             .tint(Theme.accent)
             .padding()
             .onChange(of: notificationsEnabled) { _, on in
-                if on {
-                    NotificationManager.refresh(catches: catches, enabled: true)
-                } else {
-                    NotificationManager.cancelAll()
-                }
+                NotificationManager.refresh(catches: catches, enabled: on)
+            }
+
+            Divider().padding(.leading, 56)
+
+            Toggle(isOn: $memoriesEnabled) {
+                settingLabel("Memories", systemImage: "heart.text.square.fill")
+            }
+            .tint(Theme.accent)
+            .padding()
+            .onChange(of: memoriesEnabled) { _, _ in
+                NotificationManager.refresh(catches: catches, enabled: notificationsEnabled)
             }
 
             Divider().padding(.leading, 56)

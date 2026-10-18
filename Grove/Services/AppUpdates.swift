@@ -116,14 +116,18 @@ final class AppUpdates: ObservableObject {
         guard isUpgrade, let notes = ReleaseNotes.forVersion(current) else { return }
 
         defaults.set(current, forKey: Key.pendingWhatsNew)
-        if inBackground, alertsEnabled, defaults.string(forKey: Key.announcedInstalled) != current {
+        // One notification per version: skip this if the App Store one
+        // already told them about it.
+        if inBackground, alertsEnabled, defaults.string(forKey: Key.announcedInstalled) != current,
+           defaults.string(forKey: Key.notifiedStoreVersion) != current {
             defaults.set(current, forKey: Key.announcedInstalled)
+            // Lead with the headline feature, and open where it lives.
+            let headline = notes.items.first
             NotificationManager.postNow(
                 id: Self.newFeaturesNotificationID,
-                title: "Grove just got new features ✨",
-                body: notes.items.first.map { "\($0.emoji) \($0.title) and more. Tap to see what's new." }
-                    ?? "Tap to see what's new.",
-                action: .whatsNew)
+                title: headline.map { "\($0.emoji) \($0.title)" } ?? "Grove just got new features ✨",
+                body: headline?.detail ?? "Tap to see what's new.",
+                action: headline?.destination.map { .open($0) } ?? .whatsNew)
         }
     }
 
@@ -151,9 +155,17 @@ final class AppUpdates: ObservableObject {
         defaults.set(release.version, forKey: Key.notifiedStoreVersion)
         NotificationManager.postNow(
             id: Self.updateAvailableNotificationID,
-            title: "A new Grove is here 🌱",
-            body: "Version \(release.version) is ready on the App Store. Tap to update.",
+            title: "Grove \(release.version) is here 🌱",
+            body: Self.headline(of: release.releaseNotes) ?? "A cozy new update is ready on the App Store. Tap to update.",
             action: .openStore(release.trackViewUrl))
+    }
+
+    /// The first line of the App Store's "What's New" text, kept short.
+    private static func headline(of notes: String?) -> String? {
+        guard let line = notes?.split(whereSeparator: \.isNewline)
+            .map({ $0.trimmingCharacters(in: CharacterSet(charactersIn: " •-*")) })
+            .first(where: { !$0.isEmpty }) else { return nil }
+        return line.count > 110 ? String(line.prefix(107)) + "…" : line
     }
 
     private static func fetchStoreRelease() async -> StoreRelease? {

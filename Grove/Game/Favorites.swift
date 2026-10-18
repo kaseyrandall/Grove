@@ -28,12 +28,3 @@ enum Favorites {
         return true
     }
 }
-
-#if DEBUG
-/// "Player view": hides the developer-only bits (Battlegrounds, the test
-/// tools) so screens look the way they do in the App Store build. Long-press
-/// the version number on the Profile to bring the tools back.
-enum DevPreview {
-    static let playerViewKey = "devPlayerView"
-}
-#endif

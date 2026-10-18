@@ -18,6 +18,7 @@ struct RootView: View {
     @Environment(\.modelContext) private var context
     #endif
     @ObservedObject private var quickActions = QuickActionRouter.shared
+    @ObservedObject private var router = AppRouter.shared
     @ObservedObject private var updates = AppUpdates.shared
     @ObservedObject private var reviewPrompt = ReviewPrompt.shared
     /// Apple's own "Enjoying Grove?" rating prompt.
@@ -175,6 +176,14 @@ struct RootView: View {
             WhatsNewView(notes: notes) { updates.dismissWhatsNew() }
         }
         .onChange(of: quickActions.pending) { _, _ in handleQuickAction() }
+        // A notification asked to open somewhere: switch to its tab; the
+        // tab's page opens the screen itself (Field Guide, Settings).
+        .onChange(of: router.pending) { _, place in
+            guard let place, hasOnboarded else { return }
+            withAnimation(.easeInOut(duration: 0.22)) {
+                selection = place == .fieldGuide ? .journal : .profile
+            }
+        }
         .onAppear { handleQuickAction() } // catch a cold-launch shortcut
         #if DEBUG
         .onAppear { applyDebugLaunchArguments() }

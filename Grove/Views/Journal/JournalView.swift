@@ -8,9 +8,9 @@ struct JournalView: View {
     @Environment(\.horizontalSizeClass) private var sizeClass
     @Environment(\.groveIsSpread) private var isSpread
     @Environment(\.groveFoldX) private var foldX
-    #if DEBUG
-    @State private var debugOpenGuide = false
-    #endif
+    /// Pushes the Field Guide (a notification can ask for it, too).
+    @State private var openGuide = false
+    @ObservedObject private var router = AppRouter.shared
 
     private var stats: PlayerStats { PlayerStats(catches: catches) }
 
@@ -59,13 +59,17 @@ struct JournalView: View {
             }
             .clearsGroveTabBar()
             .navigationTitle("Journal")
-            #if DEBUG
-            // Test hook: `-GroveOpenFieldGuide` opens the Field Guide on launch.
-            .navigationDestination(isPresented: $debugOpenGuide) { FieldGuideView() }
+            .navigationDestination(isPresented: $openGuide) { FieldGuideView() }
             .onAppear {
-                if ProcessInfo.processInfo.arguments.contains("-GroveOpenFieldGuide") { debugOpenGuide = true }
+                if router.pending == .fieldGuide { router.pending = nil; openGuide = true }
+                #if DEBUG
+                // Test hook: `-GroveOpenFieldGuide` opens the Field Guide on launch.
+                if ProcessInfo.processInfo.arguments.contains("-GroveOpenFieldGuide") { openGuide = true }
+                #endif
             }
-            #endif
+            .onChange(of: router.pending) { _, place in
+                if place == .fieldGuide { router.pending = nil; openGuide = true }
+            }
         }
     }
 

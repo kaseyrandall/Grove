@@ -41,7 +41,6 @@ struct GroveView: View {
     @Environment(\.groveFoldX) private var foldX
     #if DEBUG
     @State private var debugFriend: Catch?
-    @AppStorage(DevPreview.playerViewKey) private var playerView = false
     #endif
 
     var body: some View {
@@ -65,11 +64,9 @@ struct GroveView: View {
                         }
 
                         #if DEBUG
-                        if !playerView {
-                            arenaSignpost
-                                .padding(.horizontal)
-                                .padding(.top, 12)
-                        }
+                        arenaSignpost
+                            .padding(.horizontal)
+                            .padding(.top, 12)
                         #endif
 
                         if catches.isEmpty {

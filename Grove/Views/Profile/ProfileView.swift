@@ -17,9 +17,7 @@ struct ProfileView: View {
     @State private var showLookPicker = false
     @State private var showSettings = false
     @State private var showFavoritesPicker = false
-    #if DEBUG
-    @AppStorage(DevPreview.playerViewKey) private var playerView = false
-    #endif
+    @ObservedObject private var router = AppRouter.shared
 
     /// The open Duo in landscape: the menu on the left page, the chosen
     /// section on the right.
@@ -50,10 +48,8 @@ struct ProfileView: View {
                             achievementsCard
                             privacyFooter
                             #if DEBUG
-                            if !playerView {
-                                arenaCard
-                                developerCard
-                            }
+                            arenaCard
+                            developerCard
                             #endif
                             versionLabel
                         }
@@ -79,6 +75,9 @@ struct ProfileView: View {
                 }
             }
             .navigationDestination(isPresented: $showSettings) { SettingsView() }
+            // A notification asked for Settings.
+            .onAppear { openSettingsIfAsked(router.pending) }
+            .onChange(of: router.pending) { _, place in openSettingsIfAsked(place) }
             #if DEBUG
             // Test hooks: `-GroveProfileSection settings|about` opens that
             // section; `-GroveOpenLook` opens Edit profile.
@@ -106,15 +105,19 @@ struct ProfileView: View {
         }
     }
 
+    private func openSettingsIfAsked(_ place: ReleaseNotes.Destination?) {
+        switch place {
+        case .settings: router.pending = nil; if !isSpread { showSettings = true }
+        case .profile:  router.pending = nil
+        default:        break
+        }
+    }
+
     private var versionLabel: some View {
         Text("Grove \(appVersion)")
             .font(.system(.caption2, design: .rounded))
             .foregroundStyle(Theme.ink.opacity(0.35))
             .padding(.top, 4)
-            #if DEBUG
-            // The way back from player view.
-            .onLongPressGesture { playerView = false }
-            #endif
     }
 
     // MARK: Spread (the open Duo in landscape)
@@ -415,40 +418,19 @@ struct ProfileView: View {
             .padding()
             .softCard()
 
-            Toggle(isOn: $playerView) {
-                HStack(spacing: 14) {
-                    Image(systemName: "person.fill.viewfinder")
-                        .font(.system(size: 18))
-                        .foregroundStyle(Theme.accent)
-                        .frame(width: 26)
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Player view")
-                            .font(.system(.body, design: .rounded, weight: .semibold))
-                            .foregroundStyle(Theme.ink)
-                        Text("Hides Battlegrounds and these tools, like the App Store build. Long-press the version number to come back.")
-                            .font(.system(.caption, design: .rounded))
-                            .foregroundStyle(Theme.ink.opacity(0.55))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-            .tint(Theme.accent)
-            .padding()
-            .softCard()
-
             feedbackTools
         }
     }
 
-    /// Show the update and review screens on demand.
+    /// The rating prompt and notifications on demand.
     private var feedbackTools: some View {
         VStack(spacing: 0) {
             Button { ReviewPrompt.shared.forceShow() } label: {
                 row(icon: "star.fill", title: "Ask for a rating (shows on Grove)")
             }
             Divider().padding(.leading, 56)
-            Button { AppUpdates.shared.showWhatsNew() } label: {
-                row(icon: "gift.fill", title: "Show What's New")
+            Button { NotificationManager.previewAll(catches: catches) } label: {
+                row(icon: "bell.badge.fill", title: "Preview notifications")
             }
             Divider().padding(.leading, 56)
             Button {

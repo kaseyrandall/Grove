@@ -9,7 +9,15 @@ struct ReleaseNotes: Identifiable, Equatable {
         let emoji: String
         let title: String
         let detail: String
+        /// Where tapping the update notification goes, when this is the
+        /// release's headline (first) item.
+        var destination: Destination? = nil
         var id: String { title }
+    }
+
+    /// Places a notification can open.
+    enum Destination: String {
+        case fieldGuide, profile, settings
     }
 
     /// Marketing version, e.g. "1.2".
@@ -24,9 +32,11 @@ struct ReleaseNotes: Identifiable, Equatable {
     static let all: [ReleaseNotes] = [
         ReleaseNotes(version: "1.3", items: [
             Item(emoji: "🐾", title: "Lots of new friends to meet",
-                 detail: "Opossums, chipmunks, toads, herons, moose and many more have joined the Field Guide."),
+                 detail: "Opossums, chipmunks, toads, herons, moose and many more have joined the Field Guide.",
+                 destination: .fieldGuide),
             Item(emoji: "💛", title: "A Profile that's yours",
-                 detail: "Give yourself a name, pin your three favorite friends, and see who you met lately."),
+                 detail: "Give yourself a name, pin your three favorite friends, and see who you met lately.",
+                 destination: .profile),
             Item(emoji: "🎁", title: "News when Grove updates",
                  detail: "A heads-up when a new version is out, and a peek at what's new once you update."),
             Item(emoji: "☁️", title: "iCloud backup in Settings",

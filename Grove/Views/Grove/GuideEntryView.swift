@@ -21,9 +21,6 @@ struct GuideEntryView: View {
     @State private var isRenaming = false
     @State private var showFavoritesFull = false
     @Query private var allCatches: [Catch]
-    #if DEBUG
-    @AppStorage(DevPreview.playerViewKey) private var playerView = false
-    #endif
 
     private var species: Species { friend.species }
     private var zone: Habitat { friend.effectiveZone }
@@ -50,7 +47,7 @@ struct GuideEntryView: View {
                         infoCard
                         whereYouMetCard
                         #if DEBUG
-                        if !playerView { arenaSection }
+                        arenaSection
                         #endif
                     }
                     .padding()
@@ -151,7 +148,7 @@ struct GuideEntryView: View {
                         infoCard
                         whereYouMetCard
                         #if DEBUG
-                        if !playerView { arenaSection }
+                        arenaSection
                         #endif
                     }
                     .padding(.vertical)
