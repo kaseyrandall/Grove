@@ -62,6 +62,9 @@ struct CatchView: View {
                           height: proxy.size.height + insets.top + insets.bottom)
         } action: { windowSize = $0 }
         .onChange(of: isLaptopPose) { _, _ in cancelCountdown() }
+        // The iPhone Duo's outer screen, facing the subject, while the camera
+        // is in use (see `CoverScreenPreview`). No-op on other phones.
+        .coverScreenPreview(session: camera.session, countdown: countdown)
         .groveTabBarHidden()
         .onChange(of: libraryItem) { _, newItem in
             guard let newItem else { return }
