@@ -10,6 +10,16 @@ final class CloudSyncMonitor: ObservableObject {
     static let shared = CloudSyncMonitor()
     static let containerID = "iCloud.com.kaseyrandall.grove"
 
+    /// The player's "iCloud backup" setting (on unless they turn it off).
+    /// Read once at launch: the store opens with or without iCloud then, so a
+    /// change applies the next time Grove opens.
+    static let syncEnabledKey = "iCloudSyncEnabled"
+    static var syncEnabledSetting: Bool {
+        UserDefaults.standard.object(forKey: syncEnabledKey) as? Bool ?? true
+    }
+    /// Whether this launch opened the store with iCloud.
+    static let syncEnabledAtLaunch = syncEnabledSetting
+
     /// Where the Grove's iCloud backup stands, for the Settings card.
     enum Status: Equatable {
         case checking
@@ -17,6 +27,8 @@ final class CloudSyncMonitor: ObservableObject {
         case notSignedIn
         case storageFull
         case paused(String)
+        /// The player turned iCloud backup off.
+        case off
     }
 
     @Published private(set) var status: Status = .checking
@@ -31,6 +43,10 @@ final class CloudSyncMonitor: ObservableObject {
     func start() {
         guard !started else { return }
         started = true
+        guard Self.syncEnabledAtLaunch else {
+            status = .off
+            return
+        }
         NotificationCenter.default.addObserver(
             self, selector: #selector(syncEvent(_:)),
             name: NSPersistentCloudKitContainer.eventChangedNotification, object: nil)

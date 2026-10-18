@@ -398,17 +398,11 @@ struct ProfileView: View {
         }
     }
 
-    /// Show the update and survey screens on demand, and see what's been answered.
+    /// Show the update and review screens on demand.
     private var feedbackTools: some View {
         VStack(spacing: 0) {
-            Menu {
-                ForEach(SurveyCatalog.all) { survey in
-                    Button(survey.question) {
-                        SurveyCenter.shared.forceShow(survey)
-                    }
-                }
-            } label: {
-                row(icon: "face.smiling.inverse", title: "Ask a survey (shows on Grove)")
+            Button { ReviewPrompt.shared.forceShow() } label: {
+                row(icon: "star.fill", title: "Ask for a rating (shows on Grove)")
             }
             Divider().padding(.leading, 56)
             Button { AppUpdates.shared.showWhatsNew() } label: {
@@ -417,18 +411,10 @@ struct ProfileView: View {
             Divider().padding(.leading, 56)
             Button {
                 AppUpdates.shared.resetForTesting()
-                SurveyCenter.shared.resetForTesting()
+                ReviewPrompt.shared.resetForTesting()
             } label: {
-                row(icon: "arrow.counterclockwise", title: "Reset updates & surveys")
+                row(icon: "arrow.counterclockwise", title: "Reset updates & review prompt")
             }
-            Divider().padding(.leading, 56)
-            let answers = SurveyCenter.shared.responses
-            Text(answers.isEmpty ? "No survey answers yet"
-                 : answers.map { "\($0.surveyID): \($0.score)" }.joined(separator: "\n"))
-                .font(.system(.caption, design: .monospaced))
-                .foregroundStyle(Theme.ink.opacity(0.6))
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
         }
         .buttonStyle(.plain)
         .softCard()

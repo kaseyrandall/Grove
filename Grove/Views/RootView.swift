@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import StoreKit
 
 /// The app's five destinations. Catch is reached via the floating center button.
 enum RootTab: Hashable {
@@ -18,10 +19,9 @@ struct RootView: View {
     #endif
     @ObservedObject private var quickActions = QuickActionRouter.shared
     @ObservedObject private var updates = AppUpdates.shared
-    @ObservedObject private var surveys = SurveyCenter.shared
-    /// The survey on screen. Separate from `surveys.pending` so the sheet can
-    /// wait for a calm moment, and stay up for its thank-you once answered.
-    @State private var shownSurvey: Survey?
+    @ObservedObject private var reviewPrompt = ReviewPrompt.shared
+    /// Apple's own "Enjoying Grove?" rating prompt.
+    @Environment(\.requestReview) private var requestReview
     @State private var selection: RootTab = .grove
     @State private var tabBarVisible = true
     /// The floating bar's measured size. Its height (or width, when it stands on
@@ -151,22 +151,15 @@ struct RootView: View {
                 break
             }
         }
-        // A survey waits until the player is back on the Grove with nothing
-        // else on screen, then shows after a beat.
-        .task(id: surveyGate) {
-            guard canShowSurvey, shownSurvey == nil, let survey = surveys.pending else { return }
+        // Apple's "Enjoying Grove?" waits until the player is back on the Grove
+        // with nothing else on screen, then shows after a beat. (Apple decides
+        // whether it actually appears; it limits how often apps can ask.)
+        .task(id: reviewGate) {
+            guard canShowReviewPrompt, reviewPrompt.isDue else { return }
             try? await Task.sleep(for: .seconds(1))
             guard !Task.isCancelled else { return }
-            shownSurvey = survey
-            surveys.markShown(survey)
-        }
-        .sheet(item: $shownSurvey, onDismiss: {
-            // Swiped away without an answer: same as "Not now".
-            if let survey = surveys.pending { surveys.snooze(survey) }
-        }) { survey in
-            SurveySheet(survey: survey,
-                        onAnswer: { surveys.answer(survey, score: $0) },
-                        onNotNow: { surveys.snooze(survey) })
+            reviewPrompt.markShown()
+            requestReview()
         }
         .sheet(item: whatsNewBinding, onDismiss: { updates.dismissWhatsNew() }) { notes in
             WhatsNewView(notes: notes) { updates.dismissWhatsNew() }
@@ -222,18 +215,18 @@ struct RootView: View {
 
     private func noteAppActive() {
         updates.appBecameActive()
-        surveys.appBecameActive()
+        reviewPrompt.appBecameActive()
     }
 
     /// Nothing else is asking for the player's attention: they're on the
     /// Grove's root page, with no coach mark, intro or What's New up.
-    private var canShowSurvey: Bool {
+    private var canShowReviewPrompt: Bool {
         hasOnboarded && selection == .grove && tabBarVisible
             && currentCoachStep == nil && updates.whatsNew == nil
     }
 
-    private var surveyGate: String {
-        "\(surveys.pending?.id ?? "-")|\(canShowSurvey)"
+    private var reviewGate: String {
+        "\(reviewPrompt.isDue)|\(canShowReviewPrompt)"
     }
 
     /// What's New only after the intro; a brand-new player has nothing to compare.
@@ -272,8 +265,7 @@ struct RootView: View {
         }
     }
 
-    /// Presents onboarding whenever it hasn't been completed — so "Replay the
-    /// intro" in Settings (which clears the flag) brings it right back.
+    /// Presents onboarding whenever it hasn't been completed.
     private var onboardingBinding: Binding<Bool> {
         Binding(
             get: { !hasOnboarded },

@@ -90,7 +90,7 @@ struct AboutContent: View {
             Divider().padding(.leading, 56)
             linkRow(icon: "envelope.fill", title: "Contact us", url: email)
             Divider().padding(.leading, 56)
-            linkRow(icon: "square.and.pencil", title: "Share your thoughts", url: survey)
+            linkRow(icon: "square.and.pencil", title: "Share feedback", url: survey)
         }
         .softCard()
     }

@@ -93,7 +93,7 @@ struct CatchView: View {
         .sheet(item: isSpread ? .constant(nil) : $result, onDismiss: { isIdentifying = false }) { result in
             CatchResultView(result: result, onDone: {
                 self.result = nil
-                SurveyCenter.shared.record(.catchFinished)
+                ReviewPrompt.shared.catchFinished()
                 onFinished()
             })
             .presentationDetents([.large])
@@ -104,7 +104,7 @@ struct CatchView: View {
         .fullScreenCover(item: isSpread ? $result : .constant(nil), onDismiss: { isIdentifying = false }) { result in
             CatchResultView(result: result, onDone: {
                 self.result = nil
-                SurveyCenter.shared.record(.catchFinished)
+                ReviewPrompt.shared.catchFinished()
                 onFinished()
             })
         }

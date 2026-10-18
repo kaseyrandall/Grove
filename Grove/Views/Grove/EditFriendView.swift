@@ -149,7 +149,6 @@ struct EditFriendView: View {
         friend.isFirstSighting = isFirst
         friend.sparksEarned = Progression.sparks(for: candidate, isFirstSighting: isFirst)
         try? context.save()
-        SurveyCenter.shared.record(.friendNamed)
         withAnimation(.spring(response: 0.4, dampingFraction: 0.75)) {
             species = candidate
             zone = friend.effectiveZone

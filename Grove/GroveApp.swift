@@ -21,7 +21,7 @@ struct GroveApp: App {
             configuration: ModelConfiguration(schema: schema, cloudKitDatabase: .automatic))
         #endif
         container = Self.makeContainer(schema: schema)
-        ProfileSync.shared.start()
+        if CloudSyncMonitor.syncEnabledAtLaunch { ProfileSync.shared.start() }
     }
 
     /// The Grove's store. With the iCloud capability on, `.automatic` keeps it
@@ -33,6 +33,7 @@ struct GroveApp: App {
     /// lost. Only if even that fails do we open a temporary in-memory Grove,
     /// rather than crash on launch.
     private static func makeContainer(schema: Schema) -> ModelContainer {
+        if CloudSyncMonitor.syncEnabledAtLaunch {
         do {
             let synced = ModelConfiguration(schema: schema, cloudKitDatabase: .automatic)
             let container = try ModelContainer(for: schema, migrationPlan: GroveMigrationPlan.self,
@@ -42,6 +43,9 @@ struct GroveApp: App {
         } catch {
             CloudSyncMonitor.log("store couldn't use iCloud, using this device only: \(error)")
             assertionFailure("iCloud-backed ModelContainer failed: \(error)")
+        }
+        } else {
+            CloudSyncMonitor.log("iCloud backup is off; using this device only")
         }
         do {
             let local = ModelConfiguration(schema: schema, cloudKitDatabase: .none)

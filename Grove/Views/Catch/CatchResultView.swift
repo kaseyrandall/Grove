@@ -457,7 +457,6 @@ struct CatchResultView: View {
         result.record.sparksEarned = newSparks
         // The zone stays the player's call: naming the animal never picks it.
         try? context.save()
-        SurveyCenter.shared.record(.friendNamed)
 
         let after = PlayerStats(catches: others) // same records, now re-identified
         let freshlyUnlocked = AchievementCatalog.newlyUnlocked(before: before, after: after)

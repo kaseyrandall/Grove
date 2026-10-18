@@ -25,11 +25,6 @@ struct SettingsView: View {
 struct SettingsContent: View {
     var showsAbout = true
 
-    @AppStorage("hasCompletedOnboarding") private var hasOnboarded = false
-    @AppStorage("hasSeenCatchCoachMark") private var hasSeenSnapCoach = false
-    @AppStorage("hasSeenMeetCoach") private var hasSeenMeetCoach = false
-    @AppStorage("hasSeenGoalCoach") private var hasSeenGoalCoach = false
-    @AppStorage("hasSeenGroveIntro") private var hasSeenGroveIntro = false
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("locationTaggingEnabled") private var locationTaggingEnabled = true
     @AppStorage("notificationsEnabled") private var notificationsEnabled = true
@@ -39,23 +34,15 @@ struct SettingsContent: View {
 
     @Environment(\.modelContext) private var context
     @Query private var catches: [Catch]
-    @State private var showReplayConfirm = false
     @State private var showEraseConfirm = false
 
     var body: some View {
         VStack(spacing: 20) {
             if let release = updates.storeRelease { updateCard(release) }
-            ICloudStatusCard()
             preferencesCard
-            introCard
             if let notes = ReleaseNotes.forVersion(AppUpdates.currentVersion) { whatsNewCard(notes) }
             if showsAbout { aboutCard }
             dangerZone
-        }
-        .alert("Intro reset", isPresented: $showReplayConfirm) {
-            Button("OK", role: .cancel) {}
-        } message: {
-            Text("The welcome tour will show the next time you open Grove.")
         }
         .confirmationDialog("Erase everything?", isPresented: $showEraseConfirm, titleVisibility: .visible) {
             Button("Erase my whole Grove", role: .destructive) { eraseAll() }
@@ -67,6 +54,10 @@ struct SettingsContent: View {
 
     private var preferencesCard: some View {
         VStack(spacing: 0) {
+            ICloudSyncRow()
+
+            Divider().padding(.leading, 56)
+
             Toggle(isOn: $notificationsEnabled) {
                 settingLabel("Reminders", systemImage: "bell.fill")
             }
@@ -105,32 +96,6 @@ struct SettingsContent: View {
             .padding()
         }
         .softCard()
-    }
-
-    private var introCard: some View {
-        Button {
-            hasOnboarded = false
-            hasSeenSnapCoach = false
-            hasSeenMeetCoach = false
-            hasSeenGoalCoach = false
-            hasSeenGroveIntro = false
-            showReplayConfirm = true
-        } label: {
-            HStack(spacing: 14) {
-                Image(systemName: "sparkles")
-                    .font(.system(size: 18))
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: 26)
-                Text("Replay the intro")
-                    .font(.system(.body, design: .rounded, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
-                Spacer()
-            }
-            .padding()
-            .contentShape(Rectangle())
-            .softCard()
-        }
-        .buttonStyle(.plain)
     }
 
     /// A newer Grove is on the App Store.
@@ -269,50 +234,47 @@ struct SettingsContent: View {
         .fontDesign(.rounded)
 }
 
-/// Where the Grove's iCloud backup stands: a reassuring line when all's well,
-/// and a clear note (with what to do) when syncing has stopped.
-private struct ICloudStatusCard: View {
+/// The "iCloud backup" switch, with where the backup stands underneath:
+/// "Backed up", or an orange note when it isn't (and what to do about it).
+private struct ICloudSyncRow: View {
+    @AppStorage(CloudSyncMonitor.syncEnabledKey) private var syncEnabled = true
     @ObservedObject private var monitor = CloudSyncMonitor.shared
 
-    private var content: (icon: String, title: String, detail: String, warning: Bool) {
+    private var status: (text: String, warning: Bool) {
+        if syncEnabled != CloudSyncMonitor.syncEnabledAtLaunch {
+            return (syncEnabled ? "Turns on the next time you open Grove"
+                                : "Turns off the next time you open Grove", false)
+        }
         switch monitor.status {
-        case .checking:
-            return ("icloud", "iCloud", "Checking your iCloud backup…", false)
-        case .backedUp:
-            return ("checkmark.icloud.fill", "Backed up to iCloud",
-                    "Your Grove comes back on a new device or after reinstalling.", false)
-        case .notSignedIn:
-            return ("icloud.slash", "Not backed up",
-                    "Sign in to iCloud in Settings to keep your Grove safe. Until then it lives only on this device.", true)
-        case .storageFull:
-            return ("exclamationmark.icloud.fill", "iCloud sync paused",
-                    "Your iCloud storage is full, so new friends aren't backed up. Free up space or add storage in Settings, and Grove will catch up.", true)
-        case .paused:
-            return ("exclamationmark.icloud.fill", "iCloud sync paused",
-                    "Grove couldn't reach iCloud just now. Your Grove is safe on this device and will catch up.", true)
+        case .off:         return ("Off. Your Grove is only on this iPhone", false)
+        case .checking:    return ("Checking…", false)
+        case .backedUp:    return ("Backed up", false)
+        case .notSignedIn: return ("Sign in to iCloud in Settings to back up", true)
+        case .storageFull: return ("Paused: your iCloud storage is full", true)
+        case .paused:      return ("Paused: couldn't reach iCloud. It'll catch up", true)
         }
     }
 
     var body: some View {
-        let c = content
-        HStack(alignment: .top, spacing: 14) {
-            Image(systemName: c.icon)
-                .font(.system(size: 18, weight: .semibold))
-                .foregroundStyle(c.warning ? Color.orange : Theme.accent)
-                .frame(width: 26)
-            VStack(alignment: .leading, spacing: 3) {
-                Text(c.title)
-                    .font(.system(.body, design: .rounded, weight: .semibold))
-                    .foregroundStyle(Theme.ink)
-                Text(c.detail)
-                    .font(.system(.footnote, design: .rounded))
-                    .foregroundStyle(Theme.ink.opacity(0.6))
-                    .fixedSize(horizontal: false, vertical: true)
+        let s = status
+        Toggle(isOn: $syncEnabled) {
+            HStack(spacing: 14) {
+                Image(systemName: s.warning ? "exclamationmark.icloud.fill" : "icloud.fill")
+                    .font(.system(size: 18))
+                    .foregroundStyle(s.warning ? Color.orange : Theme.accent)
+                    .frame(width: 26)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("iCloud backup")
+                        .font(.system(.body, design: .rounded, weight: .semibold))
+                        .foregroundStyle(Theme.ink)
+                    Text(s.text)
+                        .font(.system(.caption, design: .rounded, weight: s.warning ? .semibold : .regular))
+                        .foregroundStyle(s.warning ? Color.orange : Theme.ink.opacity(0.55))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
             }
-            Spacer(minLength: 0)
         }
+        .tint(Theme.accent)
         .padding()
-        .softCard()
-        .accessibilityElement(children: .combine)
     }
 }

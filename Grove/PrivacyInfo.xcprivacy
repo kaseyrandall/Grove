@@ -24,8 +24,8 @@
 		<dict>
 			<!-- @AppStorage / UserDefaults, used only to hold this app's own
 			     preferences (haptics, reminders, onboarding flags), which
-			     versions it has announced, and survey answers, which never
-			     leave the device. -->
+			     versions it has announced, and when it last asked for a
+			     rating; none of it leaves the device. -->
 			<key>NSPrivacyAccessedAPIType</key>
 			<string>NSPrivacyAccessedAPICategoryUserDefaults</string>
 			<key>NSPrivacyAccessedAPITypeReasons</key>
