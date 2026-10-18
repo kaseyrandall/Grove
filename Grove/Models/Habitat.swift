@@ -97,7 +97,7 @@ enum Habitat: String, CaseIterable, Codable, Identifiable {
     /// catalog, easiest finds first.
     private var hintSpeciesIDs: [String] {
         switch self {
-        case .home:   return ["housecat", "dog"]
+        case .home:   return ["housecat", "dog", "hamster"]
         case .garden: return ["squirrel", "bird", "robin", "pigeon", "crow", "mouse"]
         case .pond:   return ["duck", "fish", "turtle", "frog"]
         case .coast:  return ["crab", "seal", "octopus"]

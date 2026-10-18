@@ -52,11 +52,12 @@ enum AchievementCatalog {
                     detail: "Bring a friend home to every zone.",
                     goal: Double(Habitat.allCases.count)) { Double($0.zonesVisited) },
 
+        // A fixed goal, so adding friends to the catalog never takes the
+        // badge away from someone who already earned it (it was "every
+        // Common friend" when there were 14).
         Achievement(id: "all_commons", title: "Backyard Boss", emoji: "🏡",
-                    detail: "Catch every Common friend.",
-                    goal: Double(CreatureCatalog.all.filter { $0.rarity == .common }.count)) {
-                        Double($0.count(of: .common))
-                    },
+                    detail: "Catch 12 different Common friends.",
+                    goal: 12) { Double($0.count(of: .common)) },
 
         Achievement(id: "rare_find", title: "Lucky Day", emoji: "💎",
                     detail: "Catch a Rare friend.",
