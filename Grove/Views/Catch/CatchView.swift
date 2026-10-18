@@ -115,7 +115,8 @@ struct CatchView: View {
         // Test hook: `-GroveStakeoutDemo` turns Stakeout on and adds three
         // visitors (the backdrop photo), since the Simulator has no video.
         .task {
-            guard ProcessInfo.processInfo.arguments.contains("-GroveStakeoutDemo"),
+            guard Stakeout.isEnabled,
+                  ProcessInfo.processInfo.arguments.contains("-GroveStakeoutDemo"),
                   let backdrop = Self.debugBackdrop else { return }
             try? await Task.sleep(for: .milliseconds(1500))
             setStakeout(true)
@@ -404,7 +405,7 @@ struct CatchView: View {
 
                 HStack(spacing: 12) {
                     timerPicker
-                    stakeoutButton
+                    if Stakeout.isEnabled { stakeoutButton }
                 }
 
                 if stakeoutOn || !visitors.isEmpty {

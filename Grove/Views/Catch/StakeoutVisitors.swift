@@ -1,6 +1,13 @@
 import SwiftUI
 import CoreLocation
 
+/// Stakeout's off switch. Built and Simulator-tested, but its motion
+/// detection needs tuning on a real iPhone Duo first, so 1.4 ships with it
+/// hidden. Flip to true to bring the button back.
+enum Stakeout {
+    static let isEnabled = false
+}
+
 /// A photo Stakeout took when something moved, waiting to be kept.
 struct StakeoutVisitor: Identifiable {
     let id = UUID()
