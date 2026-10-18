@@ -50,6 +50,13 @@ struct FriendPhoto: View {
                 .offset(x: placed.origin.x, y: placed.origin.y)
                 .frame(width: geo.size.width, height: geo.size.height, alignment: .topLeading)
                 .clipped()
+                // Clipping hides the overflow but doesn't stop it taking
+                // taps: a tall photo filling a square would catch taps meant
+                // for whatever sits above or below it (the Profile's Edit
+                // button, a neighbouring tile). The image takes none…
+                .allowsHitTesting(false)
         }
+        // …and the photo's visible frame takes them instead.
+        .contentShape(Rectangle())
     }
 }
