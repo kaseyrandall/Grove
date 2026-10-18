@@ -101,12 +101,13 @@ struct ArenaReplayView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 .padding([.bottom, .trailing], 14)
 
+            // The fighters are the stars: big, clear of the name cards.
             fighter(side: 1)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                .padding(.top, 92).padding(.trailing, 44)
+                .padding(.top, 150).padding(.trailing, 26)
             fighter(side: 0)
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                .padding(.bottom, 92).padding(.leading, 34)
+                .padding(.bottom, 146).padding(.leading, 22)
         }
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))
     }
@@ -148,12 +149,12 @@ struct ArenaReplayView: View {
         return VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 7) {
                 Text(f.name)
-                    .arenaFont(16, .semibold, .rounded)
+                    .arenaFont(19, .bold, .rounded)
                     .foregroundStyle(BattleTheme.ink)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
-                Text("Lv\(f.level)")
-                    .arenaFont(11, .bold, .rounded)
+                Text("Lv \(f.level)")
+                    .arenaFont(13, .heavy, .rounded)
                     .foregroundStyle(BattleTheme.muted)
                     .fixedSize()
                 Spacer(minLength: 0)
@@ -162,28 +163,33 @@ struct ArenaReplayView: View {
             // ("Wild Salamander") keep the whole top line.
             HStack(spacing: 7) {
                 Text(f.archetype.rawValue.capitalized)
-                    .arenaFont(10.5, .bold, .rounded)
+                    .arenaFont(12, .bold, .rounded)
                     .foregroundStyle(BattleTheme.muted)
                 Spacer(minLength: 4)
                 Text(f.type.rawValue.uppercased())
-                    .arenaFont(9, .heavy, .rounded)
-                    .tracking(0.5)
+                    .arenaFont(10, .heavy, .rounded)
+                    .tracking(0.6)
                     .foregroundStyle(Color(hex: 0x0C130F))
-                    .padding(.horizontal, 7).padding(.vertical, 3)
+                    .padding(.horizontal, 8).padding(.vertical, 3)
                     .background(Capsule().fill(f.type.color))
             }
 
-            hpBar(frac: frac)
-            Text("\(max(0, hp[side])) / \(f.maxHP)")
-                .arenaFont(10, .heavy, .rounded)
-                .foregroundStyle(BattleTheme.ink)
-                .monospacedDigit()
-                .frame(maxWidth: .infinity, alignment: .trailing)
-
-            if side == 0 { staminaBar(side: side) }
+            hpBar(frac: frac).padding(.top, 3)
+            // Like the classic games: your HP in numbers, the rival's as a bar.
+            if side == 0 {
+                HStack {
+                    Text("HP").arenaFont(11, .heavy, .rounded).tracking(1).foregroundStyle(BattleTheme.muted)
+                    Spacer()
+                    Text("\(max(0, hp[side])) / \(f.maxHP)")
+                        .arenaFont(15, .heavy, .rounded)
+                        .foregroundStyle(BattleTheme.ink)
+                        .monospacedDigit()
+                }
+                staminaBar(side: side)
+            }
         }
-        .padding(.horizontal, 12).padding(.vertical, 9)
-        .frame(width: 188, alignment: .leading)
+        .padding(.horizontal, 15).padding(.vertical, 13)
+        .frame(width: 228, alignment: .leading)
         .background(
             RoundedRectangle(cornerRadius: 14, style: .continuous)
                 .fill(LinearGradient(colors: [BattleTheme.panel, BattleTheme.panelLo], startPoint: .top, endPoint: .bottom))
@@ -201,7 +207,7 @@ struct ArenaReplayView: View {
                     .frame(width: max(0, geo.size.width * frac))
             }
         }
-        .frame(height: 9)
+        .frame(height: 11)
     }
 
     private func staminaBar(side: Int) -> some View {
@@ -223,7 +229,7 @@ struct ArenaReplayView: View {
     private func fighter(side: Int) -> some View {
         let f = result.fighters[side]
         let big = side == 0
-        let size: CGFloat = big ? 104 : 78
+        let size: CGFloat = big ? 150 : 128
         return VStack(spacing: 6) {
             TokenView(letter: String(f.name.prefix(1)), color: f.type.color, size: size, portrait: portraits[side])
                 .shadow(color: activeSide == side ? BattleTheme.gold.opacity(0.9) : .clear,
@@ -545,7 +551,7 @@ private struct TokenView: View {
     @State private var bob = false
 
     var body: some View {
-        PortraitFill(portrait: portrait, color: color, monogram: letter)
+        PortraitFill(portrait: portrait, color: color, monogram: letter, artScale: 0.68)
             .frame(width: size, height: size)
             .clipShape(Circle())
             .overlay(Circle().stroke(portrait.image != nil ? color : .white.opacity(0.18),

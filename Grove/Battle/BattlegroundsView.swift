@@ -69,12 +69,29 @@ struct BattlegroundsView: View {
     private var arenaTab: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             ScrollView {
-                VStack(alignment: .leading, spacing: 16) {
+                VStack(alignment: .leading, spacing: 14) {
                     sectionHeader("The Arena",
-                                  "Tap a friend to see their card, then send them off to a match. They're away a bit, then come back with a result — and a nap.")
-                    squadStrip
-                    teamLabel
-                    ForEach(0..<roster.maxSlots, id: \.self) { i in slot(i) }
+                                  "Send a friend to a match. They're back in 20 minutes with a result, then nap.")
+                    scoreboard
+                    groupLabel("Your team", detail: "\(team.count) / \(roster.maxSlots)")
+                    // Three friends side by side, like a party lineup.
+                    HStack(alignment: .top, spacing: 9) {
+                        ForEach(0..<roster.maxSlots, id: \.self) { i in
+                            slot(i).frame(maxWidth: .infinity)
+                        }
+                    }
+                    if let last = roster.matchHistory().first {
+                        groupLabel("Last match")
+                        NavigationLink {
+                            LazyView {
+                                ArenaReplayView(result: last.replay(),
+                                                portraits: [BattlePortrait(friend: roster.friend(for: last, in: catches)), last.rivalPortrait])
+                            }
+                        } label: {
+                            LastMatchCard(record: last, friend: roster.friend(for: last, in: catches))
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
                 .padding()
             }
@@ -96,45 +113,54 @@ struct BattlegroundsView: View {
         .allowsHitTesting(false)
     }
 
-    // MARK: Squad strip (power · streak · record)
+    // MARK: Scoreboard (record · streak · power)
 
-    private var squadStrip: some View {
+    private var scoreboard: some View {
         let rec = roster.record
         let streak = roster.winStreak
-        return HStack(spacing: 10) {
-            statTile(icon: "bolt.fill", value: "\(squadPower)", label: "Squad power", tint: BattleTheme.leaf)
-            statTile(icon: streak > 0 ? "flame.fill" : "flame",
-                     value: "\(streak)", label: "Win streak",
-                     tint: streak > 0 ? Color(hex: 0xE8743B) : BattleTheme.muted)
-            statTile(icon: "rosette",
-                     value: rec.draws > 0 ? "\(rec.wins)–\(rec.losses)–\(rec.draws)" : "\(rec.wins)–\(rec.losses)",
-                     label: "Record", tint: BattleTheme.gold)
+        return HStack(spacing: 0) {
+            score(rec.draws > 0 ? "\(rec.wins)–\(rec.losses)–\(rec.draws)" : "\(rec.wins)–\(rec.losses)",
+                  "Record", BattleTheme.gold)
+                .frame(maxWidth: .infinity)
+            divider
+            score("\(streak)", "Streak", streak > 0 ? Color(hex: 0xF08A4B) : BattleTheme.ink)
+                .frame(maxWidth: .infinity)
+            divider
+            score("\(squadPower)", "Power", BattleTheme.ink)
+                .frame(maxWidth: .infinity)
         }
+        .padding(.vertical, 16).padding(.horizontal, 6)
+        .background(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .fill(BattleTheme.panelFill)
+                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
+        )
+    }
+
+    private var divider: some View {
+        Rectangle().fill(BattleTheme.panelLine).frame(width: 1, height: 44)
     }
 
     private var squadPower: Int {
         team.reduce(0) { $0 + totalBudget(atLevel: $1.progress.level) }
     }
 
-    private func statTile(icon: String, value: String, label: String, tint: Color) -> some View {
-        VStack(spacing: 5) {
-            HStack(spacing: 6) {
-                Image(systemName: icon).arenaFont(16, .bold).foregroundStyle(tint)
-                Text(value)
-                    .arenaFont(24, .heavy, .rounded)
-                    .foregroundStyle(BattleTheme.ink).monospacedDigit()
-            }
+    private func score(_ value: String, _ label: String, _ tint: Color) -> some View {
+        VStack(spacing: 6) {
+            Text(value)
+                .font(.system(size: 34, weight: .black).width(.expanded))
+                .monospacedDigit()
+                .foregroundStyle(tint)
+                .lineLimit(1)
+                .minimumScaleFactor(0.5)
+                .frame(maxWidth: .infinity)
             Text(label.uppercased())
-                .arenaFont(10.5, .heavy, .rounded).tracking(0.5)
+                .arenaFont(10.5, .black, .rounded)
+                .tracking(1.6)
                 .foregroundStyle(BattleTheme.muted)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 14)
-        .background(
-            RoundedRectangle(cornerRadius: 14, style: .continuous)
-                .fill(BattleTheme.panelFill)
-                .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
-        )
+        .padding(.horizontal, 6)
+        .accessibilityElement(children: .combine)
     }
 
     /// A page-level header shown inside the content of each tab (so the nav bar
@@ -150,12 +176,22 @@ struct BattlegroundsView: View {
         }
     }
 
-    private var teamLabel: some View {
-        Text("YOUR TEAM")
-            .arenaFont(12.5, .heavy, .rounded)
-            .tracking(1)
-            .foregroundStyle(BattleTheme.muted)
-            .padding(.top, 4)
+    /// "YOUR TEAM  2 / 3 ———"
+    private func groupLabel(_ text: String, detail: String? = nil) -> some View {
+        HStack(spacing: 10) {
+            Text(text.uppercased())
+                .arenaFont(12, .heavy, .rounded)
+                .tracking(1.8)
+                .foregroundStyle(BattleTheme.muted)
+            if let detail {
+                Text(detail)
+                    .arenaFont(12, .heavy, .rounded)
+                    .tracking(1)
+                    .foregroundStyle(BattleTheme.ink.opacity(0.5))
+            }
+            Rectangle().fill(BattleTheme.panelLine).frame(height: 1)
+        }
+        .padding(.top, 4)
     }
 
     @ViewBuilder private func slot(_ i: Int) -> some View {
@@ -353,33 +389,53 @@ private struct TeamStatusCard: View {
     }
 
     var body: some View {
-        HStack(spacing: 14) {
-            PortraitCircle(friend: friend, type: type,
-                           monogram: String(friend.displayName.prefix(1)), size: 62)
-                .overlay(alignment: .bottomTrailing) { levelShield }
-                .opacity(dim ? 0.6 : 1)
-            VStack(alignment: .leading, spacing: 5) {
-                HStack(spacing: 8) {
-                    Text(friend.displayName)
-                        .arenaFont(18, .bold, .rounded)
-                        .foregroundStyle(BattleTheme.ink).lineLimit(1)
-                    TypeChip(type: type)
-                }
+        VStack(alignment: .leading, spacing: 0) {
+            photo
+            VStack(alignment: .leading, spacing: 3) {
+                Text(friend.displayName)
+                    .arenaFont(16, .heavy, .rounded)
+                    .foregroundStyle(BattleTheme.ink)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.75)
                 Text(archetype.rawValue.capitalized)
-                    .arenaFont(13.5, .bold, .rounded)
+                    .arenaFont(11.5, .bold, .rounded)
                     .foregroundStyle(BattleTheme.muted)
-                xpBar
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                xpBar.padding(.top, 5).padding(.bottom, 9)
+                statusButton
             }
-            Spacer(minLength: 6)
-            statusPill
+            .padding(.horizontal, 10).padding(.top, 17).padding(.bottom, 10)
         }
-        .padding(14)
         .background(cardBackground)
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(borderStyle, lineWidth: 1.5))
         .shadow(color: glowColor.opacity(glowOpacity), radius: glowRadius, y: 3)
         .onAppear {
             guard isResultReady, !reduceMotion else { return }
             withAnimation(.easeInOut(duration: 1.4).repeatForever(autoreverses: true)) { pulse = true }
         }
+        .accessibilityElement(children: .combine)
+    }
+
+    /// The friend's photo (or art) filling the top, habitat up in the corner
+    /// and the level shield riding the bottom edge.
+    private var photo: some View {
+        PortraitFill(portrait: BattlePortrait(friend: friend), color: type.color,
+                     monogram: String(friend.displayName.prefix(1)))
+            .frame(height: 142)
+            .frame(maxWidth: .infinity)
+            .clipped()
+            .saturation(dim ? 0.5 : 1)
+            .opacity(dim ? 0.6 : 1)
+            .overlay {
+                LinearGradient(colors: [.clear, BattleTheme.panel.opacity(0.85)],
+                               startPoint: .center, endPoint: .bottom)
+            }
+            .overlay(alignment: .topLeading) { TypeChip(type: type).padding(8) }
+            .overlay(alignment: .topTrailing) { devSkipButton.padding(6) }
+            .overlay(alignment: .bottomLeading) { levelShield.padding(.leading, 6).offset(y: 14) }
+            .zIndex(1)
     }
 
     /// A gentle breathing aura on the result-ready card; a steady, softer one
@@ -397,29 +453,24 @@ private struct TeamStatusCard: View {
     private var cardBackground: some View {
         RoundedRectangle(cornerRadius: 18, style: .continuous)
             .fill(BattleTheme.panelFill)
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(borderStyle, lineWidth: 1.2)
-            )
     }
 
     /// A shield insignia on the portrait carrying the fighter's level.
     private var levelShield: some View {
         ZStack {
             Image(systemName: "shield.fill")
-                .arenaFont(24)
+                .font(.system(size: 30))
                 .foregroundStyle(LinearGradient(colors: [type.color, type.color.darkened(0.32)],
                                                 startPoint: .top, endPoint: .bottom))
                 .overlay(Image(systemName: "shield")
-                    .arenaFont(24, .light)
+                    .font(.system(size: 30, weight: .light))
                     .foregroundStyle(.white.opacity(0.35)))
             Text("\(progress.level)")
-                .arenaFont(11.5, .heavy, .rounded)
+                .font(.system(size: 13, weight: .heavy, design: .rounded))
                 .foregroundStyle(.white)
                 .offset(y: -0.5)
         }
         .shadow(color: .black.opacity(0.5), radius: 2, y: 1)
-        .offset(x: 5, y: 5)
     }
 
     private var isResultReady: Bool {
@@ -434,34 +485,43 @@ private struct TeamStatusCard: View {
         if isResultReady {
             return AnyShapeStyle(BattleTheme.gold.opacity(0.65))
         }
-        return AnyShapeStyle(LinearGradient(colors: [type.color.opacity(0.55), BattleTheme.panelLine],
-                                            startPoint: .topLeading, endPoint: .bottomTrailing))
+        return AnyShapeStyle(LinearGradient(colors: [type.color.opacity(0.7), type.color.opacity(0.3)],
+                                            startPoint: .top, endPoint: .bottom))
     }
 
-    @ViewBuilder private var statusPill: some View {
+    /// What the friend is up to, as a full-width button-shaped label.
+    @ViewBuilder private var statusButton: some View {
         switch state {
         case .ready:
-            pill(text: "Ready", color: BattleTheme.leaf, dot: true)
+            status("Ready", color: BattleTheme.leaf)
         case .away(let t):
-            HStack(spacing: 8) {
-                pill(text: "In a match · \(mmss(t))", color: Color(hex: 0x5FC7D6), dot: true)
-                devSkipButton
-            }
+            status("Away \(mmss(t))", color: BattleTheme.sta)
+        case .resting(let t):
+            status("Nap \(mmss(t))", color: BattleTheme.gold)
         case .resultReady:
             HStack(spacing: 5) {
-                Text("Result ready")
-                    .arenaFont(13.5, .heavy, .rounded)
-                    .foregroundStyle(Color(hex: 0x07130B))
-                Image(systemName: "play.fill").arenaFont(11, .bold).foregroundStyle(Color(hex: 0x07130B))
+                Text("Result").arenaFont(13, .heavy, .rounded)
+                Image(systemName: "play.fill").arenaFont(10, .bold)
             }
-            .padding(.horizontal, 12).padding(.vertical, 8)
-            .background(Capsule().fill(BattleTheme.gold))
-        case .resting(let t):
-            HStack(spacing: 8) {
-                pill(text: "Resting \(mmss(t))", color: BattleTheme.gold, dot: true)
-                devSkipButton
-            }
+            .foregroundStyle(Color(hex: 0x07130B))
+            .frame(maxWidth: .infinity, minHeight: 34)
+            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(BattleTheme.gold))
         }
+    }
+
+    private func status(_ text: String, color: Color) -> some View {
+        Text(text)
+            .arenaFont(12.5, .heavy, .rounded)
+            .monospacedDigit()
+            .lineLimit(1)
+            .minimumScaleFactor(0.75)
+            .foregroundStyle(color)
+            .frame(maxWidth: .infinity, minHeight: 34)
+            .background(
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(.white.opacity(0.04))
+                    .overlay(RoundedRectangle(cornerRadius: 10, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
+            )
     }
 
     /// Dev: skip the wait (finish the match, or wake from the nap).
@@ -472,22 +532,12 @@ private struct TeamStatusCard: View {
                 Image(systemName: "forward.end.fill")
                     .arenaFont(11, .bold)
                     .foregroundStyle(BattleTheme.muted)
-                    .padding(6)
-                    .background(Circle().stroke(BattleTheme.panelLine, lineWidth: 1))
+                    .padding(7)
+                    .background(Circle().fill(.black.opacity(0.55)))
             }
             .buttonStyle(.plain)
         }
         #endif
-    }
-
-    private func pill(text: String, color: Color, dot: Bool) -> some View {
-        HStack(spacing: 6) {
-            if dot { PulseDot(color: color) }
-            Text(text)
-                .arenaFont(12.5, .heavy, .rounded)
-                .monospacedDigit()
-                .foregroundStyle(color)
-        }
     }
 
     private var xpBar: some View {
@@ -500,8 +550,7 @@ private struct TeamStatusCard: View {
                     .frame(width: max(3, geo.size.width * min(1, frac)))
             }
         }
-        .frame(height: 6)
-        .padding(.top, 2)
+        .frame(height: 5)
     }
 }
 
@@ -511,28 +560,84 @@ private struct EmptySlotCard: View {
     let action: () -> Void
     var body: some View {
         Button(action: action) {
-            HStack(spacing: 14) {
+            VStack(spacing: 10) {
                 ZStack {
                     Circle().fill(Color(hex: 0x1C2C23))
                         .overlay(Circle().strokeBorder(BattleTheme.panelLine, style: StrokeStyle(lineWidth: 1.5, dash: [4, 4])))
-                    Image(systemName: "plus").arenaFont(22, .bold).foregroundStyle(BattleTheme.muted)
+                    Image(systemName: "plus").arenaFont(20, .bold).foregroundStyle(BattleTheme.muted)
                 }
-                .frame(width: 62, height: 62)
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Open slot").arenaFont(18, .bold, .rounded).foregroundStyle(BattleTheme.ink)
-                    Text("Send a friend to the Arena").arenaFont(13.5, .semibold, .rounded).foregroundStyle(BattleTheme.muted)
-                }
-                Spacer()
+                .frame(width: 52, height: 52)
+                Text("Open slot").arenaFont(14, .bold, .rounded).foregroundStyle(BattleTheme.ink)
+                Text("Add a friend").arenaFont(11.5, .semibold, .rounded).foregroundStyle(BattleTheme.muted)
             }
-            .padding(14)
+            .frame(maxWidth: .infinity, minHeight: 262)
             .background(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
                     .fill(Color.white.opacity(0.02))
                     .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
                         .strokeBorder(BattleTheme.panelLine, style: StrokeStyle(lineWidth: 1.5, dash: [5, 5])))
             )
+            .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .accessibilityLabel("Open slot. Add a friend to the team.")
+    }
+}
+
+// MARK: - Last match
+
+/// The most recent match, with the two fighters' faces and a Replay.
+private struct LastMatchCard: View {
+    let record: BattleRoster.MatchRecord
+    let friend: Catch?
+
+    var body: some View {
+        HStack(spacing: 12) {
+            HStack(spacing: -12) {
+                PortraitCircle(friend: friend, type: record.fighterType,
+                               monogram: String(record.fighterName.prefix(1)), size: 44)
+                PortraitFill(portrait: record.rivalPortrait, color: record.oppType.color,
+                             monogram: String(record.oppName.prefix(1)), artScale: 0.62)
+                    .frame(width: 44, height: 44)
+                    .clipShape(Circle())
+                    .overlay(Circle().stroke(BattleTheme.panel, lineWidth: 2))
+            }
+            VStack(alignment: .leading, spacing: 3) {
+                (Text(record.fighterName).foregroundStyle(BattleTheme.ink)
+                 + Text(" vs \(record.oppName)").foregroundStyle(BattleTheme.muted))
+                    .arenaFont(15, .bold, .rounded)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+                (Text(outcomeText) + Text(" · ") + Text(record.date, format: .relative(presentation: .named)))
+                    .arenaFont(11.5, .heavy, .rounded)
+                    .textCase(.uppercase)
+                    .foregroundStyle(outcomeColor)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 4)
+            HStack(spacing: 5) {
+                Image(systemName: "play.fill").arenaFont(11, .bold)
+                Text("Replay").arenaFont(13, .bold, .rounded)
+            }
+            .foregroundStyle(BattleTheme.gold)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 12)
+        .background(
+            RoundedRectangle(cornerRadius: 16, style: .continuous)
+                .fill(BattleTheme.panelFill)
+                .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).stroke(BattleTheme.panelLine, lineWidth: 1))
+        )
+    }
+
+    private var outcomeText: String {
+        switch record.outcome { case .win: "Won"; case .draw: "Draw"; case .loss: "Lost" }
+    }
+    private var outcomeColor: Color {
+        switch record.outcome {
+        case .win: BattleTheme.leaf
+        case .draw: BattleTheme.gold
+        case .loss: BattleTheme.hpLow
+        }
     }
 }
 
@@ -736,6 +841,7 @@ private struct DispatchOverlay: View {
 
 private struct PromotePickerSheet: View {
     let candidates: [Catch]
+    @Query private var catches: [Catch]
     @Environment(\.dismiss) private var dismiss
     private var roster: BattleRoster { .shared }
 
@@ -761,8 +867,8 @@ private struct PromotePickerSheet: View {
                                     PromoteRow(friend: c, benched: roster.hasEverPromoted(c))
                                 }
                                 .buttonStyle(.plain)
-                                .disabled(!roster.hasFreeSlot)
-                                .opacity(roster.hasFreeSlot ? 1 : 0.5)
+                                .disabled(!roster.hasFreeSlot(among: catches))
+                                .opacity(roster.hasFreeSlot(among: catches) ? 1 : 0.5)
                             }
                         }
                         .padding()

@@ -362,7 +362,7 @@ struct GuideEntryView: View {
             .softCard()
         } else {
             Button {
-                if roster.hasFreeSlot { roster.promote(friend) } else { showSwap = true }
+                if roster.hasFreeSlot(among: allCatches) { roster.promote(friend) } else { showSwap = true }
             } label: {
                 HStack(spacing: 14) {
                     Image(systemName: "bolt.shield.fill")
@@ -370,7 +370,7 @@ struct GuideEntryView: View {
                         .foregroundStyle(Theme.accent)
                         .frame(width: 26)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(roster.hasFreeSlot ? "Send to the Arena" : "Arena team full — swap someone")
+                        Text(roster.hasFreeSlot(among: allCatches) ? "Send to the Arena" : "Arena team full — swap someone")
                             .font(.system(.body, design: .rounded, weight: .semibold))
                             .foregroundStyle(Theme.ink)
                         if let p = roster.progress(for: friend) {

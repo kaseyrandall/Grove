@@ -202,6 +202,20 @@ final class BattleRoster {
     var hasFreeSlot: Bool { team.count < maxSlots }
     var isFull: Bool { team.count >= maxSlots }
 
+    /// Room on the team, counting only members still in the Grove. (A saved
+    /// team can outlive its friends, e.g. after reinstalling without iCloud
+    /// backup, since the team syncs separately from the friends.)
+    func hasFreeSlot(among all: [Catch]) -> Bool { teamCatches(from: all).count < maxSlots }
+
+    /// Forget team members whose friend is gone, making room. Only done when
+    /// the player adds someone, so a team that's still syncing isn't lost.
+    private func dropMissingMembers(using c: Catch) {
+        guard let all = try? c.modelContext?.fetch(FetchDescriptor<Catch>()) else { return }
+        let ids = Set(all.compactMap(\.battleID))
+        let kept = team.filter(ids.contains)
+        if kept != team { team = kept; saveShared() }
+    }
+
     func teamCatches(from all: [Catch]) -> [(friend: Catch, progress: Progress)] {
         let byID = Dictionary(all.compactMap { c in c.battleID.map { ($0, c) } }, uniquingKeysWith: { a, _ in a })
         return team.compactMap { id in
@@ -367,6 +381,7 @@ final class BattleRoster {
     @discardableResult
     func promote(_ c: Catch) -> Bool {
         let k = ensureID(c)
+        if !hasFreeSlot { dropMissingMembers(using: c) }
         guard !team.contains(k), hasFreeSlot else { return false }
         if progress(for: c) == nil {
             update(c) { $0.progress = Progress(level: 1, xp: 0, promotedAt: .now) }
