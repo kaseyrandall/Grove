@@ -1,8 +1,10 @@
 import SwiftUI
 import SwiftData
 
-/// The player's profile: a bit about them, Settings behind the gear in the
-/// top-right, and (in DEBUG) the developer test tools. Account/social features will grow from here.
+/// The player's profile: who they are (name, look, how their story began),
+/// their favorite and newest friends, and achievements. Progress numbers
+/// live in the Journal. Settings sit behind the gear in the top-right; DEBUG
+/// builds add the developer test tools. Account/social features will grow from here.
 struct ProfileView: View {
     @Query private var catches: [Catch]
     @Environment(\.modelContext) private var context
@@ -12,6 +14,10 @@ struct ProfileView: View {
     @AppStorage("profileColorHex") private var profileColorHex = ProfileLookPicker.defaultColor
     @State private var showLookPicker = false
     @State private var showSettings = false
+    @State private var showFavoritesPicker = false
+    #if DEBUG
+    @AppStorage(DevPreview.playerViewKey) private var playerView = false
+    #endif
 
     /// The open Duo in landscape: the menu on the left page, the chosen
     /// section on the right.
@@ -41,11 +47,15 @@ struct ProfileView: View {
 
                         VStack(spacing: 20) {
                             headerCard
+                            FavoriteFriendsCard(catches: catches) { showFavoritesPicker = true }
+                            if !catches.isEmpty { RecentFriendsCard(catches: catches) }
                             achievementsCard
-                            privacyCard
+                            privacyFooter
                             #if DEBUG
-                            arenaCard
-                            developerCard
+                            if !playerView {
+                                arenaCard
+                                developerCard
+                            }
                             #endif
                             versionLabel
                         }
@@ -76,6 +86,12 @@ struct ProfileView: View {
             .onAppear {
                 let args = ProcessInfo.processInfo.arguments
                 if args.contains("-GroveOpenLook") { showLookPicker = true }
+                // `-GroveSampleFavorites` pins your three rarest friends.
+                if args.contains("-GroveSampleFavorites"), Favorites.of(catches).isEmpty {
+                    let rarest = catches.sorted { $0.species.rarity > $1.species.rarity }.prefix(Favorites.limit)
+                    for (i, friend) in rarest.enumerated() { friend.favoritedAt = .now.addingTimeInterval(Double(i)) }
+                    try? context.save()
+                }
                 if let i = args.firstIndex(of: "-GroveProfileSection"), i + 1 < args.count {
                     section = args[i + 1] == "settings" ? .settings : args[i + 1] == "about" ? .about : .achievements
                     if section == .settings, !isSpread { showSettings = true }
@@ -85,6 +101,9 @@ struct ProfileView: View {
             .groveSheet(isPresented: $showLookPicker) {
                 ProfileLookPicker(emoji: $profileEmoji, colorHex: $profileColorHex)
             }
+            .groveSheet(isPresented: $showFavoritesPicker) {
+                FavoritesPicker()
+            }
         }
     }
 
@@ -93,6 +112,10 @@ struct ProfileView: View {
             .font(.system(.caption2, design: .rounded))
             .foregroundStyle(Theme.ink.opacity(0.35))
             .padding(.top, 4)
+            #if DEBUG
+            // The way back from player view.
+            .onLongPressGesture { playerView = false }
+            #endif
     }
 
     // MARK: Spread (the open Duo in landscape)
@@ -109,8 +132,9 @@ struct ProfileView: View {
                     VStack(alignment: .leading, spacing: 20) {
                         spreadTitle("Profile")
                         headerCard
+                        FavoriteFriendsCard(catches: catches) { showFavoritesPicker = true }
                         sectionMenu
-                        privacyCard
+                        privacyFooter
                         #if DEBUG
                         arenaCard
                         developerCard
@@ -215,13 +239,12 @@ struct ProfileView: View {
                 }
             }
             .buttonStyle(.plain)
-            Text("Explorer")
-                .font(.system(size: 22, weight: .heavy, design: .rounded))
-                .foregroundStyle(Theme.ink)
-            Text("Level \(stats.level) · \(stats.totalSnaps) friend\(stats.totalSnaps == 1 ? "" : "s") met")
-                .font(.system(.subheadline, design: .rounded))
-                .foregroundStyle(Theme.ink.opacity(0.7))
+            .accessibilityLabel("Change your look")
+            ProfileNameField()
+            ProfileStoryLine(catches: catches)
+                .padding(.top, 2)
         }
+        .padding(.horizontal)
         .frame(maxWidth: .infinity)
         .padding(.vertical, 24)
         .softCard()
@@ -326,42 +349,22 @@ struct ProfileView: View {
         .frame(minHeight: 44)
     }
 
-    // MARK: Privacy — a gentle reassurance that the Grove is theirs alone
+    // MARK: Privacy — a quiet reassurance that the Grove is theirs alone
 
-    private var privacyCard: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 14) {
-                Image(systemName: "lock.shield.fill")
-                    .font(.system(size: 20))
-                    .foregroundStyle(Theme.accent)
-                    .frame(width: 26)
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Private by design")
-                        .font(.system(.headline, design: .rounded, weight: .bold))
-                        .foregroundStyle(Theme.ink)
-                    Text("Everything you collect stays yours, on this device and in your own iCloud.")
-                        .font(.system(.subheadline, design: .rounded))
-                        .foregroundStyle(Theme.ink.opacity(0.7))
-                }
-                Spacer(minLength: 0)
-            }
-            HStack(spacing: 8) {
-                privacyChip("No account")
-                privacyChip("No tracking")
-                privacyChip("Works offline")
-            }
+    private var privacyFooter: some View {
+        VStack(spacing: 4) {
+            Label("Private by design", systemImage: "lock.shield.fill")
+                .font(.system(.footnote, design: .rounded, weight: .bold))
+                .foregroundStyle(Theme.ink.opacity(0.55))
+            Text("No account, no tracking, works offline. Your Grove stays on your devices and in your own iCloud.")
+                .font(.system(.caption, design: .rounded))
+                .foregroundStyle(Theme.ink.opacity(0.45))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding()
-        .frame(maxWidth: .infinity)
-        .softCard()
-    }
-
-    private func privacyChip(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 12, weight: .bold, design: .rounded))
-            .foregroundStyle(Theme.ink.opacity(0.7))
-            .padding(.horizontal, 11).padding(.vertical, 6)
-            .background(Capsule().fill(Theme.ink.opacity(0.06)))
+        .padding(.horizontal, 24)
+        .padding(.top, 4)
+        .accessibilityElement(children: .combine)
     }
 
     private func row(icon: String, title: String, tint: Color = Theme.accent) -> some View {
@@ -421,6 +424,27 @@ struct ProfileView: View {
                     Text("Sample Grove data")
                         .font(.system(.body, design: .rounded, weight: .semibold))
                         .foregroundStyle(Theme.ink)
+                }
+            }
+            .tint(Theme.accent)
+            .padding()
+            .softCard()
+
+            Toggle(isOn: $playerView) {
+                HStack(spacing: 14) {
+                    Image(systemName: "person.fill.viewfinder")
+                        .font(.system(size: 18))
+                        .foregroundStyle(Theme.accent)
+                        .frame(width: 26)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Player view")
+                            .font(.system(.body, design: .rounded, weight: .semibold))
+                            .foregroundStyle(Theme.ink)
+                        Text("Hides Battlegrounds and these tools, like the App Store build. Long-press the version number to come back.")
+                            .font(.system(.caption, design: .rounded))
+                            .foregroundStyle(Theme.ink.opacity(0.55))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
             .tint(Theme.accent)

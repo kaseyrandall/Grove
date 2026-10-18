@@ -35,20 +35,54 @@ enum GroveSchemaV1: VersionedSchema {
 }
 
 /// Version 1.1: `Catch` gains the photo crop (`cropCenterX/Y`, `cropZoom`).
+/// A frozen copy of the model as it shipped in 1.1 and 1.2 — never edit it.
 enum GroveSchemaV2: VersionedSchema {
     static var versionIdentifier = Schema.Version(2, 0, 0)
+    static var models: [any PersistentModel.Type] { [Catch.self] }
+
+    @Model
+    final class Catch {
+        var speciesID: String = ""
+        var caughtAt: Date = Date.now
+        var sparksEarned: Int = 0
+        var isFirstSighting: Bool = false
+        var nickname: String?
+        var zoneOverrideRaw: String?
+        @Attribute(.externalStorage) var photoData: Data?
+        var latitude: Double?
+        var longitude: Double?
+        var placeName: String?
+        var cropCenterX: Double?
+        var cropCenterY: Double?
+        var cropZoom: Double?
+
+        init(speciesID: String, caughtAt: Date, sparksEarned: Int, isFirstSighting: Bool) {
+            self.speciesID = speciesID
+            self.caughtAt = caughtAt
+            self.sparksEarned = sparksEarned
+            self.isFirstSighting = isFirstSighting
+        }
+    }
+}
+
+/// Version 1.3: `Catch` gains `favoritedAt` (pinned to the Profile).
+enum GroveSchemaV3: VersionedSchema {
+    static var versionIdentifier = Schema.Version(3, 0, 0)
     static var models: [any PersistentModel.Type] { [Grove.Catch.self] }
 }
 
 /// The current schema — bump this alias when a new version lands.
-typealias GroveCurrentSchema = GroveSchemaV2
+typealias GroveCurrentSchema = GroveSchemaV3
 
 /// How the store migrates across schema versions; each new version appends a
 /// stage here.
 enum GroveMigrationPlan: SchemaMigrationPlan {
-    static var schemas: [any VersionedSchema.Type] { [GroveSchemaV1.self, GroveSchemaV2.self] }
+    static var schemas: [any VersionedSchema.Type] {
+        [GroveSchemaV1.self, GroveSchemaV2.self, GroveSchemaV3.self]
+    }
     static var stages: [MigrationStage] {
-        // V1 → V2 only adds optional fields, so the store migrates in place.
-        [.lightweight(fromVersion: GroveSchemaV1.self, toVersion: GroveSchemaV2.self)]
+        // Each step only adds optional fields, so the store migrates in place.
+        [.lightweight(fromVersion: GroveSchemaV1.self, toVersion: GroveSchemaV2.self),
+         .lightweight(fromVersion: GroveSchemaV2.self, toVersion: GroveSchemaV3.self)]
     }
 }

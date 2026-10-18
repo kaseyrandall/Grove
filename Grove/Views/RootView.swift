@@ -24,6 +24,9 @@ struct RootView: View {
     @Environment(\.requestReview) private var requestReview
     @State private var selection: RootTab = .grove
     @State private var tabBarVisible = true
+    /// The keyboard is up (e.g. renaming yourself on Profile): the bar steps
+    /// aside instead of riding up on top of it.
+    @State private var keyboardUp = false
     /// The floating bar's measured size. Its height (or width, when it stands on
     /// the side) is handed to the pages as extra safe area, so content clears
     /// the bar on any display size instead of each page padding a hardcoded guess.
@@ -99,8 +102,9 @@ struct RootView: View {
             .ignoresSafeArea(.container, edges: isSpread ? .trailing : [])
             .offset(x: tabBarVisible || !isSpread ? 0 : 160,
                     y: tabBarVisible || isSpread ? 0 : 160)
-            .opacity(tabBarVisible ? 1 : 0)
-            .allowsHitTesting(tabBarVisible)
+            .opacity(tabBarVisible && !keyboardUp ? 1 : 0)
+            .allowsHitTesting(tabBarVisible && !keyboardUp)
+            .animation(.easeInOut(duration: 0.2), value: keyboardUp)
         }
         .onGeometryChange(for: CGSize.self) { proxy in
             let insets = proxy.safeAreaInsets
@@ -128,6 +132,12 @@ struct RootView: View {
                     }
                 }
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            keyboardUp = true
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            keyboardUp = false
         }
         .onChange(of: selection) { _, newValue in
             if newValue == .catchTab { hasSeenSnapCoach = true }

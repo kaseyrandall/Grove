@@ -1,6 +1,6 @@
 import Foundation
 
-/// Keeps the player's profile look (and whether they've been through
+/// Keeps the player's profile look and name (and whether they've been through
 /// onboarding) in iCloud's small key-value store, so a reinstall or a new
 /// phone comes back looking like theirs. The app keeps reading these from
 /// `UserDefaults` (via `@AppStorage`); this mirrors them both ways.
@@ -12,7 +12,7 @@ final class ProfileSync {
 
     /// Settings that follow the player. Onboarding only ever syncs as "done",
     /// so replaying it on one device doesn't send another back to the start.
-    private let mirroredKeys = ["profileEmoji", "profileColorHex"]
+    private let mirroredKeys = ["profileEmoji", "profileColorHex", "profileName"]
     private let onboardingKey = "hasCompletedOnboarding"
 
     private let cloud = NSUbiquitousKeyValueStore.default

@@ -19,7 +19,11 @@ struct GuideEntryView: View {
     /// Renaming happens right on the name: tap it, type, done.
     /// Renaming happens right on the name (see `RenamableName`).
     @State private var isRenaming = false
+    @State private var showFavoritesFull = false
     @Query private var allCatches: [Catch]
+    #if DEBUG
+    @AppStorage(DevPreview.playerViewKey) private var playerView = false
+    #endif
 
     private var species: Species { friend.species }
     private var zone: Habitat { friend.effectiveZone }
@@ -46,7 +50,7 @@ struct GuideEntryView: View {
                         infoCard
                         whereYouMetCard
                         #if DEBUG
-                        arenaSection
+                        if !playerView { arenaSection }
                         #endif
                     }
                     .padding()
@@ -80,8 +84,23 @@ struct GuideEntryView: View {
         }
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    if !Favorites.toggle(friend, among: allCatches, context: context) {
+                        showFavoritesFull = true
+                    }
+                } label: {
+                    Image(systemName: friend.favoritedAt != nil ? "heart.fill" : "heart")
+                }
+                .accessibilityLabel(friend.favoritedAt != nil ? "Remove from favorites" : "Add to favorites")
+            }
+            ToolbarItem(placement: .topBarTrailing) {
                 Button("Edit") { showEdit = true }
             }
+        }
+        .alert("Your favorites are full", isPresented: $showFavoritesFull) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text("You can pin \(Favorites.limit) friends to your Profile. Unpin one there to make room.")
         }
         #if DEBUG
         // Test hook: `-GroveOpenEdit` opens Edit on the first friend page shown.
@@ -132,7 +151,7 @@ struct GuideEntryView: View {
                         infoCard
                         whereYouMetCard
                         #if DEBUG
-                        arenaSection
+                        if !playerView { arenaSection }
                         #endif
                     }
                     .padding(.vertical)

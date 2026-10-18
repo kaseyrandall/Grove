@@ -45,6 +45,10 @@ final class Catch {
     var cropCenterY: Double?
     var cropZoom: Double?
 
+    /// When the player pinned this friend to their Profile's favorites; nil
+    /// when it isn't one. Favorites show oldest-pinned first.
+    var favoritedAt: Date?
+
     init(
         speciesID: String,
         caughtAt: Date = .now,

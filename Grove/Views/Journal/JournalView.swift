@@ -69,10 +69,10 @@ struct JournalView: View {
         }
     }
 
-    /// Streak, level, and headline numbers.
+    /// Level, streak, and headline numbers.
     @ViewBuilder private var progressCards: some View {
-        streakCard
         levelCard
+        streakCard
         statsRow
     }
 
