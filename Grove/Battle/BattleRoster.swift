@@ -540,8 +540,16 @@ final class BattleRoster {
         let newTrophies = defaults.data(forKey: Self.trophiesKey)
             .flatMap { try? JSONDecoder().decode(TrophyLedger.self, from: $0) } ?? TrophyLedger()
         if newTeam != team { team = newTeam }
-        if newHistory != history { history = newHistory }
+        let deduped = Self.unique(newHistory)
+        if deduped != history { history = deduped }
         if newTrophies != trophies { trophies = newTrophies }
+    }
+
+    /// One entry per match: the same match can arrive twice (e.g. old data
+    /// upgraded on two devices, then merged through iCloud).
+    private static func unique(_ records: [MatchRecord]) -> [MatchRecord] {
+        var seen = Set<UUID>()
+        return records.filter { seen.insert($0.id).inserted }
     }
 
     private func saveShared() {
@@ -612,7 +620,7 @@ final class BattleRoster {
                                plan: r.plan, oppName: r.oppName, oppType: r.oppType, oppArchetype: r.oppArchetype,
                                seed: r.seed, outcome: r.won ? .win : .loss)
         }
-        history = Array((history + oldRecords).sorted { $0.date > $1.date }.prefix(Self.historyLimit))
+        history = Array(Self.unique(history + oldRecords).sorted { $0.date > $1.date }.prefix(Self.historyLimit))
         saveShared()
         defaults.removeObject(forKey: legacyKey)
     }

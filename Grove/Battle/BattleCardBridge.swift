@@ -6,17 +6,18 @@ import SwiftUI
 // Arena replay can share one palette and one set of type colors.
 
 enum BattleTheme {
-    static let ink       = Color(hex: 0xEAF3EC)
-    static let muted     = Color(hex: 0x8FAE9C)
-    static let panel     = Color(hex: 0x132019)
-    static let panelLo   = Color(hex: 0x0E1712)
-    static let panelLine = Color(hex: 0x294536)
-    static let gold      = Color(hex: 0xF3D17A)
-    static let leaf      = Color(hex: 0x6FC07A)
-    static let leafDeep  = Color(hex: 0x3F9A58)
+    // Match Day palette (see MatchDayStyle.swift). `leaf` is your side.
+    static let ink       = Color(hex: 0xF2F7F0)
+    static let muted     = Color(hex: 0x86A596)
+    static let panel     = Color(hex: 0x0F2119)
+    static let panelLo   = Color(hex: 0x0A1712)
+    static let panelLine = Color(hex: 0x1F3D2F)
+    static let gold      = Color(hex: 0xFFD45C)
+    static let leaf      = Color(hex: 0x5BF0B0)
+    static let leafDeep  = Color(hex: 0x2FC48A)
 
     static var background: LinearGradient {
-        LinearGradient(colors: [Color(hex: 0x0E1A14), Color(hex: 0x0A130F)],
+        LinearGradient(colors: [Color(hex: 0x0B1D16), Color(hex: 0x050C09)],
                        startPoint: .top, endPoint: .bottom)
     }
     static var panelFill: LinearGradient {

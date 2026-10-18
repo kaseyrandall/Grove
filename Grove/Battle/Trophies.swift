@@ -189,11 +189,11 @@ struct TrophiesTab: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Trophies")
-                        .arenaFont(30, .heavy, .rounded)
+                    Text("TROPHIES")
+                        .arenaDisplay(46)
                         .foregroundStyle(BattleTheme.ink)
                     Text("Bragging rights, never power. Earned by playing.")
-                        .arenaFont(15, .medium, .rounded)
+                        .arenaFont(14, .semibold, .rounded)
                         .foregroundStyle(BattleTheme.muted)
                 }
                 .padding(.bottom, 2)
@@ -215,10 +215,10 @@ struct TrophiesTab: View {
     private func groupLabel(_ text: String) -> some View {
         HStack(spacing: 10) {
             Text(text.uppercased())
-                .arenaFont(11.5, .black)
-                .tracking(2)
+                .arenaDisplay(15)
                 .foregroundStyle(BattleTheme.muted)
-            Rectangle().fill(BattleTheme.panelLine).frame(height: 1)
+            LinearGradient(colors: [BattleTheme.panelLine, .clear], startPoint: .leading, endPoint: .trailing)
+                .frame(height: 2)
         }
         .padding(.top, 12)
         .padding(.horizontal, 2)
@@ -234,15 +234,15 @@ private struct TrophyShelf: View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Text("\(count)")
-                    .font(.system(size: 46, weight: .black).width(.expanded))
+                    .arenaDisplay(54)
                     .foregroundStyle(count > 0 ? TrophyStyle.gold : BattleTheme.ink)
                     .monospacedDigit()
                 Text("/ \(Trophy.allCases.count)")
-                    .font(.system(size: 20, weight: .heavy).width(.expanded))
+                    .arenaDisplay(24)
                     .foregroundStyle(BattleTheme.muted)
                 Spacer()
                 Text("EARNED")
-                    .arenaFont(11, .black)
+                    .arenaFont(10, .bold, .rounded)
                     .tracking(2)
                     .foregroundStyle(BattleTheme.muted)
             }
@@ -315,16 +315,15 @@ private struct TrophyRow: View {
             TrophyBadge(trophy: trophy, state: state, size: 54)
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 8) {
-                    Text(trophy.title)
-                        .arenaFont(17, .bold)
+                    Text(trophy.title.uppercased())
+                        .arenaDisplay(20)
                         .foregroundStyle(state == .locked ? BattleTheme.ink.opacity(0.7) : BattleTheme.ink)
                     if isNew {
                         Text("NEW")
-                            .arenaFont(9.5, .black)
-                            .tracking(1)
+                            .arenaDisplay(11)
                             .foregroundStyle(Color(hex: 0x1A1206))
                             .padding(.horizontal, 6).padding(.vertical, 2.5)
-                            .background(Capsule().fill(TrophyStyle.goldFill))
+                            .background(Lean(amount: 4).fill(TrophyStyle.goldFill))
                     }
                 }
                 Text(trophy.how)
