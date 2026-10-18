@@ -480,7 +480,7 @@ private struct TeamStatusCard: View {
     /// The action (or status) at the bottom of the card.
     @ViewBuilder private var statusButton: some View {
         switch state {
-        case .ready:       LeanButtonFace(text: "Send", style: .action)
+        case .ready:       LeanButtonFace(text: "Ready", style: .action)
         case .resultReady: LeanButtonFace(text: "Watch ▶", style: .reward)
         case .away:        LeanButtonFace(text: "In a match", style: .quiet)
         case .resting:     LeanButtonFace(text: "Napping", style: .quiet)
@@ -632,16 +632,12 @@ struct FighterCardView: View {
                                    xp: xpProgress)
                         .frame(maxWidth: .infinity)
                     planButton
-                    VStack(spacing: 10) {
-                        sendButton
-                        Text("Off to face a wild challenger, revealed when they're back.")
-                            .arenaFont(12, .semibold, .rounded)
-                            .foregroundStyle(BattleTheme.muted)
-                            .multilineTextAlignment(.center)
-                    }
                 }
                 .padding()
             }
+            // The send button stays put at the bottom; the card scrolls
+            // under it and fades out behind.
+            .safeAreaInset(edge: .bottom, spacing: 0) { sendBar }
         }
         .overlay { if dispatching { DispatchOverlay(fighter: friend) } }
         .sensoryFeedback(.impact(weight: .heavy, intensity: 0.9), trigger: dispatching)
@@ -697,6 +693,27 @@ struct FighterCardView: View {
         .buttonStyle(.plain)
     }
 
+    /// The pinned bottom bar: a fade over the scrolling card, the button and
+    /// a line about the hidden rival.
+    private var sendBar: some View {
+        VStack(spacing: 10) {
+            sendButton
+            Text("Off to face a wild challenger, revealed when they're back.")
+                .arenaFont(12, .semibold, .rounded)
+                .foregroundStyle(BattleTheme.muted)
+                .multilineTextAlignment(.center)
+        }
+        .padding(.horizontal).padding(.top, 34).padding(.bottom, 6)
+        .background(
+            LinearGradient(stops: [.init(color: BattleTheme.night.opacity(0), location: 0),
+                                   .init(color: BattleTheme.night, location: 0.22),
+                                   .init(color: BattleTheme.night, location: 1)],
+                           startPoint: .top, endPoint: .bottom)
+                .ignoresSafeArea(edges: .bottom)
+                .allowsHitTesting(false)
+        )
+    }
+
     private var sendButton: some View {
         Button {
             let plan = roster.storedPlan(for: friend, archetype: contender.archetype)
@@ -712,11 +729,36 @@ struct FighterCardView: View {
                 dismiss()
             }
         } label: {
-            LeanButtonFace(text: "Send to battle", style: .action, height: 60, size: 26)
-                .shadow(color: BattleTheme.leaf.opacity(0.35), radius: 14)
+            SendToBattleFace()
         }
-        .buttonStyle(.plain)
-        .padding(.top, 4)
+        .buttonStyle(PressDownStyle())
+    }
+}
+
+/// The big Send to battle button: a slow breathing glow and a bright
+/// shimmer sweeping across every few seconds (both off under Reduce Motion).
+private struct SendToBattleFace: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var glow = false
+
+    var body: some View {
+        LeanButtonFace(text: "Send to battle", style: .action, height: 60, size: 26, shimmer: true)
+            .shadow(color: BattleTheme.leaf.opacity(glow ? 0.6 : 0.3), radius: glow ? 22 : 12)
+            .onAppear {
+                guard !reduceMotion else { return }
+                withAnimation(.easeInOut(duration: 1.6).repeatForever(autoreverses: true)) { glow = true }
+            }
+            .accessibilityLabel("Send to battle")
+    }
+}
+
+/// Presses in a little, with a firm tap.
+private struct PressDownStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.96 : 1)
+            .brightness(configuration.isPressed ? -0.06 : 0)
+            .animation(.spring(response: 0.25, dampingFraction: 0.6), value: configuration.isPressed)
     }
 }
 

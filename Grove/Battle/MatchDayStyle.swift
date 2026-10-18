@@ -180,8 +180,11 @@ struct LeanButtonFace: View {
     var style: Style = .action
     var height: CGFloat = 34
     var size: CGFloat = 15
+    /// A bright sweep across the face every few seconds, behind the label.
+    var shimmer = false
 
     enum Style { case action, reward, quiet }
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         Text(text.uppercased())
@@ -190,7 +193,30 @@ struct LeanButtonFace: View {
             .minimumScaleFactor(0.7)
             .foregroundStyle(ink)
             .frame(maxWidth: .infinity, minHeight: height)
-            .background(background)
+            .background {
+                ZStack {
+                    background
+                    if shimmer && !reduceMotion { sweep }
+                }
+            }
+    }
+
+    /// One pass every 3.2 seconds, crossing in the first 0.9.
+    private var sweep: some View {
+        TimelineView(.animation) { ctx in
+            let t = ctx.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy: 3.2)
+            let p = min(1, t / 0.9)
+            GeometryReader { g in
+                LinearGradient(colors: [.clear, .white.opacity(0.6), .clear],
+                               startPoint: .leading, endPoint: .trailing)
+                    .frame(width: g.size.width * 0.28)
+                    .rotationEffect(.degrees(16))
+                    .offset(x: -g.size.width * 0.35 + p * g.size.width * 1.4)
+                    .opacity(p < 1 ? 1 : 0)
+            }
+            .mask(Lean(amount: 6))
+        }
+        .allowsHitTesting(false)
     }
 
     private var ink: Color {
