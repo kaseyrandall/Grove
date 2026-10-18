@@ -164,6 +164,13 @@ struct GroveView: View {
 
                 VStack(spacing: spacing) {
                     ZStack(alignment: .top) {
+                        // Collapsed, the challenge stays where its card was:
+                        // top right of the right page, level with the title.
+                        if challengeDismissed {
+                            challengeButton
+                                .frame(maxWidth: .infinity, alignment: .trailing)
+                                .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .trailing)))
+                        }
                         if !challengeDismissed {
                             dailyChallengeCard
                                 .coachTarget(.dailyGoal)
@@ -345,10 +352,6 @@ struct GroveView: View {
                 .foregroundStyle(Color.primary)
                 .accessibilityAddTraits(.isHeader)
             Spacer(minLength: 0)
-            if challengeDismissed {
-                challengeButton
-                    .transition(.opacity.combined(with: .scale(scale: 0.8, anchor: .trailing)))
-            }
         }
         .frame(minHeight: 44)
     }

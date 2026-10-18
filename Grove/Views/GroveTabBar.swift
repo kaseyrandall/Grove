@@ -42,14 +42,14 @@ struct GroveTabBar: View {
     /// content.
     private var verticalBar: some View {
         ZStack {
-            VStack(spacing: 14) {
+            VStack(spacing: 24) {
                 TabBarItem(selection: $selection, tab: .grove, icon: "leaf.fill", label: "Grove")
                 TabBarItem(selection: $selection, tab: .map, icon: "map.fill", label: "Map")
-                Spacer().frame(height: 64) // room for the floating button
+                Spacer().frame(height: 66) // room for the floating button
                 TabBarItem(selection: $selection, tab: .journal, icon: "book.closed.fill", label: "Journal")
                 TabBarItem(selection: $selection, tab: .profile, icon: "person.crop.circle.fill", label: "Profile")
             }
-            .padding(.vertical, 16)
+            .padding(.vertical, 20)
             .frame(width: 66)
             .background(barBackground)
 
