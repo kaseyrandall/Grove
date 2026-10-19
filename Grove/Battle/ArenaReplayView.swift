@@ -44,6 +44,8 @@ struct ArenaReplayView: View {
     @State private var hurtX: [CGFloat] = [0, 0]
     @State private var hurtOpacity: [Double] = [1, 1]
     @State private var stageOffset: CGSize = .zero
+    /// The name cards' measured sizes ([yours, rival's]), for placing fighters.
+    @State private var plateSize: [CGSize] = [CGSize(width: 236, height: 150), CGSize(width: 286, height: 110)]
     @Environment(\.dismiss) private var dismiss
 
     private let speeds: [Double] = [1, 2, 3.25]
@@ -68,6 +70,8 @@ struct ArenaReplayView: View {
             }
             .padding(.horizontal, 14)
             .padding(.bottom, 10)
+            // On iPad, keep the match phone-shaped in the middle.
+            .frame(maxWidth: 520, maxHeight: 940)
 
             if showBanner { banner.transition(.opacity) }
         }
@@ -104,21 +108,63 @@ struct ArenaReplayView: View {
             roundPips
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .padding(.top, 4)
-
             plate(side: 1)
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { plateSize[1] = $0 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
-                .padding(.top, 44)
+                .padding(.top, pipsHeight)
             plate(side: 0)
+                .onGeometryChange(for: CGSize.self) { $0.size } action: { plateSize[0] = $0 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomTrailing)
                 .padding(.bottom, 10)
 
-            // The fighters are the stars: big, clear of the name cards.
-            fighter(side: 1)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                .padding(.top, 156).padding(.trailing, 18)
-            fighter(side: 0)
-                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                .padding(.bottom, 150).padding(.leading, 12)
+            // The fighters fill what the name cards leave: rival up right,
+            // yours down left, always a diagonal and never over a card.
+            GeometryReader { g in
+                let spot = fighterSpots(in: g.size)
+                fighter(side: 1, size: spot.rival)
+                    .position(spot.rivalCenter)
+                fighter(side: 0, size: spot.mine)
+                    .position(spot.mineCenter)
+            }
+        }
+    }
+
+    /// Space the round counter takes at the top of the stage.
+    private let pipsHeight: CGFloat = 44
+
+    /// Sizes and centers for the two fighters on a stage of `size`, given the
+    /// name cards' measured sizes. Starts big and shrinks until both fit
+    /// clear of the cards with the rival higher than your friend.
+    private func fighterSpots(in size: CGSize) -> (rival: CGFloat, mine: CGFloat, rivalCenter: CGPoint, mineCenter: CGPoint) {
+        let w = size.width, h = size.height
+        let foeCard = plateSize[1], myCard = plateSize[0]
+        let foeCardBottom = pipsHeight + foeCard.height + 8
+        let myCardTop = h - 10 - myCard.height - 8
+        let ratio: CGFloat = 150 / 128
+        let tall: (CGFloat) -> CGFloat = { $0 * 1.1 + 16 }
+        var scale: CGFloat = 1.15
+        while true {
+            let rival = 128 * scale, mine = 150 * scale
+            let rivalLeft = w - 18 - rival, mineRight = 12 + mine
+            // Rival: beside its card if there's room, else below it; never
+            // down into your card's corner.
+            let rivalTop = rivalLeft > foeCard.width + 8 ? pipsHeight : foeCardBottom
+            let rivalBottomLimit = rivalLeft < w - myCard.width ? myCardTop : h
+            // Yours: beside your card if there's room, else above it; never
+            // up into the rival card's corner.
+            let mineBottom = mineRight < w - myCard.width - 8 ? h - 4 : myCardTop
+            let mineTopLimit = mineRight > foeCard.width ? foeCardBottom : pipsHeight
+            let rivalY = rivalTop + tall(rival) / 2
+            let mineY = mineBottom - tall(mine) / 2
+            let fits = rivalTop + tall(rival) <= rivalBottomLimit
+                && mineBottom - tall(mine) >= mineTopLimit
+                && mineY - rivalY >= mine * 0.25
+                && rival + mine + 30 <= w
+            if fits || scale <= 0.45 {
+                return (rival, rival * ratio, CGPoint(x: w - 18 - rival / 2, y: rivalY),
+                        CGPoint(x: 12 + mine / 2, y: mineY))
+            }
+            scale -= 0.05
         }
     }
 
@@ -209,10 +255,9 @@ struct ArenaReplayView: View {
 
     // MARK: Fighter token
 
-    private func fighter(side: Int) -> some View {
+    private func fighter(side: Int, size: CGFloat) -> some View {
         let f = result.fighters[side]
         let big = side == 0
-        let size: CGFloat = big ? 150 : 128
         return VStack(spacing: 6) {
             TokenView(letter: String(f.name.prefix(1)), color: f.type.color, size: size, portrait: portraits[side],
                       ring: side == 0 ? BattleTheme.leaf : BattleTheme.foe)

@@ -119,12 +119,14 @@ struct BattlegroundsView: View {
                     if setupDone || !seenHistory.isEmpty { scoreboard }
                     groupLabel("Your team", detail: "\(team.count) / \(roster.maxSlots)")
                     // Three friends side by side, like a party lineup.
-                    HStack(alignment: .top, spacing: 9) {
+                    // Every card matches the tallest, whatever its state.
+                    HStack(alignment: .top, spacing: 3) {
                         ForEach(0..<roster.maxSlots, id: \.self) { i in
-                            slot(i).frame(maxWidth: .infinity)
+                            slot(i).frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .arenaEntrance(i + 1)
                         }
                     }
+                    .fixedSize(horizontal: false, vertical: true)
                     if !setupDone, let tip = coachTip {
                         CoachTip(title: tip.title, detail: tip.detail)
                     }
@@ -143,6 +145,8 @@ struct BattlegroundsView: View {
                     }
                 }
                 .padding()
+                .frame(maxWidth: 640)
+                .frame(maxWidth: .infinity)
             }
         }
     }
@@ -153,8 +157,9 @@ struct BattlegroundsView: View {
     /// rarest friends with photos.
     private var introFriends: [Catch] {
         if !team.isEmpty { return team.map(\.friend) }
-        let withPhotos = catches.filter { $0.photoData != nil }
-        let pool = (withPhotos.isEmpty ? catches : withPhotos).sorted { $0.species.rarity > $1.species.rarity }
+        let named = catches.filter { $0.species.id != Species.mystery.id }
+        let withPhotos = named.filter { $0.photoData != nil }
+        let pool = (withPhotos.isEmpty ? named : withPhotos).sorted { $0.species.rarity > $1.species.rarity }
         // Three different habitats when possible, so the colors vary.
         var picks: [Catch] = []
         for c in pool where !picks.contains(where: { $0.effectiveZone == c.effectiveZone }) {
@@ -364,6 +369,8 @@ struct BattlegroundsView: View {
                     }
                 }
                 .padding()
+                .frame(maxWidth: 640)
+                .frame(maxWidth: .infinity)
             }
         }
     }
@@ -515,10 +522,12 @@ private struct TeamStatusCard: View {
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
                 xpBar.padding(.top, 7).padding(.bottom, 10).padding(.trailing, 6)
+                Spacer(minLength: 0)
                 statusButton.padding(.trailing, 4)
             }
             .padding(.leading, 10).padding(.trailing, 8).padding(.top, 18).padding(.bottom, 9)
         }
+        .frame(maxHeight: .infinity, alignment: .top)
         .background(shape.fill(BattleTheme.panel))
         .clipShape(shape)
         .overlay(shape.stroke(edge, lineWidth: 2))
@@ -637,7 +646,7 @@ private struct EmptySlotCard: View {
                 Text("OPEN SLOT").arenaDisplay(17).foregroundStyle(BattleTheme.ink)
                 Text("Add a friend").arenaFont(11.5, .semibold, .rounded).foregroundStyle(BattleTheme.muted)
             }
-            .frame(maxWidth: .infinity, minHeight: 268)
+            .frame(maxWidth: .infinity, minHeight: 240, maxHeight: .infinity)
             .background(
                 shape.fill(Color.white.opacity(0.02))
                     .overlay(shape.stroke(BattleTheme.panelLine, style: StrokeStyle(lineWidth: 1.5, dash: [5, 5])))
@@ -744,6 +753,8 @@ struct FighterCardView: View {
                     planButton
                 }
                 .padding()
+                .frame(maxWidth: 640)
+                .frame(maxWidth: .infinity)
             }
             // The send button stays put at the bottom; the card scrolls
             // under it and fades out behind.
@@ -965,6 +976,8 @@ private struct PromotePickerSheet: View {
                         }
                     }
                     .padding()
+                    .frame(maxWidth: 640)
+                    .frame(maxWidth: .infinity)
                 }
             }
             .navigationTitle("")

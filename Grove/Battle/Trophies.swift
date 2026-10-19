@@ -213,6 +213,8 @@ struct TrophiesTab: View {
                 }
             }
             .padding()
+            .frame(maxWidth: 640)
+            .frame(maxWidth: .infinity)
         }
         .onAppear {
             open = Set(Trophy.Group.allCases.filter { g in
