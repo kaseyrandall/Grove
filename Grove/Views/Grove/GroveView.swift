@@ -325,10 +325,12 @@ struct GroveView: View {
                 }
                 .frame(width: 52, height: 52)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("Battlegrounds")
-                        .font(.system(.headline, design: .rounded, weight: .bold))
+                    // The Battlegrounds wordmark, in its own Match Day face.
+                    Text("BATTLEGROUNDS")
+                        .arenaDisplay(24)
                         .foregroundStyle(.white)
-                    Text("Send a friend to the Arena")
+                        .accessibilityLabel("Battlegrounds")
+                    Text("Send a friend into battle")
                         .font(.system(.caption, design: .rounded, weight: .semibold))
                         .foregroundStyle(.white.opacity(0.6))
                 }

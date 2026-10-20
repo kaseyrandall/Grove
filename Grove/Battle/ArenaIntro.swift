@@ -33,7 +33,7 @@ struct ArenaIntroView: View {
 
                 TabView(selection: $page) {
                     IntroPage(title: "Your friends", accent: "can now fight",
-                              text: "Pick three friends from your Grove for your Arena team. Each fights its own way, set by its kind.") {
+                              text: "Pick three friends from your Grove for your battle team. Each fights its own way, set by its kind.") {
                         TeamFan(friends: friends)
                     }
                     .tag(0)

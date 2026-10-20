@@ -60,7 +60,7 @@ struct BattlegroundsView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button { showIntro = true } label: { Image(systemName: "info.circle") }
                         .tint(BattleTheme.ink)
-                        .accessibilityLabel("How the Arena works")
+                        .accessibilityLabel("How Battlegrounds works")
                 }
             }
         }
@@ -97,14 +97,14 @@ struct BattlegroundsView: View {
         .sheet(isPresented: $showPromote) { PromotePickerSheet(candidates: promotable) }
     }
 
-    // MARK: Arena tab
+    // MARK: Battle tab
 
     private var arenaTab: some View {
         TimelineView(.periodic(from: .now, by: 1)) { _ in
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
-                    sectionHeader("The ", "Send a friend to a match. Back in 20 minutes with a result.",
-                                  accent: "Arena")
+                    sectionHeader("Battle", "Send a friend to a match. Back in 20 minutes with a result.",
+                                  accent: "grounds")
                         .overlay(alignment: .topTrailing) {
                             Bolt().stroke(BattleTheme.leaf, lineWidth: 2)
                                 .frame(width: 130, height: 22)
@@ -344,7 +344,7 @@ struct BattlegroundsView: View {
                     Text("No matches yet")
                         .arenaFont(18, .bold, .rounded)
                         .foregroundStyle(BattleTheme.ink)
-                    Text("Send a friend off from the Arena —\ntheir matches show up here to rewatch.")
+                    Text("Send a friend off to Battlegrounds —\ntheir matches show up here to rewatch.")
                         .multilineTextAlignment(.center)
                         .arenaFont(14, .semibold, .rounded)
                         .foregroundStyle(BattleTheme.muted)
@@ -397,7 +397,7 @@ struct BattlegroundsView: View {
 
     private var tabBar: some View {
         HStack(spacing: 0) {
-            tabItem(0, "Arena")
+            tabItem(0, "Battle")
             tabItem(1, "History")
             tabItem(2, "Trophies", dot: roster.hasUnseenTrophies && tab != 2)
         }
@@ -920,7 +920,7 @@ private struct DispatchOverlay: View {
     }
 
     private var banner: some View {
-        SlantTag(text: "To the Arena", fill: BattleTheme.gold, ink: Color(hex: 0x1C1503), outline: nil, size: 16)
+        SlantTag(text: "To Battlegrounds", fill: BattleTheme.gold, ink: Color(hex: 0x1C1503), outline: nil, size: 16)
             .shadow(color: BattleTheme.gold.opacity(0.45), radius: 12)
     }
 

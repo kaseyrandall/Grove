@@ -331,13 +331,13 @@ struct GuideEntryView: View {
     }
 
     #if DEBUG
-    // MARK: Battlegrounds — the "Send to the Arena" ritual (dev only)
+    // MARK: Battlegrounds — the "Send to Battlegrounds" ritual (dev only)
 
     @ViewBuilder private var arenaSection: some View {
         let roster = BattleRoster.shared
         if roster.teamContains(friend), let p = roster.progress(for: friend) {
             VStack(spacing: 10) {
-                Label("On your Arena team", systemImage: "bolt.shield.fill")
+                Label("On your battle team", systemImage: "bolt.shield.fill")
                     .font(.system(.subheadline, design: .rounded, weight: .bold))
                     .foregroundStyle(Theme.accent)
                 Text("Level \(p.level) · \(p.xp)/\(BattleRoster.xpNeeded(for: p.level)) XP")
@@ -370,7 +370,7 @@ struct GuideEntryView: View {
                         .foregroundStyle(Theme.accent)
                         .frame(width: 26)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(roster.hasFreeSlot(among: allCatches) ? "Send to the Arena" : "Arena team full — swap someone")
+                        Text(roster.hasFreeSlot(among: allCatches) ? "Send to Battlegrounds" : "Battle team full — swap someone")
                             .font(.system(.body, design: .rounded, weight: .semibold))
                             .foregroundStyle(Theme.ink)
                         if let p = roster.progress(for: friend) {
@@ -454,7 +454,7 @@ private struct ArenaSwapSheet: View {
                     .padding()
                 }
             }
-            .navigationTitle("Swap into the Arena")
+            .navigationTitle("Swap into Battlegrounds")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .topBarTrailing) { Button("Cancel") { dismiss() } } }
         }

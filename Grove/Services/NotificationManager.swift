@@ -47,7 +47,7 @@ enum NotificationManager {
     /// A one-off "your fighter's match is done" ping, fired when an away match
     /// resolves. Best-effort: silently no-ops without notification permission.
     /// Follows the Reminders switch and quiet hours (a match that ends at
-    /// night waits for the morning); tapping it opens the Arena.
+    /// night waits for the morning); tapping it opens Battlegrounds.
     static func scheduleMatchResult(id: String, friendName: String, at date: Date,
                                     calendar: Calendar = .current) {
         guard UserDefaults.standard.object(forKey: remindersEnabledKey) as? Bool ?? true else { return }
@@ -59,7 +59,7 @@ enum NotificationManager {
             case .authorized, .provisional, .ephemeral:
                 let content = UNMutableNotificationContent()
                 content.title = "\(friendName)'s match is done 🏆"
-                content.body = "Come see how it went in the Arena."
+                content.body = "Come see how it went in Battlegrounds."
                 content.sound = .default
                 content.userInfo = TapAction.open(.arena).userInfo
                 let trigger = UNTimeIntervalNotificationTrigger(timeInterval: interval, repeats: false)

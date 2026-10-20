@@ -2,7 +2,7 @@ import SwiftData
 import Foundation
 import Observation
 
-/// The player's Battlegrounds team: the heart of the "Send to the Arena" ritual.
+/// The player's Battlegrounds team: the heart of the "Send to Battlegrounds" ritual.
 ///
 /// Where things live, so they sync and can't be lost by accident:
 ///  • **Per friend** (level, XP, rest, battle plan, a match in progress) is

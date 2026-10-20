@@ -75,7 +75,7 @@ struct ArenaReplayView: View {
 
             if showBanner { banner.transition(.opacity) }
         }
-        .navigationTitle("Arena")
+        .navigationTitle("Battlegrounds")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .toolbarBackground(.hidden, for: .navigationBar)
