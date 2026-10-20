@@ -151,7 +151,7 @@ struct GroveWidget: Widget {
                 }
         }
         .configurationDisplayName("Grove friends")
-        .description("Your favorite friends, a new one every half hour.")
+        .description("Your favorite friends, taking turns through the day.")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
     }

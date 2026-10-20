@@ -26,7 +26,7 @@ enum DuoFeature: String, CaseIterable, Identifiable {
         case .halfFoldCamera: return "Stand it up like a tiny laptop and snap hands-free."
         case .lookHere:       return "The outer screen helps catch a pet's eye."
         case .groveFrame:     return "Your favorite friends, framed on your desk."
-        case .widget:         return "A new friend every half hour, at a glance."
+        case .widget:         return "Your favorite friends on your Home Screen."
         }
     }
 
@@ -51,7 +51,7 @@ enum DuoFeature: String, CaseIterable, Identifiable {
                     "Tap anywhere to go back. On the charger it stays on; otherwise it dims like usual."]
         case .widget:
             return ["Touch and hold your Home Screen, tap Edit, then Add Widget, and search for Grove.",
-                    "It shows your favorite friends, a new one every half hour.",
+                    "It shows your favorite friends, taking turns every half hour.",
                     "On the charger in StandBy, the small one makes a cozy bedside frame."]
         }
     }
