@@ -143,8 +143,8 @@ struct RootView: View {
                 }
             }
         }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-            keyboardUp = true
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillChangeFrameNotification)) { note in
+            keyboardUp = Self.keyboardCoversScreen(note)
         }
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             keyboardUp = false
@@ -330,6 +330,16 @@ struct RootView: View {
         let top: CGFloat = 90
         let bottom = size.height - (isSpread ? 0 : tabBarSize.height)
         return rect.midY > top && rect.midY < bottom
+    }
+
+    /// Whether a keyboard notification means a real keyboard on screen. Folding
+    /// or rotating the Duo posts "will show" with no keyboard and no matching
+    /// "will hide", which used to leave the bar hidden; only a keyboard that
+    /// actually covers part of the screen counts.
+    private static func keyboardCoversScreen(_ note: Notification) -> Bool {
+        guard let end = note.userInfo?[UIResponder.keyboardFrameEndUserInfoKey] as? CGRect else { return false }
+        let covered = (note.object as? UIScreen).map { $0.bounds.intersection(end).height } ?? end.height
+        return covered > 100
     }
 
     /// Dismiss the active coach mark. Snap jumps the player to Catch (and gets
